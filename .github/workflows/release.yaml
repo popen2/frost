@@ -1,0 +1,164 @@
+name: 🚀 Release Version
+
+on:
+  - push
+
+env:
+  NODEJS_VERSION: 17
+
+jobs:
+  test:
+    name: 🧹 Lint app
+    runs-on: macos-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install Node.js, NPM and Yarn
+        id: setup-node
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ env.NODEJS_VERSION }}
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            app/node_modules
+          key: ${{ runner.os }}-nodejs-${{ env.NODEJS_VERSION }}-${{ hashFiles('app/yarn.lock') }}-
+          restore-keys: |
+            ${{ runner.os }}-nodejs-${{ env.NODEJS_VERSION }}-
+
+      - name: Install node modules
+        run: |
+          cd app
+          yarn install
+
+      - name: Build app
+        run: |
+          cd app
+          yarn build
+
+      - name: Run eslint
+        run: |
+          cd app
+          yarn lint
+
+  tag:
+    name: 🏷 Create a tag
+    runs-on: ubuntu-latest
+    needs:
+      - test
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: "0"
+
+      - id: tag-without-v
+        name: Get version without v
+        uses: anothrNick/github-tag-action@1.34.0
+        env:
+          WITH_V: false
+          DRY_RUN: true
+          DEFAULT_BUMP: patch
+          RELEASE_BRANCHES: main
+
+      - id: tag-with-v
+        name: Bump version and push tag
+        uses: anothrNick/github-tag-action@1.34.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
+          RELEASE_BRANCHES: main
+
+    outputs:
+      tag: ${{ steps.tag-with-v.outputs.new_tag }}
+      tag_without_v: ${{ steps.tag-without-v.outputs.new_tag }}
+
+  release-app:
+    name: 📦 Release App
+    needs:
+      - tag
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Node.js, NPM and Yarn
+        id: setup-node
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ env.NODEJS_VERSION }}
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            app/node_modules
+          key: ${{ runner.os }}-nodejs-${{ env.NODEJS_VERSION }}-${{ hashFiles('app/yarn.lock') }}-
+          restore-keys: |
+            ${{ runner.os }}-nodejs-${{ env.NODEJS_VERSION }}-
+
+      - name: Install node modules
+        run: |
+          yarn install
+
+      - name: Set version
+        run: |
+          cd app
+          yarn version --no-git-tag-version --new-version ${{ needs.tag.outputs.tag_without_v }}
+
+      - name: Build app
+        run: |
+          cd app
+          yarn build
+
+      - name: Add MacOS Certificates
+        env:
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+        run: |
+          KEY_CHAIN=build.keychain
+          MACOS_CERT_P12_FILE=certificate.p12
+          echo $MAC_CERTS | base64 --decode > $MACOS_CERT_P12_FILE
+          security create-keychain -p actions $KEY_CHAIN
+          security default-keychain -s $KEY_CHAIN
+          security unlock-keychain -p actions $KEY_CHAIN
+          security import $MACOS_CERT_P12_FILE -k $KEY_CHAIN -P $MAC_CERTS_PASSWORD -T /usr/bin/codesign;
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions $KEY_CHAIN
+          rm -rf *.p12
+
+          mkdir -p ~/private_keys
+          echo ${{ secrets.APPLE_API_AUTHKEY_BASE64 }} | base64 -d > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+
+      - name: Publish app
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          cd app
+          ./node_modules/.bin/electron-forge publish
+
+  publish:
+    name: 📢 Publish Release
+    needs:
+      - tag
+      - release-app
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        run: |
+          release_url=$(
+            curl --fail \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases" |
+              jq -r '.[] | select(.tag_name == "${{ needs.tag.outputs.tag }}") | .url'
+          )
+          curl --fail \
+            -X PATCH \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "${release_url}" \
+            -d '{"draft":false}'
