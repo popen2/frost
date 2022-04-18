@@ -1,7 +1,9 @@
 name: 🚀 Release Version
 
 on:
-  - push
+  push:
+    branches:
+      - main
 
 env:
   NODEJS_VERSION: 17
