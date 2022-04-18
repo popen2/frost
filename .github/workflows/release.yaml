@@ -14,7 +14,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install Node.js, NPM and Yarn
         id: setup-node
@@ -55,7 +55,7 @@ jobs:
 
       - id: tag-without-v
         name: Get version without v
-        uses: anothrNick/github-tag-action@1.34.0
+        uses: anothrNick/github-tag-action@1.39.0
         env:
           WITH_V: false
           DRY_RUN: true
@@ -64,7 +64,7 @@ jobs:
 
       - id: tag-with-v
         name: Bump version and push tag
-        uses: anothrNick/github-tag-action@1.34.0
+        uses: anothrNick/github-tag-action@1.39.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WITH_V: true
