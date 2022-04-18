@@ -116,6 +116,7 @@ jobs:
           yarn build
 
       - name: Add MacOS Certificates
+        if: runner.os == 'macOS'
         env:
           MAC_CERTS: ${{ secrets.MAC_CERTS }}
           MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
