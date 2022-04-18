@@ -30,17 +30,14 @@ jobs:
 
       - name: Install node modules
         run: |
-          cd app
           yarn install
 
       - name: Build app
         run: |
-          cd app
           yarn build
 
       - name: Run eslint
         run: |
-          cd app
           yarn lint
 
   tag:
@@ -105,12 +102,10 @@ jobs:
 
       - name: Set version
         run: |
-          cd app
           yarn version --no-git-tag-version --new-version ${{ needs.tag.outputs.tag_without_v }}
 
       - name: Build app
         run: |
-          cd app
           yarn build
 
       - name: Add MacOS Certificates
@@ -137,7 +132,6 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          cd app
           ./node_modules/.bin/electron-forge publish
 
   publish:
