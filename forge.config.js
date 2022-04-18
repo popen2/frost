@@ -21,6 +21,9 @@ module.exports = {
       "signature-flags": "library"
     },
     osxNotarize,
+    extendInfo: {
+      LSUIElement: true,
+    },
   },
 
   makers: [
