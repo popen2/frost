@@ -3,7 +3,7 @@ import { app, shell, Menu, Tray } from 'electron'
 import moment from 'moment'
 import { config, configure } from './config'
 
-const TRAY_ICON = path.join(__dirname, 'tray-icon', 'TrayIcon.Template.png')
+const TRAY_ICON = path.join(__dirname, 'icons', 'TrayIcon.Template.png')
 
 let tray: Tray | null = null
 

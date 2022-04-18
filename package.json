@@ -10,7 +10,7 @@
   },
   "main": "./dist/main.js",
   "scripts": {
-    "build:icons": "copyfiles --up 1 \"./src/tray-icon/**/*.png\" ./dist/",
+    "build:icons": "copyfiles --up 1 \"./src/icons/**/TrayIcon*.png\" ./dist/",
     "build": "tsc && yarn build:icons",
     "watch": "tsc -w",
     "lint": "eslint -c .eslintrc --ext .ts ./src",
