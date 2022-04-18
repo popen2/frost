@@ -22,6 +22,10 @@ async function main() {
 
     setNextTokenRefresh()
     updateTrayIcon()
+
+    app.setLoginItemSettings({
+        openAtLogin: true,
+    })
 }
 
 log.catchErrors({ showDialog: true })
