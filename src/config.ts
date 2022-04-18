@@ -1,4 +1,3 @@
-import moment from 'moment'
 import log from 'electron-log'
 import prompt from 'electron-prompt'
 import Store from 'electron-store'

@@ -74,7 +74,7 @@ async function getNewToken(userConfig: UserConfig) {
 
     window.loadURL(startAuth.verificationUriComplete!)
 
-    while (true) {
+    for (; ;) {
         log.debug('[getNewToken] Sleeping for %ss', startAuth.interval!)
         await delay(startAuth.interval! * 1000)
         try {
