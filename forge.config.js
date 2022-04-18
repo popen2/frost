@@ -12,6 +12,7 @@ const osxNotarize = (process.platform === 'darwin') ? {
 module.exports = {
   packagerConfig: {
     name: 'Frost',
+    icon: './src/icons/AppIcon',
     appBundleId: BUNDLE_ID,
     out: './out',
     osxSign: {
