@@ -79,7 +79,12 @@ jobs:
     name: 📦 Release App
     needs:
       - tag
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        config:
+          - os: macos-latest
+          - os: ubuntu-latest
+    runs-on: ${{ matrix.config.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
