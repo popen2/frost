@@ -131,5 +131,5 @@ function prefferedAccountRegion(name: string): string | undefined {
 }
 
 function shortPermissionSetName(name: string): string {
-    return PREDEFINED_SHORT_NAMES[name] || name
+    return PREDEFINED_SHORT_NAMES[name] || slugify(name, { lower: true })
 }
