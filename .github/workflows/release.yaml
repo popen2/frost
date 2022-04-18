@@ -126,7 +126,7 @@ jobs:
           rm -rf *.p12
 
           mkdir -p ~/private_keys
-          echo ${{ secrets.APPLE_API_AUTHKEY_BASE64 }} | base64 -d > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          echo "${{ secrets.APPLE_API_AUTHKEY_BASE64 }}" | base64 -d > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
 
       - name: Publish app
         env:
