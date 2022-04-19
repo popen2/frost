@@ -33,7 +33,7 @@ module.exports = {
       platforms: ['darwin'],
     },
     {
-      name: '@electron-forge/maker-snap',
+      name: '@electron-forge/maker-flatpak',
       platforms: ['linux'],
     }
   ],
