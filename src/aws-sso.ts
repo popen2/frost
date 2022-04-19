@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { config, UserConfig } from './config'
 import { refreshProfiles } from "./profiles"
 import { writeSsoConfig } from "./aws-config"
+import { updateTrayIcon } from "./tray"
 
 let timeoutId: NodeJS.Timeout | undefined
 
@@ -40,10 +41,18 @@ export async function refresh() {
         return
     }
 
-    await getNewToken(userConfig)
+    try {
+        await getNewToken(userConfig)
+    } catch (err) {
+        config.set('lastError', `${err}`)
+        setNextTokenRefresh()
+    } finally {
+        updateTrayIcon()
+    }
 }
 
 async function getNewToken(userConfig: UserConfig) {
+    config.set('lastError', null)
     const client = await getSsoClient(userConfig)
     const ssooidc = new SSOOIDC({ region: userConfig.region })
 

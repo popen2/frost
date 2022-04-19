@@ -44,6 +44,9 @@ export const config = new Store({
                 },
             },
         },
+        lastError: {
+            type: ['string', 'null']
+        }
     },
 })
 
