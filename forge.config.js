@@ -30,12 +30,8 @@ module.exports = {
   makers: [
     {
       name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
+      platforms: ['darwin', 'linux'],
     },
-    {
-      name: '@electron-forge/maker-flatpak',
-      platforms: ['linux'],
-    }
   ],
 
   publishers: [
