@@ -76,42 +76,45 @@ async function getNewToken(userConfig: UserConfig) {
         },
     })
 
-    window.on('close', () => {
-        log.warn('[getNewToken] Login window closed')
-        windowOpen = false
-    })
+    try {
+        window.on('close', () => {
+            log.warn('[getNewToken] Login window closed')
+            windowOpen = false
+        })
 
-    window.loadURL(startAuth.verificationUriComplete!)
+        window.loadURL(startAuth.verificationUriComplete!)
 
-    for (; ;) {
-        log.debug('[getNewToken] Sleeping for %ss', startAuth.interval!)
-        await delay(startAuth.interval! * 1000)
-        try {
-            log.debug('[getNewToken] Trying to get token')
-            const createToken = await ssooidc.createToken({
-                clientId: client.clientId,
-                clientSecret: client.clientSecret,
-                deviceCode: startAuth.deviceCode!,
-                grantType: 'urn:ietf:params:oauth:grant-type:device_code',
-            }).promise()
-            log.info('[getNewToken] Successfully got new token')
-            await saveNewToken(userConfig, createToken)
-            break
-        } catch (err) {
-            if (err instanceof AuthorizationPendingException) {
-                log.debug('[getNewToken] Authorization pending...')
-            } else {
-                log.warn('[getNewToken] Failed getting token: %s', err)
-                if (!windowOpen) {
-                    log.warn('[getNewToken] User closed window')
-                    throw err
+        for (; ;) {
+            log.debug('[getNewToken] Sleeping for %ss', startAuth.interval!)
+            await delay(startAuth.interval! * 1000)
+            try {
+                log.debug('[getNewToken] Trying to get token')
+                const createToken = await ssooidc.createToken({
+                    clientId: client.clientId,
+                    clientSecret: client.clientSecret,
+                    deviceCode: startAuth.deviceCode!,
+                    grantType: 'urn:ietf:params:oauth:grant-type:device_code',
+                }).promise()
+                log.info('[getNewToken] Successfully got new token')
+                await saveNewToken(userConfig, createToken)
+                break
+            } catch (err) {
+                if (err instanceof AuthorizationPendingException) {
+                    log.debug('[getNewToken] Authorization pending...')
+                } else {
+                    log.warn('[getNewToken] Failed getting token: %s', err)
+                    if (!windowOpen) {
+                        log.warn('[getNewToken] User closed window')
+                        throw err
+                    }
                 }
             }
         }
-    }
 
-    if (windowOpen) {
+    }
+    finally {
         window.close()
+
     }
 }
 
