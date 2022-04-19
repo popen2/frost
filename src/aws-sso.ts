@@ -29,7 +29,7 @@ export function setNextTokenRefresh() {
     log.info('[setNextTokenRefresh] New timeout set to %sms', timeoutMs)
 }
 
-async function refresh() {
+export async function refresh() {
     log.info('[refresh] Refreshing credentials')
 
     const userConfig = config.get('userConfig') as UserConfig
