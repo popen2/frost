@@ -63,6 +63,7 @@ async function getNewToken(userConfig: UserConfig) {
     }).promise()
 
     log.debug('[getNewtoken] startDeviceAuthorization: %s', startAuth)
+    const tokenExpires = moment().add(startAuth.expiresIn, 'seconds')
 
     log.debug('[getNewToken] Opening login window')
     let windowOpen = true
@@ -84,7 +85,7 @@ async function getNewToken(userConfig: UserConfig) {
 
         window.loadURL(startAuth.verificationUriComplete!)
 
-        for (; ;) {
+        while (moment().isBefore(tokenExpires)) {
             log.debug('[getNewToken] Sleeping for %ss', startAuth.interval!)
             await delay(startAuth.interval! * 1000)
             try {
@@ -110,11 +111,10 @@ async function getNewToken(userConfig: UserConfig) {
                 }
             }
         }
-
+        throw new Error('Login timed out')
     }
     finally {
         window.close()
-
     }
 }
 
