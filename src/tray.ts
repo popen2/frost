@@ -9,13 +9,12 @@ const TRAY_ICON = path.join(__dirname, 'icons', 'TrayIcon.Template.png')
 const TRAY_UPDATE_INTERVAL_SEC = 30
 
 let tray: Tray
-let trayInterval: NodeJS.Timer
 
 export function updateTrayIcon() {
     if (!tray) {
         log.info('[updateTrayIcon] Creating tray icon')
         tray = new Tray(TRAY_ICON)
-        trayInterval = setInterval(updateTrayIcon, TRAY_UPDATE_INTERVAL_SEC * 1000)
+        setInterval(updateTrayIcon, TRAY_UPDATE_INTERVAL_SEC * 1000)
     }
 
     log.debug('[updateTrayIcon] Updating tray icon')

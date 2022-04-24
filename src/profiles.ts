@@ -3,7 +3,7 @@ import { AccountListType, NextTokenType, ListAccountsResponse, RoleListType } fr
 import log from 'electron-log'
 import slugify from 'slugify'
 import { config, UserConfig } from './config'
-import { writeAwsConfig, writeSsoConfig } from "./aws-config"
+import { writeAwsConfig } from "./aws-config"
 
 const PREDEFINED_SHORT_NAMES: Record<string, string> = {
     'AdministratorAccess': 'admin',
