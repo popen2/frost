@@ -5,7 +5,16 @@ import moment from "moment";
 import { config, configure } from "./config";
 import { refresh } from "./aws-sso";
 
-const TRAY_ICON = path.join(__dirname, "icons", "TrayIcon.Template.png");
+const TRAY_ICON_FULL = path.join(
+    __dirname,
+    "icons",
+    "TrayIconFull.Template.png"
+);
+const TRAY_ICON_EMPTY = path.join(
+    __dirname,
+    "icons",
+    "TrayIconEmpty.Template.png"
+);
 const TRAY_UPDATE_INTERVAL_SEC = 30;
 
 let tray: Tray;
@@ -13,7 +22,7 @@ let tray: Tray;
 export function updateTrayIcon() {
     if (!tray) {
         log.info("[updateTrayIcon] Creating tray icon");
-        tray = new Tray(TRAY_ICON);
+        tray = new Tray(TRAY_ICON_FULL);
         setInterval(updateTrayIcon, TRAY_UPDATE_INTERVAL_SEC * 1000);
     }
 
@@ -70,5 +79,6 @@ export function updateTrayIcon() {
         },
     ]);
 
+    tray.setImage(config.get("isWorking") ? TRAY_ICON_EMPTY : TRAY_ICON_FULL);
     tray.setContextMenu(menu);
 }

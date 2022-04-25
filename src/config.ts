@@ -5,6 +5,9 @@ import { setNextTokenRefresh } from "./aws-sso";
 
 export const config = new Store({
     schema: {
+        isWorking: {
+            type: "boolean",
+        },
         userConfig: {
             type: "object",
             properties: {

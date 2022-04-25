@@ -3,9 +3,11 @@ import log from "electron-log";
 import updateElectronApp from "update-electron-app";
 import { updateTrayIcon } from "./tray";
 import { setNextTokenRefresh } from "./aws-sso";
+import { config } from "./config";
 
 async function main() {
     log.info("[main] =================== Starting app ===================");
+    config.set("isWorking", false);
 
     updateElectronApp({
         logger: log,

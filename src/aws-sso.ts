@@ -51,10 +51,14 @@ export async function refresh() {
     }
 
     try {
+        config.set("isWorking", true);
+        updateTrayIcon();
+
         const newToken = await getNewToken(userConfig);
         log.info("[refresh] Successfully got new token");
         await saveToken(userConfig, newToken);
         setNextTokenRefresh();
+
         const profiles = await refreshProfiles();
         await updateKubeConfig(profiles.map((profile) => profile.name));
     } catch (err) {
@@ -62,6 +66,7 @@ export async function refresh() {
         config.set("lastError", `${err}`);
         setNextTokenRefresh();
     } finally {
+        config.set("isWorking", false);
         updateTrayIcon();
     }
 }
