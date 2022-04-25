@@ -13,7 +13,7 @@ const AWS_IAM_AUTHENTICATOR_BASENAME =
 
 const AWS_IAM_AUTHENTICATOR =
     process.env["AWS_IAM_AUTHENTICATOR_PATH"] ||
-    join(process.resourcesPath, AWS_IAM_AUTHENTICATOR_BASENAME);
+    join(process.resourcesPath, "app", AWS_IAM_AUTHENTICATOR_BASENAME);
 
 type NamePattern = (info: ClusterInfo) => string;
 
