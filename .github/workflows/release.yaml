@@ -124,11 +124,11 @@ jobs:
           case "${{ matrix.os }}" in
             "ubuntu-latest")
               OS="linux"
-              TARGET_BASENAME="aws-iam-authenticator"
+              TARGET="aws-iam-authenticator"
               ;;
             "macos-latest")
               OS="darwin"
-              TARGET_BASENAME="aws-iam-authenticator"
+              TARGET="aws-iam-authenticator"
               ;;
             *)
               exit 1
@@ -148,7 +148,6 @@ jobs:
           esac
 
           URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${OS}_${ARCH}"
-          TARGET="./dist/${TARGET_BASENAME}"
           curl -L "${URL}" -o "${TARGET}"
           chmod a+x "${TARGET}"
 

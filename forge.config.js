@@ -1,3 +1,5 @@
+/* global require */
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const process = require("process");
 
 const BUNDLE_ID = "frost";
@@ -12,11 +14,15 @@ const osxNotarize =
           }
         : undefined;
 
+const extraResources = ["aws-iam-authenticator"];
+
+/* global module */
 module.exports = {
     packagerConfig: {
         name: "Frost",
         icon: "./src/icons/AppIcon",
         appBundleId: BUNDLE_ID,
+        extraResources,
         out: "./out",
         osxSign: {
             "hardened-runtime": true,
