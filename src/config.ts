@@ -1,100 +1,117 @@
-import log from 'electron-log'
-import prompt from 'electron-prompt'
-import Store from 'electron-store'
-import { setNextTokenRefresh } from "./aws-sso"
+import log from "electron-log";
+import prompt from "electron-prompt";
+import Store from "electron-store";
+import { setNextTokenRefresh } from "./aws-sso";
 
 export const config = new Store({
     schema: {
         userConfig: {
-            type: 'object',
+            type: "object",
             properties: {
                 startUrl: {
-                    type: 'string',
-                    format: 'uri',
+                    type: "string",
+                    format: "uri",
                 },
                 region: {
-                    type: 'string',
+                    type: "string",
                 },
             },
         },
         expiresAt: {
-            type: 'string',
-            format: 'date-time',
+            type: "string",
+            format: "date-time",
         },
         accessToken: {
-            type: ['string', 'null']
+            type: ["string", "null"],
         },
         ssoClient: {
-            type: 'object',
+            type: "object",
             properties: {
                 clientName: {
-                    type: 'string',
+                    type: "string",
                 },
                 clientId: {
-                    type: 'string',
+                    type: "string",
                 },
                 clientSecret: {
-                    type: 'string',
+                    type: "string",
                 },
                 issuedAt: {
-                    type: 'integer',
+                    type: "integer",
                 },
                 expiresAt: {
-                    type: 'integer',
+                    type: "integer",
                 },
             },
         },
         lastError: {
-            type: ['string', 'null']
-        }
+            type: ["string", "null"],
+        },
+        clusters: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    name: {
+                        type: "string",
+                    },
+                    profile: {
+                        type: "string",
+                    },
+                    region: {
+                        type: "string",
+                    },
+                },
+            },
+        },
     },
-})
+});
 
 export interface UserConfig {
-    startUrl: string
-    region: string
+    startUrl: string;
+    region: string;
 }
 
 export async function configure(): Promise<void> {
     try {
         const startUrl = await prompt({
-            title: 'Configure AWS SSO',
-            label: 'Please enter AWS SSO URL:',
+            title: "Configure AWS SSO",
+            label: "Please enter AWS SSO URL:",
             inputAttrs: {
-                type: 'url',
-                required: 'true',
+                type: "url",
+                required: "true",
             },
-            type: 'input',
-            value: config.get('startUrl') as string || '',
-        })
+            type: "input",
+            value: (config.get("startUrl") as string) || "",
+        });
 
         if (!startUrl) {
-            log.warn('[configure] User cancelled')
-            return
+            log.warn("[configure] User cancelled");
+            return;
         }
 
         const region = await prompt({
-            title: 'Configure AWS SSO',
-            label: 'Please enter AWS SSO region:',
+            title: "Configure AWS SSO",
+            label: "Please enter AWS SSO region:",
             inputAttrs: {
-                type: 'string',
-                required: 'true',
+                type: "string",
+                required: "true",
             },
-            type: 'input',
-            value: config.get('region') as string || 'us-east-1',
-        })
+            type: "input",
+            value: (config.get("region") as string) || "us-east-1",
+        });
 
         if (!region) {
-            log.warn('[configure] User cancelled')
-            return
+            log.warn("[configure] User cancelled");
+            return;
         }
 
-        config.set('userConfig', { startUrl, region })
-        config.delete('accessToken')
-        config.delete('expiresAt')
+        config.set("userConfig", { startUrl, region });
+        config.delete("accessToken");
+        config.delete("expiresAt");
 
-        setNextTokenRefresh()
+        setNextTokenRefresh();
     } catch (err) {
-        log.error(`[configure] Error getting AWS SSO URL: ${err}`)
+        log.error(`[configure] Error getting AWS SSO URL: ${err}`);
     }
 }

@@ -1,71 +1,74 @@
-import * as path from 'path'
-import { app, shell, Menu, Tray } from 'electron'
-import log from 'electron-log'
-import moment from 'moment'
-import { config, configure } from './config'
-import { refresh } from './aws-sso'
+import * as path from "path";
+import { app, shell, Menu, Tray } from "electron";
+import log from "electron-log";
+import moment from "moment";
+import { config, configure } from "./config";
+import { refresh } from "./aws-sso";
 
-const TRAY_ICON = path.join(__dirname, 'icons', 'TrayIcon.Template.png')
-const TRAY_UPDATE_INTERVAL_SEC = 30
+const TRAY_ICON = path.join(__dirname, "icons", "TrayIcon.Template.png");
+const TRAY_UPDATE_INTERVAL_SEC = 30;
 
-let tray: Tray
+let tray: Tray;
 
 export function updateTrayIcon() {
     if (!tray) {
-        log.info('[updateTrayIcon] Creating tray icon')
-        tray = new Tray(TRAY_ICON)
-        setInterval(updateTrayIcon, TRAY_UPDATE_INTERVAL_SEC * 1000)
+        log.info("[updateTrayIcon] Creating tray icon");
+        tray = new Tray(TRAY_ICON);
+        setInterval(updateTrayIcon, TRAY_UPDATE_INTERVAL_SEC * 1000);
     }
 
-    log.debug('[updateTrayIcon] Updating tray icon')
-    const refreshItema = [] as Electron.MenuItemConstructorOptions[]
+    log.debug("[updateTrayIcon] Updating tray icon");
+    const refreshItema = [] as Electron.MenuItemConstructorOptions[];
 
-    const expiresAt = config.get('expiresAt')
+    const expiresAt = config.get("expiresAt");
     if (expiresAt) {
-        const timeUntil = moment(expiresAt as string, moment.ISO_8601).fromNow()
+        const timeUntil = moment(
+            expiresAt as string,
+            moment.ISO_8601
+        ).fromNow();
         refreshItema.push({
             label: `Next refresh ${timeUntil}`,
             enabled: false,
-        })
+        });
     }
 
-    if (config.get('userConfig')) {
+    if (config.get("userConfig")) {
         refreshItema.push({
-            label: 'Refresh now',
+            label: "Refresh now",
             click() {
-                refresh()
-            }
-        })
+                refresh();
+            },
+        });
     }
 
     if (refreshItema.length > 0) {
         refreshItema.push({
-            type: 'separator',
-        })
+            type: "separator",
+        });
     }
 
     const menu = Menu.buildFromTemplate([
         ...refreshItema,
         {
-            label: 'Settings...',
+            label: "Settings...",
             click: configure,
         },
         {
-            type: 'separator',
+            type: "separator",
         },
         {
-            label: 'About Frost',
+            label: "About Frost",
             click() {
-                shell.openExternal('https://github.com/popen2/frost#readme')
-            }
-        },
-        {
-            label: 'Quit',
-            click() {
-                app.quit()
+                shell.openExternal("https://github.com/popen2/frost#readme");
             },
         },
-    ])
+        {
+            label: "Quit",
+            click() {
+                app.quit();
+            },
+        },
+    ]);
 
-    tray.setContextMenu(menu)
+    tray.setContextMenu(menu);
 }

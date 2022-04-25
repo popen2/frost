@@ -7,6 +7,7 @@ on:
 
 env:
   NODEJS_VERSION: 17
+  AWS_IAM_AUTHENTICATOR_VERSION: 0.5.7
 
 jobs:
   test:
@@ -81,10 +82,13 @@ jobs:
       - tag
     strategy:
       matrix:
-        config:
-          - os: macos-latest
-          - os: ubuntu-latest
-    runs-on: ${{ matrix.config.os }}
+        os:
+          - macos-latest
+          - ubuntu-latest
+        arch:
+          - x86_64
+          - arm64
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -114,6 +118,39 @@ jobs:
       - name: Build app
         run: |
           yarn build
+
+      - name: Download aws-iam-authenticator
+        run: |
+          case "${{ matrix.os }}" in
+            "ubuntu-latest")
+              OS="linux"
+              TARGET_BASENAME="aws-iam-authenticator"
+              ;;
+            "macos-latest")
+              OS="darwin"
+              TARGET_BASENAME="aws-iam-authenticator"
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+
+          case "${{ matrix.arch }}" in
+            "x86_64")
+              ARCH="amd64"
+              ;;
+            "arm64")
+              ARCH="arm64"
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+
+          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${OS}_${ARCH}"
+          TARGET="./dist/${TARGET_BASENAME}"
+          curl -L "${URL}" -o "${TARGET}"
+          chmod a+x "${TARGET}"
 
       - name: Add MacOS Certificates
         if: runner.os == 'macOS'

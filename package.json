@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-sso-oidc": "^3.72.0",
+    "@kubernetes/client-node": "^0.16.3",
     "@types/uuid": "^8.3.4",
     "aws-sdk": "^2.1115.0",
     "axios": "^0.26.1",
@@ -42,6 +43,7 @@
     "electron-prompt": "^1.7.0",
     "electron-store": "^8.0.1",
     "ini": "^3.0.0",
+    "js-yaml": "^4.1.0",
     "moment": "^2.29.2",
     "slugify": "^1.6.5",
     "update-electron-app": "^2.0.1",

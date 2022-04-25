@@ -22,12 +22,12 @@ Profile names are generated automatically using the AWS account name and the per
 
 Then, the following profiles would be generated:
 
-* acme-main-administratoraccess
-* acme-main-poweruseraccess
-* acme-testing-poweruseraccess
-* acme-testing-billingaccess
-* acme-production-administratoraccess
-* acme-production-poweruseraccess
+-   acme-main-administratoraccess
+-   acme-main-poweruseraccess
+-   acme-testing-poweruseraccess
+-   acme-testing-billingaccess
+-   acme-production-administratoraccess
+-   acme-production-poweruseraccess
 
 ### Short Names
 
@@ -45,12 +45,12 @@ Using the example above, let's say we've changed the account names to:
 
 The profiles would now be named:
 
-* main-administratoraccess
-* main-poweruseraccess
-* test-poweruseraccess
-* test-billingaccess
-* prod-administratoraccess
-* prod-poweruseraccess
+-   main-administratoraccess
+-   main-poweruseraccess
+-   test-poweruseraccess
+-   test-billingaccess
+-   prod-administratoraccess
+-   prod-poweruseraccess
 
 As for permission set names, you should try to use short names for those. Still, in case you've already used the predefined permission set names, Frost will automatically shorten them by:
 
@@ -69,12 +69,12 @@ As for permission set names, you should try to use short names for those. Still,
 
 So we end up with these profiles:
 
-* main-admin
-* main-poweruser
-* test-poweruser
-* test-billing
-* prod-admin
-* prod-poweruser
+-   main-admin
+-   main-poweruser
+-   test-poweruser
+-   test-billing
+-   prod-admin
+-   prod-poweruser
 
 ### Region Selection
 
@@ -86,8 +86,12 @@ To do that, add an `@region` to the account name.
 
 In the example above, if the `ACME Testing` account is mainly used in `eu-west-1` we'd rename it to `ACME Testing (#test @eu-west-1)`.
 
-## EKS Cluster Discovery *(coming soon)*
+## EKS Cluster Discovery
 
-In addition to refreshing credentials automatically, Frost will scan for EKS clusters in all regions every time it obtains new credentials.
+In addition to refreshing credentials automatically, Frost will scan for EKS clusters every time it obtains new credentials. The clusters will be saved in `~/.kube/config`.
 
-This feature is only enabled if `kubectl` is installed on the workstation.
+The scan works by getting the list of regions, then trying to list EKS clusters in each region with every profile detected from AWS SSO.
+
+This method may result in some errors as it makes sense that some profiles don't have access to EKS. This is fine as only successful calls to `eks:DescribeCluster` will result in an entry in `~/.kube/config`.
+
+Authentication to the clusters uses a copy of [AWS IAM Authenticator](https://github.com/kubernetes-sigs/aws-iam-authenticator) embedded within the app. This allows using the app without installing AWS CLI.
