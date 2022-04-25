@@ -153,12 +153,11 @@ jobs:
 
       - name: Publish app
         env:
-          ELECTRON_ARCH: ${{ matrix.arch.electron }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          ./node_modules/.bin/electron-forge publish
+          ./node_modules/.bin/electron-forge publish --arch ${{ matrix.arch.electron }}
 
   publish:
     name: 📢 Publish Release
