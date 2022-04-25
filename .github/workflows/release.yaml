@@ -83,12 +83,18 @@ jobs:
     strategy:
       matrix:
         os:
-          - macos-latest
-          - ubuntu-latest
+          - name: darwin
+            runs-on: macos-latest
+          - name: linux
+            runs-on: ubuntu-latest
         arch:
-          - x86_64
-          - arm64
-    runs-on: ${{ matrix.os }}
+          - name: x86_64
+            aws: amd64
+            electron: x64
+          - name: arm64
+            aws: arm64
+            electron: arm64
+    runs-on: ${{ matrix.os.runs-on }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -121,33 +127,8 @@ jobs:
 
       - name: Download aws-iam-authenticator
         run: |
-          case "${{ matrix.os }}" in
-            "ubuntu-latest")
-              OS="linux"
-              TARGET="aws-iam-authenticator"
-              ;;
-            "macos-latest")
-              OS="darwin"
-              TARGET="aws-iam-authenticator"
-              ;;
-            *)
-              exit 1
-              ;;
-          esac
-
-          case "${{ matrix.arch }}" in
-            "x86_64")
-              ARCH="amd64"
-              ;;
-            "arm64")
-              ARCH="arm64"
-              ;;
-            *)
-              exit 1
-              ;;
-          esac
-
-          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${OS}_${ARCH}"
+          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${{ matrix.os.name }}_${{ matrix.arch.aws }}"
+          TARGET="aws-iam-authenticator"
           curl -L "${URL}" -o "${TARGET}"
           chmod a+x "${TARGET}"
 
@@ -172,6 +153,7 @@ jobs:
 
       - name: Publish app
         env:
+          ELECTRON_ARCH: ${{ matrix.arch.electron }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}

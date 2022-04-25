@@ -20,6 +20,7 @@ const extraResources = ["aws-iam-authenticator"];
 module.exports = {
     packagerConfig: {
         name: "Frost",
+        arch: process.env.ELECTRON_ARCH,
         icon: "./src/icons/AppIcon",
         appBundleId: BUNDLE_ID,
         extraResources,
