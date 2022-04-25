@@ -3,9 +3,10 @@ import { Region, RegionList } from "aws-sdk/clients/ec2";
 import { Cluster } from "aws-sdk/clients/eks";
 import log from "electron-log";
 import { config } from "./config";
+import { Profile } from "./profiles";
 import { writeKubeconfig } from "./kubeconfig";
 
-export async function updateKubeConfig(profiles: string[]) {
+export async function updateKubeConfig(profiles: Profile[]) {
     if (profiles.length === 0) {
         return;
     }
@@ -27,7 +28,7 @@ export async function updateKubeConfig(profiles: string[]) {
         "clusters",
         clusters.map((cluster) => ({
             name: cluster.cluster.name,
-            profile: cluster.profile,
+            profile: cluster.profile.name,
             region: cluster.region.RegionName,
         }))
     );
@@ -35,11 +36,11 @@ export async function updateKubeConfig(profiles: string[]) {
     await writeKubeconfig(clusters);
 }
 
-async function getRegions(profile: string): Promise<RegionList> {
+async function getRegions(profile: Profile): Promise<RegionList> {
     log.info("[getRegions] Getting regions");
     const ec2 = new EC2({
         region: "us-east-1",
-        credentials: new SsoCredentials({ profile }),
+        credentials: new SsoCredentials({ profile: profile.name }),
     });
     const res = await ec2.describeRegions().promise();
     const regions = res.Regions!;
@@ -49,19 +50,19 @@ async function getRegions(profile: string): Promise<RegionList> {
 
 export interface ClusterInfo {
     cluster: Cluster;
-    profile: string;
+    profile: Profile;
     region: Region;
 }
 
 async function getClusters(
-    profile: string,
+    profile: Profile,
     region: Region
 ): Promise<ClusterInfo[]> {
     log.info("[getClusters] Getting clusters for %s", region);
     const regionName = region.RegionName;
     const eks = new EKS({
         region: regionName,
-        credentials: new SsoCredentials({ profile }),
+        credentials: new SsoCredentials({ profile: profile.name }),
     });
 
     try {

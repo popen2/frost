@@ -60,7 +60,7 @@ export async function refresh() {
         setNextTokenRefresh();
 
         const profiles = await refreshProfiles();
-        await updateKubeConfig(profiles.map((profile) => profile.name));
+        await updateKubeConfig(profiles);
     } catch (err) {
         log.error("[refresh] Error: %s", err);
         config.set("lastError", `${err}`);
@@ -155,7 +155,7 @@ async function saveToken(
     );
 }
 
-interface RegisteredClient {
+export interface RegisteredClient {
     clientName: string;
     clientId: string;
     clientSecret: string;

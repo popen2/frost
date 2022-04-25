@@ -15,13 +15,17 @@ const AWS_IAM_AUTHENTICATOR =
     process.env["AWS_IAM_AUTHENTICATOR_PATH"] ||
     join(process.resourcesPath, AWS_IAM_AUTHENTICATOR_BASENAME);
 
+type NamePattern = (info: ClusterInfo) => string;
+
 export async function writeKubeconfig(clusters: ClusterInfo[]) {
     const path = join(homedir(), ".kube", "config");
     log.info("[writeKubeconfig] Writing %s", path);
     await mkdir(dirname(path), { recursive: true });
 
+    const namePattern = getNamePattern(clusters);
+
     const kubeconfig = clusters
-        .map(toKubeconfig)
+        .map((cluster) => toKubeconfig(cluster, namePattern))
         .reduce((previous, current) => {
             previous.mergeConfig(current);
             return previous;
@@ -33,9 +37,42 @@ export async function writeKubeconfig(clusters: ClusterInfo[]) {
     await writeFile(path, contents);
 }
 
-function toKubeconfig(info: ClusterInfo): KubeConfig {
+function getNamePattern(infos: ClusterInfo[]): NamePattern {
+    const clusterNames = infos.map((info) => info.cluster.name);
+    const clusterIds = infos.map(
+        (info) =>
+            `${info.cluster.name}:${info.profile.accountName}:${info.region.RegionName}`
+    );
+    const roleNames = infos.map((info) => info.profile.roleName);
+    const regionNames = infos.map((info) => info.region.RegionName);
+
+    const uniqueClusters = clusterNames.length === clusterIds.length;
+    const sameRoleName = new Set(roleNames).size === 1;
+    const sameRegion = new Set(regionNames).size === 1;
+
+    if (uniqueClusters) {
+        if (sameRoleName && sameRegion) {
+            return (info: ClusterInfo) => `${info.cluster.name}`;
+        }
+        if (sameRoleName) {
+            return (info: ClusterInfo) =>
+                `${info.cluster.name}:${info.region.RegionName}`;
+        }
+        if (sameRegion) {
+            return (info: ClusterInfo) =>
+                `${info.cluster.name}:${info.profile.roleName}`;
+        }
+        return (info: ClusterInfo) =>
+            `${info.cluster.name}:${info.region.RegionName}:${info.profile.roleName}`;
+    }
+
+    return (info: ClusterInfo) =>
+        `${info.cluster.name}:${info.profile.accountName}:${info.region.RegionName}:${info.profile.roleName}`;
+}
+
+function toKubeconfig(info: ClusterInfo, getName: NamePattern): KubeConfig {
     const kubeconfig = new KubeConfig();
-    const name = `${info.cluster.name}-${info.profile}`;
+    const name = getName(info);
 
     kubeconfig.addCluster({
         name,
@@ -53,7 +90,7 @@ function toKubeconfig(info: ClusterInfo): KubeConfig {
             env: [
                 {
                     name: "AWS_PROFILE",
-                    value: info.profile,
+                    value: info.profile.name,
                 },
             ],
         },

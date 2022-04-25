@@ -94,6 +94,8 @@ async function getAccountRoles(
 
 export interface Profile {
     name: string;
+    accountName: string;
+    roleName: string;
     contents: {
         sso_start_url: string;
         sso_region: string;
@@ -124,10 +126,12 @@ function generateProfiles(
     );
 
     return roles.map((role) => {
-        const shortName = accountIdToName.get(role.accountId!);
-        const shortRoleName = shortPermissionSetName(role.roleName!);
+        const accountName = accountIdToName.get(role.accountId!);
+        const roleName = shortPermissionSetName(role.roleName!);
         return {
-            name: `${shortName}-${shortRoleName}`,
+            name: `${accountName}-${roleName}`,
+            accountName,
+            roleName,
             contents: {
                 sso_start_url: userConfig.startUrl,
                 sso_region: userConfig.region,
