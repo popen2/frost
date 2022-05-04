@@ -63,6 +63,10 @@ export async function refresh() {
         await updateKubeConfig(profiles);
     } catch (err) {
         log.error("[refresh] Error: %s", err);
+        if (err instanceof Error && err.name == "InvalidClientException") {
+            config.delete("ssoClient")
+            log.error("[refresh] Got InvalidClientException error, deleted ssoClient from config");
+        }
         config.set("lastError", `${err}`);
         setNextTokenRefresh();
     } finally {
