@@ -84,7 +84,7 @@ function toKubeconfig(info: ClusterInfo, getName: NamePattern): KubeConfig {
     kubeconfig.addUser({
         name,
         exec: {
-            apiVersion: "client.authentication.k8s.io/v1alpha1",
+            apiVersion: "client.authentication.k8s.io/v1",
             command: AWS_IAM_AUTHENTICATOR,
             args: ["token", "-i", info.cluster.name],
             env: [
@@ -93,6 +93,7 @@ function toKubeconfig(info: ClusterInfo, getName: NamePattern): KubeConfig {
                     value: info.profile.name,
                 },
             ],
+            interactiveMode: "Never",
         },
     });
 
