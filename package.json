@@ -44,7 +44,7 @@
     "electron-store": "^8.0.1",
     "ini": "^3.0.0",
     "js-yaml": "^4.1.0",
-    "moment": "^2.29.2",
+    "moment": "^2.29.4",
     "slugify": "^1.6.5",
     "update-electron-app": "^2.0.1",
     "uuid": "^8.3.2"
