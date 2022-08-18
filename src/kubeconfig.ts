@@ -1,10 +1,10 @@
 import { homedir } from "os";
 import { join, dirname } from "path";
-import { writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir } from "fs/promises";
 import log from "electron-log";
 import { ClusterInfo } from "./aws-eks";
 import { KubeConfig } from "@kubernetes/client-node";
-import { dump } from "js-yaml";
+import * as yaml from "js-yaml";
 
 const AWS_IAM_AUTHENTICATOR_BASENAME =
     process.platform === "win32"
@@ -17,8 +17,28 @@ const AWS_IAM_AUTHENTICATOR =
 
 type NamePattern = (info: ClusterInfo) => string;
 
-export async function writeKubeconfig(clusters: ClusterInfo[]) {
+async function readExistingConfig(): Promise<{
+    path: string;
+    currentKubeconfig: KubeConfig;
+}> {
     const path = join(homedir(), ".kube", "config");
+    log.info("[readExistingConfig] Reading %s", path);
+    const currentKubeconfig = new KubeConfig();
+    try {
+        const contents = await readFile(path);
+        currentKubeconfig.loadFromString(contents.toString());
+    } catch (err) {
+        log.debug(
+            "[readExistingConfig] While trying to read %s: %s",
+            path,
+            err
+        );
+    }
+    return { path, currentKubeconfig };
+}
+
+export async function writeKubeconfig(clusters: ClusterInfo[]) {
+    const { path, currentKubeconfig } = await readExistingConfig();
     log.info("[writeKubeconfig] Writing %s", path);
     await mkdir(dirname(path), { recursive: true });
 
@@ -26,15 +46,49 @@ export async function writeKubeconfig(clusters: ClusterInfo[]) {
 
     const kubeconfig = clusters
         .map((cluster) => toKubeconfig(cluster, namePattern))
-        .reduce((previous, current) => {
-            previous.mergeConfig(current);
-            return previous;
-        }, new KubeConfig());
+        .reduce(mergeKubeConfigs, currentKubeconfig);
 
     const exported = JSON.parse(kubeconfig.exportConfig());
-    const contents = dump(exported);
+    const contents = yaml.dump(exported);
 
     await writeFile(path, contents);
+}
+
+function mergeKubeConfigs(
+    existing: KubeConfig,
+    update: KubeConfig
+): KubeConfig {
+    if (!existing.clusters) {
+        existing.clusters = [];
+    }
+    update.clusters.forEach((newCluster) => {
+        existing.clusters = existing.clusters.filter(
+            (existingCluster) => existingCluster.name !== newCluster.name
+        );
+        existing.clusters.push(newCluster);
+    });
+
+    if (!existing.users) {
+        existing.users = [];
+    }
+    update.users.forEach((newUser) => {
+        existing.users = existing.users.filter(
+            (existingUser) => existingUser.name !== newUser.name
+        );
+        existing.users.push(newUser);
+    });
+
+    if (!existing.contexts) {
+        existing.contexts = [];
+    }
+    update.contexts.forEach((newContext) => {
+        existing.contexts = existing.contexts.filter(
+            (existingContext) => existingContext.name !== newContext.name
+        );
+        existing.contexts.push(newContext);
+    });
+
+    return existing;
 }
 
 function getNamePattern(infos: ClusterInfo[]): NamePattern {
