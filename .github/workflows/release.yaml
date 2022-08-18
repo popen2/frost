@@ -6,8 +6,8 @@ on:
       - main
 
 env:
-  NODEJS_VERSION: 17
-  AWS_IAM_AUTHENTICATOR_VERSION: 0.5.7
+  NODEJS_VERSION: 16
+  AWS_IAM_AUTHENTICATOR_VERSION: 0.5.9
 
 jobs:
   test:
