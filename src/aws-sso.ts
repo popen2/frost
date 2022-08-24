@@ -64,8 +64,10 @@ export async function refresh() {
     } catch (err) {
         log.error("[refresh] Error: %s", err);
         if (err instanceof Error && err.name == "InvalidClientException") {
-            config.delete("ssoClient")
-            log.error("[refresh] Got InvalidClientException error, deleted ssoClient from config");
+            config.delete("ssoClient");
+            log.error(
+                "[refresh] Got InvalidClientException error, deleted ssoClient from config"
+            );
         }
         config.set("lastError", `${err}`);
         setNextTokenRefresh();
@@ -128,7 +130,7 @@ async function getNewToken(
                     })
                     .promise();
             } catch (err) {
-                if (err instanceof AuthorizationPendingException) {
+                if (isAuthorizationPendingException(err)) {
                     log.debug("[getNewToken] Authorization pending...");
                 } else {
                     log.warn("[getNewToken] Failed getting token: %s", err);
@@ -143,6 +145,12 @@ async function getNewToken(
     } finally {
         window.close();
     }
+}
+
+function isAuthorizationPendingException(
+    err: any
+): err is AuthorizationPendingException {
+    return err?.name === "AuthorizationPendingException";
 }
 
 async function saveToken(
