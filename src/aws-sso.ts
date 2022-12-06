@@ -31,7 +31,7 @@ export function setNextTokenRefresh() {
         ? moment(expiresAtConfig, moment.ISO_8601)
         : now;
     const timeoutMs = Math.max(
-        expiresAt.subtract(30, "minutes").diff(now),
+        expiresAt.diff(now),
         500
     );
 
