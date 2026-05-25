@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Notification } from "electron";
+import { app, BrowserWindow, Notification, shell } from "electron";
 import log from "electron-log/main";
 import delay from "delay";
 import moment from "moment";
@@ -13,6 +13,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import {
     config,
+    getLoginMethod,
     UserConfig,
     BehaviorConfig,
     DEFAULT_BEHAVIOR,
@@ -152,6 +153,10 @@ async function getNewToken(
 
     log.debug("[getNewToken] startDeviceAuthorization: %s", startAuth);
     const tokenExpires = moment().add(startAuth.expiresIn, "seconds");
+    const verificationUrl = startAuth.verificationUriComplete;
+    if (!verificationUrl) {
+        throw new Error("Missing verification URL from device authorization");
+    }
 
     const behavior =
         (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
@@ -172,26 +177,35 @@ async function getNewToken(
         await waitForUserTrigger(startAuth.expiresIn! * 1000);
     }
 
-    log.debug("[getNewToken] Opening login window");
-    if (app.dock) await app.dock.show();
-
+    const loginMethod = getLoginMethod(userConfig);
+    log.debug("[getNewToken] Starting login flow with method=%s", loginMethod);
     let windowOpen = true;
-    const window = new BrowserWindow({
-        width: 550,
-        height: 700,
-        center: true,
-        webPreferences: {
-            nodeIntegration: false,
-        },
-    });
+    let window: BrowserWindow | undefined;
 
     try {
-        window.on("close", () => {
-            log.warn("[getNewToken] Login window closed");
-            windowOpen = false;
-        });
+        if (loginMethod === "default_browser") {
+            log.debug("[getNewToken] Opening login in default browser");
+            await shell.openExternal(verificationUrl);
+        } else {
+            log.debug("[getNewToken] Opening login window");
+            if (app.dock) await app.dock.show();
 
-        window.loadURL(startAuth.verificationUriComplete!);
+            window = new BrowserWindow({
+                width: 550,
+                height: 700,
+                center: true,
+                webPreferences: {
+                    nodeIntegration: false,
+                },
+            });
+
+            window.on("close", () => {
+                log.warn("[getNewToken] Login window closed");
+                windowOpen = false;
+            });
+
+            window.loadURL(verificationUrl);
+        }
 
         while (moment().isBefore(tokenExpires)) {
             log.debug("[getNewToken] Sleeping for %ss", startAuth.interval!);
@@ -212,7 +226,7 @@ async function getNewToken(
                     log.debug("[getNewToken] Authorization pending...");
                 } else {
                     log.warn("[getNewToken] Failed getting token: %s", err);
-                    if (!windowOpen) {
+                    if (loginMethod === "popup" && !windowOpen) {
                         log.warn("[getNewToken] User closed window");
                         throw err;
                     }
@@ -221,7 +235,9 @@ async function getNewToken(
         }
         throw new Error("Login timed out");
     } finally {
-        window.close();
+        if (window && !window.isDestroyed()) {
+            window.close();
+        }
     }
 }
 

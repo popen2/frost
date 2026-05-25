@@ -15,6 +15,10 @@ export const config = new Store({
                 region: {
                     type: "string",
                 },
+                loginMethod: {
+                    type: "string",
+                    enum: ["popup", "default_browser"],
+                },
             },
         },
         expiresAt: {
@@ -93,9 +97,21 @@ export const config = new Store({
     },
 });
 
+export type LoginMethod = "popup" | "default_browser";
+export const DEFAULT_LOGIN_METHOD: LoginMethod = "popup";
+
 export interface UserConfig {
     startUrl: string;
     region: string;
+    loginMethod?: LoginMethod;
+}
+
+export function getLoginMethod(userConfig?: UserConfig): LoginMethod {
+    if (userConfig?.loginMethod === "default_browser") {
+        return "default_browser";
+    }
+
+    return DEFAULT_LOGIN_METHOD;
 }
 
 export interface StoredProfile {
