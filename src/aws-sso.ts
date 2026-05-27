@@ -1,18 +1,20 @@
 import { BrowserWindow } from "electron";
-import log from "electron-log";
+import log from "electron-log/main";
 import delay from "delay";
 import moment from "moment";
-import { SSOOIDC } from "aws-sdk";
-import {
+import AWS from "aws-sdk";
+import type {
     AuthorizationPendingException,
     CreateTokenResponse,
 } from "@aws-sdk/client-sso-oidc";
 import { v4 as uuidv4 } from "uuid";
-import { config, UserConfig } from "./config";
-import { refreshProfiles } from "./profiles";
-import { writeSsoConfig } from "./aws-config";
-import { updateTrayIcon } from "./tray";
-import { updateKubeConfig } from "./aws-eks";
+import { config, UserConfig } from "./config.js";
+import { refreshProfiles } from "./profiles.js";
+import { writeSsoConfig } from "./aws-config.js";
+import { updateTrayIcon } from "./tray.js";
+import { updateKubeConfig } from "./aws-eks.js";
+
+const { SSOOIDC } = AWS;
 
 let timeoutId: NodeJS.Timeout | undefined;
 
@@ -148,9 +150,14 @@ async function getNewToken(
 }
 
 function isAuthorizationPendingException(
-    err: any
+    err: unknown
 ): err is AuthorizationPendingException {
-    return err?.name === "AuthorizationPendingException";
+    return (
+        typeof err === "object" &&
+        err !== null &&
+        "name" in err &&
+        err.name === "AuthorizationPendingException"
+    );
 }
 
 async function saveToken(

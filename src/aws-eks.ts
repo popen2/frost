@@ -1,10 +1,10 @@
-import { EC2, EKS, SsoCredentials } from "aws-sdk";
-import { Region, RegionList } from "aws-sdk/clients/ec2";
-import { Cluster } from "aws-sdk/clients/eks";
-import log from "electron-log";
-import { config } from "./config";
-import { Profile } from "./profiles";
-import { writeKubeconfig } from "./kubeconfig";
+import AWS from "aws-sdk";
+import log from "electron-log/main";
+import { config } from "./config.js";
+import { Profile } from "./profiles.js";
+import { writeKubeconfig } from "./kubeconfig.js";
+
+const { EC2, EKS, SsoCredentials } = AWS;
 
 export async function updateKubeConfig(profiles: Profile[]) {
     if (profiles.length === 0) {
@@ -36,7 +36,7 @@ export async function updateKubeConfig(profiles: Profile[]) {
     await writeKubeconfig(clusters);
 }
 
-async function getRegions(profile: Profile): Promise<RegionList> {
+async function getRegions(profile: Profile): Promise<AWS.EC2.RegionList> {
     log.info("[getRegions] Getting regions");
     const ec2 = new EC2({
         region: "us-east-1",
@@ -49,14 +49,14 @@ async function getRegions(profile: Profile): Promise<RegionList> {
 }
 
 export interface ClusterInfo {
-    cluster: Cluster;
+    cluster: AWS.EKS.Cluster;
     profile: Profile;
-    region: Region;
+    region: AWS.EC2.Region;
 }
 
 async function getClusters(
     profile: Profile,
-    region: Region
+    region: AWS.EC2.Region
 ): Promise<ClusterInfo[]> {
     log.info("[getClusters] Getting clusters for %s", region);
     const regionName = region.RegionName;
@@ -66,7 +66,7 @@ async function getClusters(
     });
 
     try {
-        let nextToken;
+        let nextToken: string | undefined;
         const clusterNames: string[] = [];
         do {
             const res = await eks.listClusters({ nextToken }).promise();
@@ -79,6 +79,7 @@ async function getClusters(
                 );
                 clusterNames.push(cluster);
             }
+            nextToken = res.nextToken;
         } while (nextToken);
 
         const clusterResponses = await Promise.all(

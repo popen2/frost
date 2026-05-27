@@ -1,9 +1,12 @@
 import * as path from "path";
+import { fileURLToPath } from "url";
 import { app, shell, Menu, Tray } from "electron";
-import log from "electron-log";
+import log from "electron-log/main";
 import moment from "moment";
-import { config, configure } from "./config";
-import { refresh } from "./aws-sso";
+import { config, configure } from "./config.js";
+import { refresh } from "./aws-sso.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const TRAY_ICON_FULL = path.join(
     __dirname,

@@ -1,14 +1,10 @@
-import { SSO } from "aws-sdk";
-import {
-    AccountListType,
-    NextTokenType,
-    ListAccountsResponse,
-    RoleListType,
-} from "aws-sdk/clients/sso";
-import log from "electron-log";
+import AWS from "aws-sdk";
+import log from "electron-log/main";
 import slugify from "slugify";
-import { config, UserConfig } from "./config";
-import { writeAwsConfig } from "./aws-config";
+import { config, UserConfig } from "./config.js";
+import { writeAwsConfig } from "./aws-config.js";
+
+const { SSO } = AWS;
 
 const PREDEFINED_SHORT_NAMES: Record<string, string> = {
     AdministratorAccess: "admin",
@@ -34,7 +30,7 @@ export async function refreshProfiles(): Promise<Profile[]> {
     const accounts = await getAccounts(sso, accessToken);
     log.info("[refreshProfiles] Accounts: %s", JSON.stringify(accounts));
 
-    const roles = ([] as RoleListType).concat.apply(
+    const roles = ([] as AWS.SSO.RoleListType).concat.apply(
         [],
         await Promise.all(
             accounts.map((account) =>
@@ -50,14 +46,14 @@ export async function refreshProfiles(): Promise<Profile[]> {
 }
 
 async function getAccounts(
-    sso: SSO,
+    sso: AWS.SSO,
     accessToken: string
-): Promise<AccountListType> {
-    let result: AccountListType = [];
-    let nextToken: NextTokenType | undefined;
+): Promise<AWS.SSO.AccountListType> {
+    let result: AWS.SSO.AccountListType = [];
+    let nextToken: AWS.SSO.NextTokenType | undefined;
 
     do {
-        const res: ListAccountsResponse = await sso
+        const res: AWS.SSO.ListAccountsResponse = await sso
             .listAccounts({
                 accessToken,
                 nextToken,
@@ -71,12 +67,12 @@ async function getAccounts(
 }
 
 async function getAccountRoles(
-    sso: SSO,
+    sso: AWS.SSO,
     accessToken: string,
     accountId: string
-): Promise<RoleListType> {
-    let result: RoleListType = [];
-    let nextToken: NextTokenType | undefined;
+): Promise<AWS.SSO.RoleListType> {
+    let result: AWS.SSO.RoleListType = [];
+    let nextToken: AWS.SSO.NextTokenType | undefined;
 
     do {
         const res = await sso
@@ -87,6 +83,7 @@ async function getAccountRoles(
             })
             .promise();
         result = result.concat(res.roleList || []);
+        nextToken = res.nextToken;
     } while (nextToken);
 
     return result;
@@ -108,8 +105,8 @@ export interface Profile {
 
 function generateProfiles(
     userConfig: UserConfig,
-    accounts: AccountListType,
-    roles: RoleListType
+    accounts: AWS.SSO.AccountListType,
+    roles: AWS.SSO.RoleListType
 ): Profile[] {
     const accountIdToName = new Map<string, string>(
         accounts.map((account) => [

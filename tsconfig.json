@@ -1,21 +1,16 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "ES6",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
     "noImplicitAny": true,
     "esModuleInterop": true,
     "sourceMap": true,
+    "rootDir": "src",
     "outDir": "dist",
-    "strict": true,
-    "baseUrl": ".",
-    "paths": {
-      "*": [
-        "node_modules/*"
-      ]
-    }
+    "strict": true
   },
   "include": [
-    "src/**/*",
-    "proto/**/*"
+    "src/**/*"
   ]
 }
