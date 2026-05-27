@@ -12,12 +12,15 @@ URL. All `src/*.ts` files execute in the main process.
 
 ## Commands
 
-- `yarn build` — `tsc` (type-check + emit to `dist/`) then copies tray icons.
-- `yarn lint` — ESLint (flat config, see below).
-- `yarn start` / `yarn package` / `yarn make` — Electron Forge.
+This project uses **npm** (`package-lock.json`; CI runs `npm ci`). Do not add a
+`yarn.lock`.
 
-`yarn build` and `yarn lint` are the local signal and both run in CI. They do
-**not** prove the app launches — see "Verification limits".
+- `npm run build` — `tsc` (type-check + emit to `dist/`) then copies tray icons.
+- `npm run lint` — ESLint (flat config, see below).
+- `npm start` / `npm run package` / `npm run make` — Electron Forge.
+
+`npm run build` and `npm run lint` are the local signal and both run in CI. They
+do **not** prove the app launches — see "Verification limits".
 
 ## Module system: ESM
 
@@ -70,18 +73,28 @@ asset naming is `aws-iam-authenticator_<version>_<os>_<arch>` (os: `darwin` |
 `linux`; arch: `amd64` | `arm64`). At runtime the path is resolved in
 `src/kubeconfig.ts` (overridable via `AWS_IAM_AUTHENTICATOR_PATH`).
 
-## Release pipeline
+## CI / release pipeline
 
-Pushing to `main` triggers `.github/workflows/release.yaml`, which:
-1. Lints/builds, then auto-bumps a **patch** git tag (`anothrNick/github-tag-action`).
-2. Builds a matrix (darwin/linux × x64/arm64), downloading the IAM
-   authenticator and signing on macOS.
-3. Publishes the GitHub release (created as draft, then flipped to published).
+There are two workflows, and they share the same matrix and build steps:
+
+- **`.github/workflows/ci.yaml`** (🔍 PR Build) runs on **pull requests to
+  `main`**. It lints, then builds the full matrix (darwin/linux × x64/arm64)
+  and runs `electron-forge make` — packaging, **signing and notarizing** the
+  macOS app and producing the distributable zips (uploaded as artifacts). It
+  does **not** tag or publish. This is the pre-merge "does the whole release
+  build actually work" check. Notarization needs the Apple secrets, which are
+  only available on same-repo PRs (not forks).
+- **`.github/workflows/release.yaml`** (🚀 Release Version) runs on **push to
+  `main`**. It lints/builds, auto-bumps a **patch** git tag
+  (`anothrNick/github-tag-action`), builds the same matrix but runs
+  `electron-forge publish`, and flips the GitHub release from draft to
+  published.
 
 The app version in `package.json` is overwritten in CI from the tag
-(`yarn version --new-version`), so **don't bump it manually**. The build runner
-Node version is `NODEJS_VERSION` in the workflow (must satisfy the toolchain:
-ESLint 10, TypeScript 6, Electron 42).
+(`npm version --no-git-tag-version`), so **don't bump it manually**. The build
+runner Node version is `NODEJS_VERSION` in each workflow (must satisfy the
+toolchain: ESLint 10, TypeScript 6, Electron 42). Keep `NODEJS_VERSION` and
+`AWS_IAM_AUTHENTICATOR_VERSION` in sync between the two workflows.
 
 ## macOS signing/notarization (Forge 7)
 
@@ -101,8 +114,9 @@ it cannot be validated locally.
 ## Verification limits
 
 This is a GUI Electron app. In headless/sandboxed environments you can run
-`yarn build`, `yarn lint`, and isolated Node runtime checks of individual
+`npm run build`, `npm run lint`, and isolated Node runtime checks of individual
 libraries, but you **cannot** launch the app, run `electron-forge
 package/make`, or validate macOS signing/notarization. Treat those as
 "verify in CI / on a real desktop" and say so explicitly rather than claiming
-the app works.
+the app works. The PR Build workflow (above) is what actually exercises the
+packaging/signing/notarization path.
