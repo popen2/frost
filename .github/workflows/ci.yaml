@@ -1,24 +1,33 @@
-name: 🚀 Release Version
+name: 🔍 PR Build
+
+# Validates the full release build (all platforms, including macOS signing and
+# notarization) on pull requests, so we can confirm everything works before
+# merging to main. It runs `electron-forge make` — which packages, signs and
+# notarizes the app and produces the distributable zips — but never publishes a
+# release or creates a tag.
 
 on:
-  push:
+  pull_request:
     branches:
       - main
+
+concurrency:
+  group: pr-build-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   NODEJS_VERSION: 22
   AWS_IAM_AUTHENTICATOR_VERSION: 0.7.16
 
 jobs:
-  test:
+  lint:
     name: 🧹 Lint app
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
 
       - name: Install Node.js and NPM
-        id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODEJS_VERSION }}
@@ -36,44 +45,12 @@ jobs:
         run: |
           npm run lint
 
-  tag:
-    name: 🏷 Create a tag
-    runs-on: ubuntu-latest
+  build:
+    name: 📦 Build (${{ matrix.os.name }} ${{ matrix.arch.name }})
     needs:
-      - test
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: "0"
-
-      - id: tag-without-v
-        name: Get version without v
-        uses: anothrNick/github-tag-action@1.39.0
-        env:
-          WITH_V: false
-          DRY_RUN: true
-          DEFAULT_BUMP: patch
-          RELEASE_BRANCHES: main
-
-      - id: tag-with-v
-        name: Bump version and push tag
-        uses: anothrNick/github-tag-action@1.39.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WITH_V: true
-          DEFAULT_BUMP: patch
-          RELEASE_BRANCHES: main
-
-    outputs:
-      tag: ${{ steps.tag-with-v.outputs.new_tag }}
-      tag_without_v: ${{ steps.tag-without-v.outputs.new_tag }}
-
-  release-app:
-    name: 📦 Release App
-    needs:
-      - tag
+      - lint
     strategy:
+      fail-fast: false
       matrix:
         os:
           - name: darwin
@@ -93,7 +70,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Node.js and NPM
-        id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODEJS_VERSION }}
@@ -102,10 +78,6 @@ jobs:
       - name: Install node modules
         run: |
           npm ci
-
-      - name: Set version
-        run: |
-          npm version --no-git-tag-version ${{ needs.tag.outputs.tag_without_v }}
 
       - name: Build app
         run: |
@@ -137,33 +109,16 @@ jobs:
           mkdir -p ~/private_keys
           echo "${{ secrets.APPLE_API_AUTHKEY_BASE64 }}" | base64 -d > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
 
-      - name: Publish app
+      - name: Make app (sign + notarize)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          ./node_modules/.bin/electron-forge publish --arch ${{ matrix.arch.electron }}
+          ./node_modules/.bin/electron-forge make --arch ${{ matrix.arch.electron }}
 
-  publish:
-    name: 📢 Publish Release
-    needs:
-      - tag
-      - release-app
-    runs-on: ubuntu-latest
-    steps:
-      - name: Publish release
-        run: |
-          release_url=$(
-            curl --fail \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases" |
-              jq -r '.[] | select(.tag_name == "${{ needs.tag.outputs.tag }}") | .url'
-          )
-          curl --fail \
-            -X PATCH \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "${release_url}" \
-            -d '{"draft":false}'
+      - name: Upload distributables
+        uses: actions/upload-artifact@v4
+        with:
+          name: frost-${{ matrix.os.name }}-${{ matrix.arch.name }}
+          path: out/make/**/*
+          if-no-files-found: error
