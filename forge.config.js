@@ -1,6 +1,5 @@
-/* global require */
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const process = require("process");
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 const BUNDLE_ID = "frost";
 
@@ -8,16 +7,19 @@ const { APPLE_API_KEY, APPLE_API_ISSUER } = process.env;
 const osxNotarize =
     process.platform === "darwin"
         ? {
-              appBundleId: BUNDLE_ID,
-              appleApiKey: APPLE_API_KEY,
+              appleApiKey: join(
+                  homedir(),
+                  "private_keys",
+                  `AuthKey_${APPLE_API_KEY}.p8`
+              ),
+              appleApiKeyId: APPLE_API_KEY,
               appleApiIssuer: APPLE_API_ISSUER,
           }
         : undefined;
 
 const extraResources = ["aws-iam-authenticator"];
 
-/* global module */
-module.exports = {
+export default {
     packagerConfig: {
         name: "Frost",
         icon: "./src/icons/AppIcon",
@@ -25,10 +27,11 @@ module.exports = {
         extraResources,
         out: "./out",
         osxSign: {
-            "hardened-runtime": true,
-            entitlements: "entitlements.plist",
-            "entitlements-inherit": "entitlements.plist",
-            "signature-flags": "library",
+            optionsForFile: () => ({
+                entitlements: "entitlements.plist",
+                hardenedRuntime: true,
+                signatureFlags: "library",
+            }),
         },
         osxNotarize,
         extendInfo: {

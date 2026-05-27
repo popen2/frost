@@ -1,9 +1,9 @@
 import { app } from "electron";
-import log from "electron-log";
-import updateElectronApp from "update-electron-app";
-import { updateTrayIcon } from "./tray";
-import { setNextTokenRefresh } from "./aws-sso";
-import { config } from "./config";
+import log from "electron-log/main";
+import { updateElectronApp } from "update-electron-app";
+import { updateTrayIcon } from "./tray.js";
+import { setNextTokenRefresh } from "./aws-sso.js";
+import { config } from "./config.js";
 
 async function main() {
     log.info("[main] =================== Starting app ===================");
@@ -20,7 +20,9 @@ async function main() {
         app.dock.hide();
     }
 
-    app.on("window-all-closed", (event: Event) => event.preventDefault());
+    app.on("window-all-closed", () => {
+        // Keep running in the tray when the login window is closed.
+    });
 
     setNextTokenRefresh();
     updateTrayIcon();
@@ -30,6 +32,6 @@ async function main() {
     });
 }
 
-log.catchErrors({ showDialog: true });
+log.errorHandler.startCatching({ showDialog: true });
 
 main();

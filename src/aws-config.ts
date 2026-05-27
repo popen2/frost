@@ -3,9 +3,9 @@ import { join, dirname } from "path";
 import { writeFile, mkdir } from "fs/promises";
 import { createHash } from "crypto";
 import ini from "ini";
-import log from "electron-log";
-import { UserConfig } from "./config";
-import { Profile } from "./profiles";
+import log from "electron-log/main";
+import { UserConfig } from "./config.js";
+import { Profile } from "./profiles.js";
 
 async function writeAwsConfigFile(subpath: string, contents: string) {
     const fullPath = join(homedir(), ".aws", subpath);

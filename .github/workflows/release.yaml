@@ -6,8 +6,8 @@ on:
       - main
 
 env:
-  NODEJS_VERSION: 16
-  AWS_IAM_AUTHENTICATOR_VERSION: 0.5.9
+  NODEJS_VERSION: 22
+  AWS_IAM_AUTHENTICATOR_VERSION: 0.7.16
 
 jobs:
   test:
@@ -15,15 +15,15 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Node.js, NPM and Yarn
         id: setup-node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODEJS_VERSION }}
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         with:
           path: |
             node_modules
@@ -50,7 +50,7 @@ jobs:
       - test
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: "0"
 
@@ -97,15 +97,15 @@ jobs:
     runs-on: ${{ matrix.os.runs-on }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Node.js, NPM and Yarn
         id: setup-node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODEJS_VERSION }}
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         with:
           path: |
             node_modules

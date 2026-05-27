@@ -1,8 +1,8 @@
 import { homedir } from "os";
 import { join, dirname } from "path";
 import { readFile, writeFile, mkdir } from "fs/promises";
-import log from "electron-log";
-import { ClusterInfo } from "./aws-eks";
+import log from "electron-log/main";
+import { ClusterInfo } from "./aws-eks.js";
 import { KubeConfig } from "@kubernetes/client-node";
 import * as yaml from "js-yaml";
 
