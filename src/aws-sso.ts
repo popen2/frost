@@ -2,10 +2,13 @@ import { BrowserWindow } from "electron";
 import log from "electron-log/main";
 import delay from "delay";
 import moment from "moment";
-import AWS from "aws-sdk";
-import type {
+import {
+    SSOOIDCClient,
+    RegisterClientCommand,
+    StartDeviceAuthorizationCommand,
+    CreateTokenCommand,
     AuthorizationPendingException,
-    CreateTokenResponse,
+    type CreateTokenCommandOutput,
 } from "@aws-sdk/client-sso-oidc";
 import { v4 as uuidv4 } from "uuid";
 import { config, UserConfig } from "./config.js";
@@ -13,8 +16,6 @@ import { refreshProfiles } from "./profiles.js";
 import { writeSsoConfig } from "./aws-config.js";
 import { updateTrayIcon } from "./tray.js";
 import { updateKubeConfig } from "./aws-eks.js";
-
-const { SSOOIDC } = AWS;
 
 let timeoutId: NodeJS.Timeout | undefined;
 
@@ -81,18 +82,18 @@ export async function refresh() {
 
 async function getNewToken(
     userConfig: UserConfig
-): Promise<CreateTokenResponse> {
+): Promise<CreateTokenCommandOutput> {
     config.set("lastError", null);
     const client = await getSsoClient(userConfig);
-    const ssooidc = new SSOOIDC({ region: userConfig.region });
+    const ssooidc = new SSOOIDCClient({ region: userConfig.region });
 
-    const startAuth = await ssooidc
-        .startDeviceAuthorization({
+    const startAuth = await ssooidc.send(
+        new StartDeviceAuthorizationCommand({
             clientId: client.clientId,
             clientSecret: client.clientSecret,
             startUrl: userConfig.startUrl,
         })
-        .promise();
+    );
 
     log.debug("[getNewtoken] startDeviceAuthorization: %s", startAuth);
     const tokenExpires = moment().add(startAuth.expiresIn, "seconds");
@@ -122,15 +123,15 @@ async function getNewToken(
             await delay(startAuth.interval! * 1000);
             try {
                 log.debug("[getNewToken] Trying to get token");
-                return await ssooidc
-                    .createToken({
+                return await ssooidc.send(
+                    new CreateTokenCommand({
                         clientId: client.clientId,
                         clientSecret: client.clientSecret,
                         deviceCode: startAuth.deviceCode!,
                         grantType:
                             "urn:ietf:params:oauth:grant-type:device_code",
                     })
-                    .promise();
+                );
             } catch (err) {
                 if (isAuthorizationPendingException(err)) {
                     log.debug("[getNewToken] Authorization pending...");
@@ -149,20 +150,13 @@ async function getNewToken(
     }
 }
 
-function isAuthorizationPendingException(
-    err: unknown
-): err is AuthorizationPendingException {
-    return (
-        typeof err === "object" &&
-        err !== null &&
-        "name" in err &&
-        err.name === "AuthorizationPendingException"
-    );
+function isAuthorizationPendingException(err: unknown): boolean {
+    return err instanceof AuthorizationPendingException;
 }
 
 async function saveToken(
     userConfig: UserConfig,
-    newToken: CreateTokenResponse
+    newToken: CreateTokenCommandOutput
 ) {
     const expiresAt = moment().add(newToken.expiresIn!, "seconds");
     config.set("accessToken", newToken.accessToken!);
@@ -211,14 +205,14 @@ async function registerSsoClient(
     clientName: string
 ): Promise<RegisteredClient> {
     log.debug("[registerSsoClient] Registering client %s", clientName);
-    const ssooidc = new SSOOIDC({ region: userConfig.region });
+    const ssooidc = new SSOOIDCClient({ region: userConfig.region });
 
-    const res = await ssooidc
-        .registerClient({
+    const res = await ssooidc.send(
+        new RegisterClientCommand({
             clientName,
             clientType: "public",
         })
-        .promise();
+    );
 
     const registeredClient = {
         clientName,

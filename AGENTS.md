@@ -37,14 +37,14 @@ The project is **ESM** (`"type": "module"` in package.json, `tsconfig`
 
 ## Dependency gotchas
 
-- **aws-sdk v2** (CJS, lazy getters). In ESM, `import { EC2 } from "aws-sdk"`
-  **fails at runtime** (named exports aren't statically detectable). Use
-  `import AWS from "aws-sdk"; const { EC2, EKS, SSO, SSOOIDC, SsoCredentials }
-  = AWS;`. For types, reference the namespace: `AWS.EC2.Region`,
-  `AWS.SSO.AccountListType`, etc. (Bare subpath type imports like
-  `aws-sdk/clients/ec2` need an explicit `.js` under NodeNext because aws-sdk
-  has no `exports` map.) aws-sdk v2 is end-of-life; a v3 migration is the real
-  long-term fix.
+- **AWS SDK v3** (`@aws-sdk/client-*`). The app uses the modular v3 clients
+  (`@aws-sdk/client-sso-oidc`, `client-sso`, `client-ec2`, `client-eks`) with
+  the command pattern: `client.send(new XxxCommand({...}))`. SSO role
+  credentials come from `fromSSO({ profile })` (`@aws-sdk/credential-providers`),
+  which reads the `~/.aws/config` profiles and `~/.aws/sso/cache/<sha1(startUrl)>.json`
+  token that the app writes (see `aws-config.ts`). Service error types are
+  exported classes, so use `err instanceof AuthorizationPendingException`. The
+  old `aws-sdk` v2 (CJS, end-of-life) was removed — do not reintroduce it.
 - **electron-log v5**: import `electron-log/main` in the main process.
   `log.catchErrors(...)` was removed → `log.errorHandler.startCatching(...)`.
 - **update-electron-app v3**: named export — `import { updateElectronApp }`.
