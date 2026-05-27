@@ -35,9 +35,12 @@
     "typescript-eslint": "^8.60.0"
   },
   "dependencies": {
+    "@aws-sdk/client-ec2": "^3.1055.0",
+    "@aws-sdk/client-eks": "^3.1055.0",
+    "@aws-sdk/client-sso": "^3.1055.0",
     "@aws-sdk/client-sso-oidc": "^3.1055.0",
+    "@aws-sdk/credential-providers": "^3.1055.0",
     "@kubernetes/client-node": "^1.4.0",
-    "aws-sdk": "^2.1693.0",
     "axios": "^1.16.1",
     "delay": "^7.0.0",
     "electron-log": "^5.4.4",

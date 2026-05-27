@@ -1,17 +1,24 @@
-import AWS from "aws-sdk";
+import {
+    EC2Client,
+    DescribeRegionsCommand,
+    type Region,
+} from "@aws-sdk/client-ec2";
+import {
+    EKSClient,
+    ListClustersCommand,
+    DescribeClusterCommand,
+    type Cluster,
+} from "@aws-sdk/client-eks";
+import { fromSSO } from "@aws-sdk/credential-providers";
 import log from "electron-log/main";
 import { config } from "./config.js";
 import { Profile } from "./profiles.js";
 import { writeKubeconfig } from "./kubeconfig.js";
 
-const { EC2, EKS, SsoCredentials } = AWS;
-
 export async function updateKubeConfig(profiles: Profile[]) {
     if (profiles.length === 0) {
         return;
     }
-
-    process.env["AWS_SDK_LOAD_CONFIG"] = "1";
 
     const regions = await getRegions(profiles[0]);
     const clusters = (
@@ -36,40 +43,40 @@ export async function updateKubeConfig(profiles: Profile[]) {
     await writeKubeconfig(clusters);
 }
 
-async function getRegions(profile: Profile): Promise<AWS.EC2.RegionList> {
+async function getRegions(profile: Profile): Promise<Region[]> {
     log.info("[getRegions] Getting regions");
-    const ec2 = new EC2({
+    const ec2 = new EC2Client({
         region: "us-east-1",
-        credentials: new SsoCredentials({ profile: profile.name }),
+        credentials: fromSSO({ profile: profile.name }),
     });
-    const res = await ec2.describeRegions().promise();
+    const res = await ec2.send(new DescribeRegionsCommand({}));
     const regions = res.Regions!;
     log.debug("[getRegions] Regions: %s", regions);
     return regions;
 }
 
 export interface ClusterInfo {
-    cluster: AWS.EKS.Cluster;
+    cluster: Cluster;
     profile: Profile;
-    region: AWS.EC2.Region;
+    region: Region;
 }
 
 async function getClusters(
     profile: Profile,
-    region: AWS.EC2.Region
+    region: Region
 ): Promise<ClusterInfo[]> {
     log.info("[getClusters] Getting clusters for %s", region);
     const regionName = region.RegionName;
-    const eks = new EKS({
+    const eks = new EKSClient({
         region: regionName,
-        credentials: new SsoCredentials({ profile: profile.name }),
+        credentials: fromSSO({ profile: profile.name }),
     });
 
     try {
         let nextToken: string | undefined;
         const clusterNames: string[] = [];
         do {
-            const res = await eks.listClusters({ nextToken }).promise();
+            const res = await eks.send(new ListClustersCommand({ nextToken }));
             for (const cluster of res.clusters!) {
                 log.info(
                     "[getClusters] Found cluster: profile=%s region=%s cluster=%s",
@@ -84,11 +91,7 @@ async function getClusters(
 
         const clusterResponses = await Promise.all(
             clusterNames.map((name) =>
-                eks
-                    .describeCluster({
-                        name,
-                    })
-                    .promise()
+                eks.send(new DescribeClusterCommand({ name }))
             )
         );
 
