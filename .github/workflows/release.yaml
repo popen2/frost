@@ -7,32 +7,30 @@ on:
 
 env:
   NODEJS_VERSION: 22
-  AWS_IAM_AUTHENTICATOR_VERSION: 0.7.16
 
 jobs:
   test:
     name: 🧹 Lint app
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+      - name: 📥 Checkout sources
+        uses: actions/checkout@v6
 
-      - name: Install Node.js and NPM
-        id: setup-node
-        uses: actions/setup-node@v4
+      - name: ⚙️ Install Node.js and NPM
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODEJS_VERSION }}
           cache: npm
 
-      - name: Install node modules
+      - name: 📦 Install node modules
         run: |
           npm ci
 
-      - name: Build app
+      - name: 🔨 Build app
         run: |
           npm run build
 
-      - name: Run eslint
+      - name: 🧹 Run eslint
         run: |
           npm run lint
 
@@ -42,14 +40,14 @@ jobs:
     needs:
       - test
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+      - name: 📥 Checkout sources
+        uses: actions/checkout@v6
         with:
           fetch-depth: "0"
 
       - id: tag-without-v
-        name: Get version without v
-        uses: anothrNick/github-tag-action@1.39.0
+        name: 🔖 Get version without v
+        uses: anothrNick/github-tag-action@1.75.0
         env:
           WITH_V: false
           DRY_RUN: true
@@ -57,8 +55,8 @@ jobs:
           RELEASE_BRANCHES: main
 
       - id: tag-with-v
-        name: Bump version and push tag
-        uses: anothrNick/github-tag-action@1.39.0
+        name: 🏷 Bump version and push tag
+        uses: anothrNick/github-tag-action@1.75.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WITH_V: true
@@ -73,77 +71,11 @@ jobs:
     name: 📦 Release App
     needs:
       - tag
-    strategy:
-      matrix:
-        os:
-          - name: darwin
-            runs-on: macos-latest
-          - name: linux
-            runs-on: ubuntu-latest
-        arch:
-          - name: x86_64
-            aws: amd64
-            electron: x64
-          - name: arm64
-            aws: arm64
-            electron: arm64
-    runs-on: ${{ matrix.os.runs-on }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Node.js and NPM
-        id: setup-node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODEJS_VERSION }}
-          cache: npm
-
-      - name: Install node modules
-        run: |
-          npm ci
-
-      - name: Set version
-        run: |
-          npm version --no-git-tag-version ${{ needs.tag.outputs.tag_without_v }}
-
-      - name: Build app
-        run: |
-          npm run build
-
-      - name: Download aws-iam-authenticator
-        run: |
-          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${{ matrix.os.name }}_${{ matrix.arch.aws }}"
-          TARGET="aws-iam-authenticator"
-          curl -L "${URL}" -o "${TARGET}"
-          chmod a+x "${TARGET}"
-
-      - name: Add MacOS Certificates
-        if: runner.os == 'macOS'
-        env:
-          MAC_CERTS: ${{ secrets.MAC_CERTS }}
-          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-        run: |
-          KEY_CHAIN=build.keychain
-          MACOS_CERT_P12_FILE=certificate.p12
-          echo $MAC_CERTS | base64 --decode > $MACOS_CERT_P12_FILE
-          security create-keychain -p actions $KEY_CHAIN
-          security default-keychain -s $KEY_CHAIN
-          security unlock-keychain -p actions $KEY_CHAIN
-          security import $MACOS_CERT_P12_FILE -k $KEY_CHAIN -P $MAC_CERTS_PASSWORD -T /usr/bin/codesign;
-          security set-key-partition-list -S apple-tool:,apple: -s -k actions $KEY_CHAIN
-          rm -rf *.p12
-
-          mkdir -p ~/private_keys
-          echo "${{ secrets.APPLE_API_AUTHKEY_BASE64 }}" | base64 -d > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
-
-      - name: Publish app
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: |
-          ./node_modules/.bin/electron-forge publish --arch ${{ matrix.arch.electron }}
+    uses: ./.github/workflows/build.yaml
+    secrets: inherit
+    with:
+      publish: true
+      version: ${{ needs.tag.outputs.tag_without_v }}
 
   publish:
     name: 📢 Publish Release
@@ -152,7 +84,7 @@ jobs:
       - release-app
     runs-on: ubuntu-latest
     steps:
-      - name: Publish release
+      - name: 📢 Publish release
         run: |
           release_url=$(
             curl --fail \
