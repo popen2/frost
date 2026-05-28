@@ -71,7 +71,7 @@ export function updateTrayIcon() {
         {
             label: "About Frost",
             click() {
-                shell.openExternal("https://github.com/popen2/frost#readme");
+                shell.openExternal("https://popen2.github.io/frost/");
             },
         },
         {

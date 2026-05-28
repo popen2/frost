@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Frost — AWS Identity Center Credentials, Automated</title>
+  <meta name="description" content="Frost is a free, open-source desktop app that automates AWS Identity Center logins, manages profiles, and discovers EKS clusters." />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="#">
+      <img src="favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="#refresh">Refresh</a>
+      <a href="#profiles">Profiles</a>
+      <a href="#eks">EKS</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-inner">
+        <img class="hero-logo" src="favicon.svg" alt="Frost app icon" width="96" height="96" />
+        <span class="badge">Free &amp; open source · Apache 2.0</span>
+        <h1>
+          AWS Credentials,<br />
+          <span class="gradient-text">Automatically Refreshed.</span>
+        </h1>
+        <p class="lead">
+          Frost is a desktop app that takes the friction out of <span class="aws">AWS Identity Center</span>.
+          Give it your start URL — it handles the logins, writes a tidy
+          <code>~/.aws/config</code>, and even finds your EKS clusters along the way.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary btn-download" href="https://github.com/popen2/frost/releases/latest" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42L11 13.6V4a1 1 0 0 1 1-1Zm-8 15a1 1 0 0 1 1 1v1h14v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+            <span class="btn-stack">
+              <span class="btn-line"><span>Download</span><span class="btn-version js-btn-version">latest release</span></span>
+              <span class="btn-sub js-btn-release-date" hidden></span>
+            </span>
+          </a>
+          <a class="btn btn-ghost btn-download" href="https://github.com/popen2/frost" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/></svg>
+            <span class="btn-stack">
+              <span class="btn-line"><span>View source</span></span>
+              <span class="btn-sub js-btn-stars" hidden></span>
+            </span>
+          </a>
+        </div>
+        <p class="hero-platforms">Available for macOS &amp; Linux · Intel and Apple Silicon</p>
+      </div>
+    </section>
+
+    <section id="refresh" class="section">
+      <div class="section-header">
+        <h2>Credentials stay fresh, in the background</h2>
+        <p>
+          No more typing <code>aws sso login</code> mid-task. Frost watches your
+          session from the menu bar and refreshes it before it expires — so
+          your shell, scripts, and long-running jobs can keep working.
+        </p>
+      </div>
+
+      <div class="terminal-compare">
+        <article class="terminal" data-variant="manual">
+          <header class="terminal-bar">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <em>without Frost</em>
+          </header>
+          <pre><code><span class="t-dim">$</span> aws s3 sync ./build s3://prod
+upload: build/page-001.html
+<span class="t-dim">... time passes ...</span>
+upload: build/page-942.html
+<span class="t-err">An error occurred (ExpiredToken)</span>
+<span class="t-dim">$</span> aws sso login
+<span class="t-dim">$</span> aws s3 sync ./build s3://prod  <span class="t-dim"># start over</span></code></pre>
+        </article>
+
+        <article class="terminal" data-variant="frost">
+          <header class="terminal-bar">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <em>with Frost</em>
+          </header>
+          <pre><code><span class="t-dim">$</span> aws s3 sync ./build s3://prod
+upload: build/page-001.html
+<span class="t-dim">... time passes ...</span>
+upload: build/page-942.html
+<span class="t-dim">... credentials refresh silently ...</span>
+upload: build/page-1827.html
+<span class="t-ok">✓ done</span></code></pre>
+        </article>
+      </div>
+    </section>
+
+    <section id="profiles" class="section">
+      <div class="section-header">
+        <h2>Predictable profile names</h2>
+        <p>
+          Frost writes a profile to <code>~/.aws/config</code> for every
+          account + permission set combination. Names are deterministic —
+          built from the <span data-c="a1">account</span> and the
+          <span data-c="p1">permission set</span>, joined by a hyphen.
+        </p>
+      </div>
+
+      <pre class="config"><code><span class="c-comment"># ~/.aws/config — managed by Frost</span>
+
+<span class="c-section">[profile <span data-c="a1">acme-main</span>-<span data-c="p1">administratoraccess</span>]</span>
+sso_account_id = 111111111111
+sso_role_name  = AdministratorAccess
+
+<span class="c-section">[profile <span data-c="a1">acme-main</span>-<span data-c="p2">poweruseraccess</span>]</span>
+sso_account_id = 111111111111
+sso_role_name  = PowerUserAccess
+
+<span class="c-section">[profile <span data-c="a2">acme-testing</span>-<span data-c="p2">poweruseraccess</span>]</span>
+sso_account_id = 222222222222
+sso_role_name  = PowerUserAccess
+
+<span class="c-section">[profile <span data-c="a2">acme-testing</span>-<span data-c="p3">billingaccess</span>]</span>
+sso_account_id = 222222222222
+sso_role_name  = BillingAccess
+
+<span class="c-section">[profile <span data-c="a3">acme-production</span>-<span data-c="p1">administratoraccess</span>]</span>
+sso_account_id = 333333333333
+sso_role_name  = AdministratorAccess
+
+<span class="c-section">[profile <span data-c="a3">acme-production</span>-<span data-c="p2">poweruseraccess</span>]</span>
+sso_account_id = 333333333333
+sso_role_name  = PowerUserAccess</code></pre>
+
+      <div class="customize-intro">
+        Three optional knobs make these names even tighter.
+      </div>
+
+      <div class="subsection">
+        <h3><span class="step-badge">1</span><span>Shorter account names with <code>#short-name</code></span></h3>
+        <p>
+          Rename your AWS accounts to include a short alias, e.g.
+          <code>ACME Main (#main)</code>. Frost will use the short alias
+          when generating profile names.
+        </p>
+        <pre class="config"><code><span class="c-comment"># ~/.aws/config — after adding #short-name aliases</span>
+
+<span class="c-section">[profile <span class="circled" data-c="a1">main<svg class="doodle-circle" viewBox="0 0 120 50" preserveAspectRatio="none" aria-hidden="true"><path d="M60,7 C30,5 8,14 6,26 C7,40 30,47 60,47 C92,45 117,38 113,22 C108,9 80,4 56,8 C50,8 47,11 47,11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>-<span data-c="p1">administratoraccess</span>]</span>
+sso_account_id = 111111111111
+sso_role_name  = AdministratorAccess
+
+<span class="c-section">[profile <span class="circled" data-c="a2">test<svg class="doodle-circle" viewBox="0 0 120 50" preserveAspectRatio="none" aria-hidden="true"><path d="M60,7 C30,5 8,14 6,26 C7,40 30,47 60,47 C92,45 117,38 113,22 C108,9 80,4 56,8 C50,8 47,11 47,11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>-<span data-c="p2">poweruseraccess</span>]</span>
+sso_account_id = 222222222222
+sso_role_name  = PowerUserAccess
+
+<span class="c-section">[profile <span class="circled" data-c="a3">prod<svg class="doodle-circle" viewBox="0 0 120 50" preserveAspectRatio="none" aria-hidden="true"><path d="M60,7 C30,5 8,14 6,26 C7,40 30,47 60,47 C92,45 117,38 113,22 C108,9 80,4 56,8 C50,8 47,11 47,11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>-<span data-c="p1">administratoraccess</span>]</span>
+sso_account_id = 333333333333
+sso_role_name  = AdministratorAccess
+
+<span class="c-comment"># ...the account part is now just your short alias</span></code></pre>
+      </div>
+
+      <div class="subsection">
+        <h3><span class="step-badge">2</span>Built-in permission set shorthands</h3>
+        <p>
+          Frost also shortens the standard AWS-managed permission set names automatically.
+        </p>
+        <div class="mappings">
+          <div class="mapping"><code class="mapping-from">AdministratorAccess</code><span class="mapping-arrow" aria-hidden="true">→</span><span class="circled"><code class="mapping-to">admin</code><svg class="doodle-circle" viewBox="0 0 120 50" preserveAspectRatio="none" aria-hidden="true"><path d="M60,7 C30,5 8,14 6,26 C7,40 30,47 60,47 C92,45 117,38 113,22 C108,9 80,4 56,8 C50,8 47,11 47,11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+          <div class="mapping"><code class="mapping-from">Billing</code><span class="mapping-arrow" aria-hidden="true">→</span><code class="mapping-to">billing</code></div>
+          <div class="mapping"><code class="mapping-from">DatabaseAdministrator</code><span class="mapping-arrow" aria-hidden="true">→</span><code class="mapping-to">dba</code></div>
+          <div class="mapping"><code class="mapping-from">DataScientist</code><span class="mapping-arrow" aria-hidden="true">→</span><code class="mapping-to">datasci</code></div>
+          <div class="mapping"><code class="mapping-from">NetworkAdministrator</code><span class="mapping-arrow" aria-hidden="true">→</span><code class="mapping-to">netadmin</code></div>
+          <div class="mapping"><code class="mapping-from">PowerUserAccess</code><span class="mapping-arrow" aria-hidden="true">→</span><code class="mapping-to">poweruser</code></div>
+          <div class="mapping"><code class="mapping-from">SecurityAudit</code><span class="mapping-arrow" aria-hidden="true">→</span><code class="mapping-to">secaudit</code></div>
+          <div class="mapping"><code class="mapping-from">SupportUser</code><span class="mapping-arrow" aria-hidden="true">→</span><code class="mapping-to">support</code></div>
+          <div class="mapping"><code class="mapping-from">SystemAdministrator</code><span class="mapping-arrow" aria-hidden="true">→</span><code class="mapping-to">sysadmin</code></div>
+          <div class="mapping"><code class="mapping-from">ViewOnlyAccess</code><span class="mapping-arrow" aria-hidden="true">→</span><code class="mapping-to">viewonly</code></div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3><span class="step-badge">3</span>Per-account default region</h3>
+        <p>
+          If an account belongs in a different region than your Identity Center, add
+          <code>@region</code> to the account name. For example,
+          <code>ACME Testing (#test @eu-west-1)</code> tells Frost to write
+          <code>region = eu-west-1</code> for that account's profiles —
+          so you can drop <code>--region</code> from your CLI calls.
+        </p>
+        <pre class="config"><code><span class="c-comment"># ~/.aws/config</span>
+<span class="c-section">[profile test-poweruser]</span>
+sso_session    = frost
+sso_account_id = 123456789012
+sso_role_name  = PowerUserAccess
+<span class="circled"><span class="c-key">region</span>         = <span class="c-val">eu-west-1</span><svg class="doodle-circle" viewBox="0 0 120 50" preserveAspectRatio="none" aria-hidden="true"><path d="M60,7 C30,5 8,14 6,26 C7,40 30,47 60,47 C92,45 117,38 113,22 C108,9 80,4 56,8 C50,8 47,11 47,11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></code></pre>
+      </div>
+
+      <div class="evolution">
+        <h3>Bring it together</h3>
+        <p>The same account &amp; permission set, all three knobs applied:</p>
+        <div class="evolution-rows">
+          <div class="evo-row">
+            <span class="evo-label">default</span>
+            <code class="evo-name"><span data-c="a3">acme-production</span>-<span data-c="p1">administratoraccess</span></code>
+          </div>
+          <div class="evo-row">
+            <span class="evo-label">+ <code>#prod</code></span>
+            <code class="evo-name"><span data-c="a3">prod</span>-<span data-c="p1">administratoraccess</span></code>
+          </div>
+          <div class="evo-row evo-final">
+            <span class="evo-label">+ shorthand</span>
+            <code class="evo-name"><span data-c="a3">prod</span>-<span data-c="p1">admin</span></code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="eks" class="section">
+      <div class="section-header">
+        <h2>EKS clusters, ready for <code>kubectl</code></h2>
+        <p>
+          On every credential refresh, Frost scans your accounts for EKS
+          clusters and keeps <code>~/.kube/config</code> in sync — automatically.
+          New clusters appear in <code>kubectl</code> without any setup steps.
+        </p>
+      </div>
+
+      <div class="grid grid-2">
+        <article class="card">
+          <h3>Automatic discovery</h3>
+          <p>
+            Frost lists every AWS region and tries <code>eks:ListClusters</code>
+            with each detected profile. Successful calls land in your kubeconfig;
+            the rest are silently ignored.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Batteries included</h3>
+          <p>
+            Authentication uses a bundled copy of
+            <a href="https://github.com/kubernetes-sigs/aws-iam-authenticator" target="_blank" rel="noopener">AWS IAM Authenticator</a>,
+            so <code>kubectl</code> works straight out of the box.
+          </p>
+        </article>
+      </div>
+
+      <div class="subsection">
+        <h3>The same names for everyone on your team</h3>
+        <p>
+          Context names are derived deterministically from cluster info, so every
+          teammate ends up with the same names in their kubeconfig. Scripts,
+          runbooks, and CI rules can reference clusters by short, predictable
+          names — no per-developer ARNs or aliases to coordinate.
+        </p>
+
+        <div class="terminal-solo">
+          <article class="terminal" data-variant="frost">
+            <header class="terminal-bar">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              <em>kubectl</em>
+            </header>
+<pre><code><span class="t-dim">$</span> kubectl config get-contexts -o name
+production
+staging
+analytics
+
+<span class="t-dim"># a script anyone on the team can run, unchanged</span>
+<span class="t-dim">$</span> kubectl --context production rollout restart deploy/api
+deployment.apps/api restarted</code></pre>
+          </article>
+        </div>
+
+        <p class="kctx-note">
+          When clusters share a name across regions, accounts, or roles, Frost
+          adds back only what's required to tell them apart — for example,
+          <code>production:eu-west-1</code>.
+        </p>
+      </div>
+    </section>
+
+    <section class="outro-section">
+      <div class="snowflake-wrap" aria-hidden="true">
+        <svg class="outro-snowflake" viewBox="2 2 14 14" xmlns="http://www.w3.org/2000/svg">
+          <g transform="matrix(1.27745,0,0,1.44877,-0.118489,14.6876)">
+            <g transform="matrix(21.8461,0,0,21.8461,1.87311,7.09554)">
+              <path d="M0.293,-0.57L0.424,-0.613L0.454,-0.518L0.323,-0.476L0.406,-0.362L0.323,-0.301L0.239,-0.416L0.158,-0.306L0.077,-0.367L0.161,-0.476L0.028,-0.522L0.06,-0.617L0.191,-0.57L0.191,-0.708L0.293,-0.708L0.293,-0.57Z" fill="currentColor"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div class="outro-buttons">
+        <a class="btn btn-primary btn-download" href="https://github.com/popen2/frost/releases/latest" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42L11 13.6V4a1 1 0 0 1 1-1Zm-8 15a1 1 0 0 1 1 1v1h14v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+          <span class="btn-stack">
+            <span class="btn-line"><span>Download</span><span class="btn-version js-btn-version">latest release</span></span>
+            <span class="btn-sub js-btn-release-date" hidden></span>
+          </span>
+        </a>
+        <a class="btn btn-ghost btn-download" href="https://github.com/popen2/frost" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/></svg>
+          <span class="btn-stack">
+            <span class="btn-line"><span>View source</span></span>
+            <span class="btn-sub js-btn-stars" hidden></span>
+          </span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      const CACHE_TTL = 60 * 60 * 1000;
+      const RELEASE_URL = 'https://api.github.com/repos/popen2/frost/releases/latest';
+      const REPO_URL = 'https://api.github.com/repos/popen2/frost';
+      const HEADERS = { 'Accept': 'application/vnd.github+json' };
+
+      function setEach(selector, fn) {
+        document.querySelectorAll(selector).forEach(fn);
+      }
+
+      function renderRelease(data) {
+        if (!data || !data.tag_name) return;
+        setEach('.js-btn-version', function (el) { el.textContent = data.tag_name; });
+        if (data.published_at) {
+          const d = new Date(data.published_at);
+          const formatted = 'Released ' + d.toLocaleDateString(undefined, {
+            year: 'numeric', month: 'long', day: 'numeric'
+          });
+          setEach('.js-btn-release-date', function (el) {
+            el.textContent = formatted;
+            el.hidden = false;
+          });
+        }
+      }
+
+      function renderRepo(data) {
+        if (!data || typeof data.stargazers_count !== 'number') return;
+        const n = data.stargazers_count;
+        const label = '★ ' + n.toLocaleString() + (n === 1 ? ' star' : ' stars');
+        setEach('.js-btn-stars', function (el) {
+          el.textContent = label;
+          el.hidden = false;
+        });
+      }
+
+      function fromCache(key) {
+        try {
+          const cached = JSON.parse(sessionStorage.getItem(key) || 'null');
+          if (cached && cached.at > Date.now() - CACHE_TTL) return cached.data;
+        } catch (e) {}
+        return null;
+      }
+
+      function loadEndpoint(url, key, render) {
+        const cached = fromCache(key);
+        if (cached) {
+          render(cached);
+          return;
+        }
+        fetch(url, { headers: HEADERS })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+            if (!data) return;
+            render(data);
+            try { sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data: data })); } catch (e) {}
+          })
+          .catch(function () {});
+      }
+
+      loadEndpoint(RELEASE_URL, 'frost-latest-release', renderRelease);
+      loadEndpoint(REPO_URL, 'frost-repo-info', renderRepo);
+    })();
+  </script>
+</body>
+</html>
