@@ -67,34 +67,40 @@ The project is **ESM** (`"type": "module"` in package.json, `tsconfig`
 
 The `aws-iam-authenticator` binary is bundled into the app (`extraResources` in
 `forge.config.js`) so users don't need the AWS CLI. It is **not** committed —
-the release workflow downloads it at build time. The version is pinned in
-`.github/workflows/release.yaml` as `AWS_IAM_AUTHENTICATOR_VERSION`. Release
+the build workflow downloads it at build time. The version is pinned as
+`AWS_IAM_AUTHENTICATOR_VERSION` in `.github/workflows/build.yaml`. Release
 asset naming is `aws-iam-authenticator_<version>_<os>_<arch>` (os: `darwin` |
 `linux`; arch: `amd64` | `arm64`). At runtime the path is resolved in
 `src/kubeconfig.ts` (overridable via `AWS_IAM_AUTHENTICATOR_PATH`).
 
 ## CI / release pipeline
 
-There are two workflows, and they share the same matrix and build steps:
+Three workflows, with the matrix build factored out as a reusable workflow:
 
+- **`.github/workflows/build.yaml`** (reusable, `workflow_call`) — the
+  darwin/linux × x64/arm64 matrix that checks out, installs, optionally stamps
+  a version, builds, downloads the IAM authenticator, sets up the macOS
+  signing keychain, and runs either `electron-forge make` (artifact upload) or
+  `electron-forge publish` based on the `publish` input. Owns
+  `AWS_IAM_AUTHENTICATOR_VERSION` and the matrix definition. Callers should
+  pass `secrets: inherit` so it can read `MAC_CERTS`, `APPLE_API_*`, and
+  `GITHUB_TOKEN` without re-declaring them.
 - **`.github/workflows/ci.yaml`** (🔍 PR Build) runs on **pull requests to
-  `main`**. It lints, then builds the full matrix (darwin/linux × x64/arm64)
-  and runs `electron-forge make` — packaging, **signing and notarizing** the
-  macOS app and producing the distributable zips (uploaded as artifacts). It
-  does **not** tag or publish. This is the pre-merge "does the whole release
-  build actually work" check. Notarization needs the Apple secrets, which are
-  only available on same-repo PRs (not forks).
+  `main`**. Lints, then calls `build.yaml` with `publish: false` — packages,
+  **signs and notarizes** the macOS app, and uploads the distributable zips
+  as PR artifacts. Never tags or publishes. Notarization needs the Apple
+  secrets, which are only available on same-repo PRs (not forks).
 - **`.github/workflows/release.yaml`** (🚀 Release Version) runs on **push to
-  `main`**. It lints/builds, auto-bumps a **patch** git tag
-  (`anothrNick/github-tag-action`), builds the same matrix but runs
-  `electron-forge publish`, and flips the GitHub release from draft to
-  published.
+  `main`**. Lints, auto-bumps a **patch** git tag
+  (`anothrNick/github-tag-action`), calls `build.yaml` with `publish: true`
+  and the tag as the `version` input, then flips the GitHub release from
+  draft to published.
 
 The app version in `package.json` is overwritten in CI from the tag
 (`npm version --no-git-tag-version`), so **don't bump it manually**. The build
-runner Node version is `NODEJS_VERSION` in each workflow (must satisfy the
-toolchain: ESLint 10, TypeScript 6, Electron 42). Keep `NODEJS_VERSION` and
-`AWS_IAM_AUTHENTICATOR_VERSION` in sync between the two workflows.
+runner Node version is `NODEJS_VERSION` (declared in each of the three
+workflow files — keep them in sync). It must satisfy the toolchain: ESLint 10,
+TypeScript 6, Electron 42.
 
 ## macOS signing/notarization (Forge 7)
 
