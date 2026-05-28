@@ -1,18 +1,21 @@
-name: 🔍 PR Build
+name: 🔍 Build
 
 # Validates the full release build (all platforms, including macOS signing and
-# notarization) on pull requests, so we can confirm everything works before
-# merging to main. Lints, then delegates the matrix build to build.yaml in
-# "make" mode (signs, notarizes, zips, uploads artifacts; never tags or
-# publishes).
+# notarization) on pull requests and on every push to main, so we can confirm
+# everything works before drafting a release. Lints, then delegates the matrix
+# build to build.yaml in "make" mode (signs, notarizes, zips, uploads
+# artifacts; never tags or publishes).
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
 
 concurrency:
-  group: pr-build-${{ github.ref }}
+  group: build-${{ github.ref }}
   cancel-in-progress: true
 
 env:

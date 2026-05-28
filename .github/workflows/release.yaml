@@ -1,101 +1,36 @@
 name: 🚀 Release Version
 
-on:
-  push:
-    branches:
-      - main
+# Fires when a draft release is published from the GitHub UI. The draft is
+# maintained by release-drafter.yaml; ci.yaml validates each push to main
+# before we get here. This workflow just rebuilds the matrix in publish mode
+# and uploads signed/notarized distributables to the already-published
+# release.
 
-env:
-  NODEJS_VERSION: 22
+on:
+  release:
+    types:
+      - published
 
 jobs:
-  test:
-    name: 🧹 Lint app
+  prep:
+    name: 🔖 Resolve release version
     runs-on: ubuntu-latest
-    steps:
-      - name: 📥 Checkout sources
-        uses: actions/checkout@v6
-
-      - name: ⚙️ Install Node.js and NPM
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODEJS_VERSION }}
-          cache: npm
-
-      - name: 📦 Install node modules
-        run: |
-          npm ci
-
-      - name: 🔨 Build app
-        run: |
-          npm run build
-
-      - name: 🧹 Run eslint
-        run: |
-          npm run lint
-
-  tag:
-    name: 🏷 Create a tag
-    runs-on: ubuntu-latest
-    needs:
-      - test
-    steps:
-      - name: 📥 Checkout sources
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: "0"
-
-      - id: tag-without-v
-        name: 🔖 Get version without v
-        uses: anothrNick/github-tag-action@1.75.0
-        env:
-          WITH_V: false
-          DRY_RUN: true
-          DEFAULT_BUMP: patch
-          RELEASE_BRANCHES: main
-
-      - id: tag-with-v
-        name: 🏷 Bump version and push tag
-        uses: anothrNick/github-tag-action@1.75.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WITH_V: true
-          DEFAULT_BUMP: patch
-          RELEASE_BRANCHES: main
-
     outputs:
-      tag: ${{ steps.tag-with-v.outputs.new_tag }}
-      tag_without_v: ${{ steps.tag-without-v.outputs.new_tag }}
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        name: 🔖 Strip leading v from tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
   release-app:
     name: 📦 Release App
     needs:
-      - tag
+      - prep
     uses: ./.github/workflows/build.yaml
     secrets: inherit
     with:
       publish: true
-      version: ${{ needs.tag.outputs.tag_without_v }}
-
-  publish:
-    name: 📢 Publish Release
-    needs:
-      - tag
-      - release-app
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📢 Publish release
-        run: |
-          release_url=$(
-            curl --fail \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases" |
-              jq -r '.[] | select(.tag_name == "${{ needs.tag.outputs.tag }}") | .url'
-          )
-          curl --fail \
-            -X PATCH \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "${release_url}" \
-            -d '{"draft":false}'
+      version: ${{ needs.prep.outputs.version }}
