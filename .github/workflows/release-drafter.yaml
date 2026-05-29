@@ -28,5 +28,9 @@ jobs:
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
+          # On PR events we only want the autolabeler to run. Without this,
+          # the releaser tries to update the draft with target_commitish set
+          # to refs/pull/N/merge (not a real branch) and GitHub rejects it.
+          disable-releaser: ${{ github.event_name == 'pull_request' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
