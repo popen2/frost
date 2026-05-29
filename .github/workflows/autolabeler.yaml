@@ -1,0 +1,25 @@
+name: 🏷️ Autolabel Pull Requests
+
+# Applies release-drafter labels (feature/fix/chore) to incoming PRs based on
+# branch-name patterns from .github/release-drafter.yml. Labels feed into the
+# changelog categories that release-drafter.yaml later groups for the draft.
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  pull-requests: write
+
+jobs:
+  autolabel:
+    name: 🏷️ Autolabel pull request
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🏷️ Run autolabeler
+        uses: release-drafter/release-drafter/autolabeler@v7
+        with:
+          config-name: release-drafter.yml

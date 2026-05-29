@@ -4,7 +4,8 @@ name: 🔍 Build
 # notarization) on pull requests and on every push to main, so we can confirm
 # everything works before drafting a release. Lints, then delegates the matrix
 # build to build.yaml in "make" mode (signs, notarizes, zips, uploads
-# artifacts; never tags or publishes).
+# artifacts; never tags or publishes). On pushes to main, also updates the
+# draft release notes that release.yaml will pick up when published.
 
 on:
   push:
@@ -53,3 +54,15 @@ jobs:
     secrets: inherit
     with:
       publish: false
+
+  draft:
+    name: 📝 Update draft release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 📝 Run release-drafter
+        uses: release-drafter/release-drafter@v7
+        with:
+          config-name: release-drafter.yml
