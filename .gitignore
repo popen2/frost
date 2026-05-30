@@ -1,2 +1,12 @@
-/node_modules
-/dist
+/target
+Cargo.lock.bak
+
+# Tauri generated artifacts
+/src-tauri/gen
+/src-tauri/target
+
+# Temporary release inspection
+/.frost-release-check
+
+# Local Claude Code session state
+/.claude
