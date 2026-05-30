@@ -1,11 +1,10 @@
 name: 🔍 Build
 
-# Validates the full release build (all platforms, including macOS signing and
-# notarization) on pull requests and on every push to main, so we can confirm
-# everything works before drafting a release. Lints, then delegates the matrix
-# build to build.yaml in "make" mode (signs, notarizes, zips, uploads
-# artifacts; never tags or publishes). On pushes to main, also updates the
-# draft release notes that release.yaml will pick up when published.
+# Validates the full release build (Rust lint + cargo test, then the signed +
+# notarized Tauri matrix) on pull requests and on every push to main, so we
+# can confirm everything works before drafting a release. On pushes to main,
+# also updates the draft release notes that release.yaml will pick up when
+# published.
 
 on:
   push:
@@ -19,37 +18,35 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  NODEJS_VERSION: 22
-
 jobs:
-  lint:
-    name: 🧹 Lint app
+  rust-lint:
+    name: 🦀 Lint workspace
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout sources
         uses: actions/checkout@v6
 
-      - name: ⚙️ Install Node.js and NPM
-        uses: actions/setup-node@v6
+      - name: ⚙️ Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          node-version: ${{ env.NODEJS_VERSION }}
-          cache: npm
+          cache: false
 
-      - name: 📦 Install node modules
-        run: |
-          npm ci
+      - name: 💾 Cache cargo
+        uses: Swatinem/rust-cache@v2
 
-      - name: 🔨 Build app
-        run: |
-          npm run build
+      - name: 🎨 cargo fmt
+        run: cargo fmt --all -- --check
 
-      - name: 🧹 Run eslint
-        run: |
-          npm run lint
+      - name: 📎 cargo clippy
+        # Only the library crates — src-tauri needs webkit2gtk and is
+        # exercised end-to-end by the build job below.
+        run: cargo clippy -p frost-core -p frost-aws --all-targets -- -D warnings
+
+      - name: 🧪 cargo test
+        run: cargo test -p frost-core -p frost-aws
 
   build:
-    needs: lint
+    needs: rust-lint
     uses: ./.github/workflows/build.yaml
     secrets: inherit
     with:

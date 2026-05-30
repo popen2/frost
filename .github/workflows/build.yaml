@@ -1,118 +1,279 @@
 name: Build
 
-# Reusable build matrix shared by ci.yaml (PR validation) and release.yaml
-# (release publish). Callers should pass `secrets: inherit` so this workflow
-# can read MAC_CERTS, APPLE_API_*, and GITHUB_TOKEN without re-declaring them.
+# Reusable Tauri build matrix shared by ci.yaml (PR/main validation) and
+# release.yaml (release publish). Callers should pass `secrets: inherit` so
+# this workflow can read MAC_CERTS, APPLE_API_*, TAURI_SIGNING_*, and
+# GITHUB_TOKEN without re-declaring them.
+#
+# Required repository secrets:
+#   MAC_CERTS                       - base64 .p12 (Developer ID Application)
+#   MAC_CERTS_PASSWORD              - password for the .p12
+#   APPLE_API_KEY                   - notarytool API Key *ID* (e.g. ABCDE12345)
+#   APPLE_API_ISSUER                - notarytool API Issuer UUID
+#   APPLE_API_AUTHKEY_BASE64        - base64 of the AuthKey_<ID>.p8 file
+#   TAURI_SIGNING_PRIVATE_KEY       - ed25519 update key (base64 or path)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD - password for that key
 
 on:
   workflow_call:
     inputs:
       publish:
         description: >-
-          If true, run `electron-forge publish` (release). If false, run
-          `electron-forge make` and upload the distributables as artifacts.
+          If true, attach the signed bundles + updater manifest to the GitHub
+          release tagged v<version>. If false, only build and upload as
+          workflow artifacts (and skip the updater bundle so the signing key
+          isn't required).
         type: boolean
         default: false
       version:
         description: >-
-          If set, run `npm version --no-git-tag-version <version>` before
-          building. Used by the release pipeline to stamp the auto-bumped tag.
+          Version to stamp into Cargo.toml and tauri.conf.json before
+          building. Required when `publish` is true.
         type: string
         default: ""
 
 env:
-  NODEJS_VERSION: 22
+  RUST_BACKTRACE: 1
   AWS_IAM_AUTHENTICATOR_VERSION: 0.7.16
 
 jobs:
   build:
-    name: 📦 Build (${{ matrix.os.name }} ${{ matrix.arch.name }})
+    name: 📦 Tauri (${{ matrix.os.name }} ${{ matrix.arch.name }})
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - name: darwin
-            runs-on: macos-latest
-          - name: linux
-            runs-on: ubuntu-latest
-        arch:
-          - name: x86_64
-            aws: amd64
-            electron: x64
-          - name: arm64
-            aws: arm64
-            electron: arm64
+        include:
+          - os: { name: darwin, runs-on: macos-latest }
+            arch: { name: aarch64, target: aarch64-apple-darwin, aws: arm64 }
+          - os: { name: darwin, runs-on: macos-latest }
+            arch: { name: x86_64, target: x86_64-apple-darwin, aws: amd64 }
+          - os: { name: linux, runs-on: ubuntu-latest }
+            arch: { name: x86_64, target: x86_64-unknown-linux-gnu, aws: amd64 }
+          - os: { name: linux, runs-on: ubuntu-24.04-arm }
+            arch: { name: aarch64, target: aarch64-unknown-linux-gnu, aws: arm64 }
     runs-on: ${{ matrix.os.runs-on }}
+    permissions:
+      contents: write
     steps:
-      - name: 📥 Checkout code
+      - name: 📥 Checkout
         uses: actions/checkout@v6
 
-      - name: ⚙️ Install Node.js and NPM
-        uses: actions/setup-node@v6
+      - name: ⚙️ Install Rust toolchain
+        # Channel + components come from rust-toolchain.toml; we just add
+        # the per-matrix target.
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          node-version: ${{ env.NODEJS_VERSION }}
-          cache: npm
+          target: ${{ matrix.arch.target }}
+          cache: false
 
-      - name: 📦 Install node modules
+      - name: 💾 Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          # Per-target cache so darwin-arm64 and darwin-x64 don't clobber each
+          # other on macos-latest runners.
+          key: ${{ matrix.arch.target }}
+          # By default the action skips saving the cache on a failed run.
+          # When builds keep failing late (signing/notarize/upload) we
+          # therefore never get a cargo cache, which is exactly what
+          # happened — flip it on so the deps cache survives across red
+          # builds and the next attempt doesn't have to rebuild from scratch.
+          cache-on-failure: true
+
+      - name: 🐧 Install Linux system deps
+        if: matrix.os.name == 'linux'
         run: |
-          npm ci
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
 
-      - name: 🔖 Set version
-        if: ${{ inputs.version != '' }}
-        run: |
-          npm version --no-git-tag-version ${{ inputs.version }}
-
-      - name: 🔨 Build app
-        run: |
-          npm run build
-
-      - name: ⬇️ Download aws-iam-authenticator
-        run: |
-          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${{ matrix.os.name }}_${{ matrix.arch.aws }}"
-          TARGET="aws-iam-authenticator"
-          curl -L "${URL}" -o "${TARGET}"
-          chmod a+x "${TARGET}"
-
-      - name: 🔐 Add MacOS Certificates
-        if: runner.os == 'macOS'
+      - name: 🔐 Import Developer ID into a keychain (macOS)
+        # Apple notarization rejects bundles that contain *any* unsigned
+        # Mach-O — including third-party binaries we ship as resources (in
+        # our case aws-iam-authenticator, which upstream ships unsigned).
+        # We need the cert available *before* we download it so we can
+        # codesign it in the next step. tauri-action will still set up its
+        # own keychain on top later; identities from multiple keychains in
+        # the search list all work for codesign.
+        if: matrix.os.name == 'darwin'
         env:
           MAC_CERTS: ${{ secrets.MAC_CERTS }}
           MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
         run: |
-          KEY_CHAIN=build.keychain
-          MACOS_CERT_P12_FILE=certificate.p12
-          echo $MAC_CERTS | base64 --decode > $MACOS_CERT_P12_FILE
-          security create-keychain -p actions $KEY_CHAIN
-          security default-keychain -s $KEY_CHAIN
-          security unlock-keychain -p actions $KEY_CHAIN
-          security import $MACOS_CERT_P12_FILE -k $KEY_CHAIN -P $MAC_CERTS_PASSWORD -T /usr/bin/codesign;
-          security set-key-partition-list -S apple-tool:,apple: -s -k actions $KEY_CHAIN
-          rm -rf *.p12
+          KEYCHAIN=build.keychain
+          KEYCHAIN_PASSWORD=actions
+          CERT_FILE=$(mktemp -t cert).p12
+          echo "$MAC_CERTS" | base64 --decode > "$CERT_FILE"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security import "$CERT_FILE" -k "$KEYCHAIN" -P "$MAC_CERTS_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          rm -f "$CERT_FILE"
 
-          mkdir -p ~/private_keys
-          echo "${{ secrets.APPLE_API_AUTHKEY_BASE64 }}" | base64 -d > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
-
-      - name: 🛠️ Make app (sign + notarize)
-        if: ${{ !inputs.publish }}
+      - name: ⬇️ Bundle aws-iam-authenticator
         env:
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          OS: ${{ matrix.os.name }}
+          AWS_ARCH: ${{ matrix.arch.aws }}
         run: |
-          ./node_modules/.bin/electron-forge make --arch ${{ matrix.arch.electron }}
+          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${OS}_${AWS_ARCH}"
+          mkdir -p src-tauri/resources
+          curl -fL "$URL" -o src-tauri/resources/aws-iam-authenticator
+          chmod a+x src-tauri/resources/aws-iam-authenticator
+          if [ "$OS" = "darwin" ]; then
+            # Re-sign with our Developer ID + hardened runtime + timestamp so
+            # Apple notarization accepts the bundle. The keychain was set up
+            # in the previous step.
+            codesign --force --options runtime --timestamp \
+              --sign 'Developer ID Application: Zohar Zilberman (8ENBEJ25SM)' \
+              src-tauri/resources/aws-iam-authenticator
+            codesign --verify --verbose src-tauri/resources/aws-iam-authenticator
+          fi
 
-      - name: 🚀 Publish app
+      - name: 🔖 Stamp version
+        if: ${{ inputs.version != '' }}
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # The committed placeholder is `version = "0.0.0"` in both files;
+          # sed replaces the bare TOML entry under [workspace.package] (the
+          # workspace.dependencies entries use `{ version = "1", ... }` so
+          # they don't match), jq replaces the JSON field by name.
+          sed -i.bak -E "s/^version = \"0\\.0\\.0\"$/version = \"$VERSION\"/" Cargo.toml
+          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
+          mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
+          rm -f Cargo.toml.bak
+
+      - name: 🔄 Enable updater artifacts
+        # Release-only: turn on bundle.createUpdaterArtifacts so the build
+        # emits the signed updater archive + .sig (the Tauri v2 mechanism —
+        # there is no "updater" bundle target). Edited in place like the
+        # version stamp above; left off in the committed config so PR builds
+        # don't need the ed25519 signing key.
         if: ${{ inputs.publish }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          ./node_modules/.bin/electron-forge publish --arch ${{ matrix.arch.electron }}
+          jq '.bundle.createUpdaterArtifacts = true' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
+          mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
 
-      - name: 📤 Upload distributables
-        if: ${{ !inputs.publish }}
-        uses: actions/upload-artifact@v7
+      - name: 🔐 Stage Apple API key for notarization
+        if: matrix.os.name == 'darwin'
+        env:
+          KEY_B64: ${{ secrets.APPLE_API_AUTHKEY_BASE64 }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          mkdir -p ~/private_keys
+          P8="$HOME/private_keys/AuthKey_${KEY_ID}.p8"
+          echo "$KEY_B64" | base64 -d > "$P8"
+          chmod 600 "$P8"
+          echo "APPLE_API_KEY_PATH=$P8" >> "$GITHUB_ENV"
+
+      - name: 🔨 Build & sign
+        uses: tauri-apps/tauri-action@v0
+        env:
+          # Apple Developer ID code signing — tauri-action imports the .p12
+          # into a temporary keychain when these are set.
+          APPLE_CERTIFICATE: ${{ secrets.MAC_CERTS }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: 'Developer ID Application: Zohar Zilberman (8ENBEJ25SM)'
+          # notarytool API-key auth (key path written in the previous step).
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          # APPLE_API_KEY_PATH comes from the 🔐 Stage step's GITHUB_ENV.
+          # Tauri updater signing (ed25519). Only consumed on release builds,
+          # where the previous step turned on createUpdaterArtifacts; PR builds
+          # leave the flag off and don't need these.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          name: frost-${{ matrix.os.name }}-${{ matrix.arch.name }}
-          path: out/make/**/*
+          projectPath: src-tauri
+          # The .app + .dmg targets come from tauri.conf.json. Updater
+          # artifacts are gated by createUpdaterArtifacts, flipped on for
+          # release by the "Enable updater artifacts" step above.
+          args: --target ${{ matrix.arch.target }}
+          # When publishing, attach to v<version>; empty tagName tells
+          # tauri-action to skip release creation entirely.
+          tagName: ${{ inputs.publish && format('v{0}', inputs.version) || '' }}
+          releaseName: ${{ inputs.publish && format('Frost v{0}', inputs.version) || '' }}
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: ${{ inputs.publish }}
+
+      - name: ✅ Verify notarization staple on the .app
+        # Confirms the produced .app has a stapled notarization ticket — the
+        # piece that lets Gatekeeper verify offline on restricted / MDM-managed
+        # corporate Macs. Tauri only staples the .app (not the .dmg
+        # container), so we only validate that. Skipped on fork PRs (where
+        # signing secrets aren't available, so signing/notarize didn't run in
+        # the first place).
+        if: matrix.os.name == 'darwin'
+        env:
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+          BUNDLE_DIR: target/${{ matrix.arch.target }}/release/bundle
+        run: |
+          if [ -z "$MAC_CERTS" ]; then
+            echo "MAC_CERTS not available (fork PR?), skipping staple validation"
+            exit 0
+          fi
+          found=0
+          while IFS= read -r -d '' app; do
+            echo "→ xcrun stapler validate \"$app\""
+            xcrun stapler validate "$app"
+            found=$((found+1))
+          done < <(find "$BUNDLE_DIR" -name '*.app' -print0)
+          if [ "$found" -eq 0 ]; then
+            echo "::error::no .app bundles found under $BUNDLE_DIR"
+            exit 1
+          fi
+          echo "✓ validated $found .app bundle(s)"
+
+      - name: 🛡️ Confirm Gatekeeper would accept the .app
+        # spctl runs the exact check Gatekeeper does at launch time. With
+        # `--type execute` and a signed + notarized bundle, this returns 0
+        # only if a Mac set to "App Store and identified developers" (the
+        # default, and what most corporate MDMs enforce) would accept the
+        # bundle. Strongest possible CI proof that the build will launch
+        # on a locked-down corporate Mac.
+        if: matrix.os.name == 'darwin'
+        env:
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+          BUNDLE_DIR: target/${{ matrix.arch.target }}/release/bundle
+        run: |
+          if [ -z "$MAC_CERTS" ]; then
+            echo "MAC_CERTS not available (fork PR?), skipping Gatekeeper assessment"
+            exit 0
+          fi
+          while IFS= read -r -d '' app; do
+            echo "→ spctl --assess --type execute --verbose=4 \"$app\""
+            spctl --assess --type execute --verbose=4 "$app"
+          done < <(find "$BUNDLE_DIR" -name '*.app' -print0)
+
+      - name: 🪲 List the bundle dir (debug)
+        # Confirms what's actually on disk just before upload-artifact runs.
+        # Previous PR builds reported "no files found" even though Tauri's
+        # output named files under target/<arch>/release/bundle/... — this
+        # makes the discrepancy (if any) explicit.
+        if: ${{ !inputs.publish }}
+        run: |
+          echo "::group::pwd / workspace"
+          echo "pwd=$(pwd)"
+          echo "github.workspace=${{ github.workspace }}"
+          echo "::endgroup::"
+          echo "::group::ls -laR target/${{ matrix.arch.target }}/release/bundle (if exists)"
+          ls -laR "target/${{ matrix.arch.target }}/release/bundle/" 2>&1 | head -80 || echo "no bundle dir"
+          echo "::endgroup::"
+          echo "::group::find files under bundle"
+          find "target/${{ matrix.arch.target }}/release/bundle" -maxdepth 4 -type f 2>&1 | head -40 || true
+          echo "::endgroup::"
+
+      - name: 📤 Upload bundles as artifact
+        if: ${{ !inputs.publish }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frost-tauri-${{ matrix.os.name }}-${{ matrix.arch.name }}
+          path: ${{ github.workspace }}/target/${{ matrix.arch.target }}/release/bundle/**
           if-no-files-found: error

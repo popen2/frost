@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to (re)build, e.g. v0.2.15"
+        description: "Release tag to (re)build, e.g. v0.3.0"
         required: true
         type: string
 
