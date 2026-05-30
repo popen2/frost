@@ -46,3 +46,8 @@ pub async fn close_settings(app: AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn list_regions() -> &'static [&'static str] {
+    frost_aws::eks::REGIONS
+}

@@ -8,8 +8,8 @@
       body { margin: 0; padding: 20px 24px; min-width: 420px; }
       h1 { font-size: 14px; font-weight: 600; margin: 0 0 16px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
       label { display: block; font-size: 12px; margin: 12px 0 4px; opacity: 0.7; }
-      input { width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 13px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 6px; background: transparent; color: inherit; }
-      input:focus { outline: 2px solid #0a84ff; outline-offset: 0; }
+      input, select { width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 13px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 6px; background: transparent; color: inherit; font-family: inherit; }
+      input:focus, select:focus { outline: 2px solid #0a84ff; outline-offset: 0; }
       .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
       button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 0; cursor: pointer; }
       button.primary { background: #0a84ff; color: white; }
@@ -24,7 +24,7 @@
       <input id="start_url" name="start_url" type="url" required placeholder="https://my-org.awsapps.com/start" />
 
       <label for="region">SSO Region</label>
-      <input id="region" name="region" type="text" required placeholder="us-east-1" value="us-east-1" />
+      <select id="region" name="region" required></select>
 
       <div id="status"></div>
       <div class="row">
@@ -36,16 +36,32 @@
     <script>
       const { invoke } = window.__TAURI__.core;
       const status = document.getElementById("status");
+      const regionEl = document.getElementById("region");
 
       async function load() {
+        let regions = [];
         try {
-          const cfg = await invoke("get_user_config");
-          if (cfg) {
-            document.getElementById("start_url").value = cfg.start_url ?? "";
-            document.getElementById("region").value = cfg.region ?? "us-east-1";
-          }
+          regions = await invoke("list_regions");
+        } catch (e) {
+          status.textContent = `Could not load regions: ${e}`;
+        }
+        let cfg = null;
+        try {
+          cfg = await invoke("get_user_config");
         } catch (e) {
           status.textContent = `Could not load: ${e}`;
+        }
+        const selected = cfg?.region ?? "us-east-1";
+        regionEl.innerHTML = "";
+        for (const r of regions) {
+          const opt = document.createElement("option");
+          opt.value = r;
+          opt.textContent = r;
+          if (r === selected) opt.selected = true;
+          regionEl.appendChild(opt);
+        }
+        if (cfg) {
+          document.getElementById("start_url").value = cfg.start_url ?? "";
         }
       }
 

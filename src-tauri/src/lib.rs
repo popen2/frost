@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 use tauri::{
-    AppHandle, Manager, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem},
     tray::TrayIconBuilder,
@@ -30,6 +30,7 @@ pub fn run() {
             commands::save_user_config,
             commands::refresh_now,
             commands::close_settings,
+            commands::list_regions,
         ])
         .setup(|app| {
             // Menu-bar agent: no Dock tile, no CMD-Tab entry.
@@ -105,8 +106,20 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        // Keep the app alive in the tray after the settings window closes.
+        // Without a custom handler Tauri exits when the last window goes
+        // away — fine for a normal app, wrong for a menu-bar agent whose
+        // primary UI is the tray, not the settings dialog. `app.exit(0)`
+        // from the Quit menu bypasses this (it calls `std::process::exit`
+        // directly), so prevent_exit() only swallows the implicit
+        // last-window-closed exit.
+        .run(|_app, event| {
+            if let RunEvent::ExitRequested { api, .. } = event {
+                api.prevent_exit();
+            }
+        });
 }
 
 /// Open (or focus) the Settings window.

@@ -13,8 +13,10 @@ use aws_sdk_eks::{Client, config::Region};
 use frost_core::{kubeconfig::ClusterInfo, profiles::Profile};
 use tracing::debug;
 
-/// Standard commercial AWS regions probed during discovery.
-const REGIONS: &[&str] = &[
+/// Standard commercial AWS regions probed during discovery. Also surfaced
+/// to the settings UI so the SSO region dropdown stays in sync with the
+/// regions we actually scan.
+pub const REGIONS: &[&str] = &[
     "us-east-1",
     "us-east-2",
     "us-west-1",
