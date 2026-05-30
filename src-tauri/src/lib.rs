@@ -222,5 +222,8 @@ fn set_tray_working(app: &AppHandle, working: bool) {
     };
     if let Ok(image) = Image::from_bytes(bytes) {
         let _ = tray.set_icon(Some(image));
+        // set_icon resets the template flag, so re-assert it or the menu-bar
+        // icon stops adapting to light/dark and renders as solid black.
+        let _ = tray.set_icon_as_template(true);
     }
 }

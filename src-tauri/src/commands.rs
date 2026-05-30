@@ -48,6 +48,6 @@ pub async fn close_settings(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn list_regions() -> &'static [&'static str] {
-    frost_aws::eks::REGIONS
+pub async fn list_regions() -> Vec<String> {
+    frost_aws::eks::REGIONS.iter().map(|r| r.to_string()).collect()
 }
