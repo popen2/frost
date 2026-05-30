@@ -70,8 +70,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           # Per-target cache so darwin-arm64 and darwin-x64 don't clobber each
-          # other on macos-latest runners.
-          key: ${{ matrix.arch.target }}
+          # other on macos-latest runners. Hashing rust-toolchain.toml into
+          # the key resets the cache on every toolchain bump, so a release
+          # that pins a new rustc gets a clean rebuild instead of mixing
+          # artifacts compiled by two compilers.
+          key: ${{ matrix.arch.target }}-${{ hashFiles('rust-toolchain.toml') }}
           # By default the action skips saving the cache on a failed run.
           # When builds keep failing late (signing/notarize/upload) we
           # therefore never get a cargo cache, which is exactly what
@@ -272,7 +275,7 @@ jobs:
 
       - name: 📤 Upload bundles as artifact
         if: ${{ !inputs.publish }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frost-tauri-${{ matrix.os.name }}-${{ matrix.arch.name }}
           path: ${{ github.workspace }}/target/${{ matrix.arch.target }}/release/bundle/**

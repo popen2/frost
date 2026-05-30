@@ -13,7 +13,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
+    "targets": "all",
     "category": "DeveloperTool",
     "shortDescription": "AWS SSO Credentials Refresher",
     "longDescription": "Frost automates AWS SSO login, refreshes credentials, and discovers EKS clusters.",

@@ -33,6 +33,10 @@ jobs:
 
       - name: 💾 Cache cargo
         uses: Swatinem/rust-cache@v2
+        with:
+          # Match build.yaml: reset cache on every toolchain bump so a new
+          # rustc never sees stale artifacts from the previous one.
+          key: lint-${{ hashFiles('rust-toolchain.toml') }}
 
       - name: 🎨 cargo fmt
         run: cargo fmt --all -- --check
