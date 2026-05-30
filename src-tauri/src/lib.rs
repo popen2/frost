@@ -1,4 +1,10 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 use tauri::{
     AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
     image::Image,
@@ -17,6 +23,10 @@ const ABOUT_URL: &str = "https://popen2.github.io/frost/";
 
 const TRAY_ICON_FULL: &[u8] = include_bytes!("../icons/TrayIconFull.png");
 const TRAY_ICON_EMPTY: &[u8] = include_bytes!("../icons/TrayIconEmpty.png");
+
+/// Set when the user picks Quit, so the `ExitRequested` handler lets the
+/// process exit instead of keeping the tray agent alive.
+static QUITTING: AtomicBool = AtomicBool::new(false);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -78,7 +88,10 @@ pub fn run() {
                             log::warn!("[menu] open about: {err}");
                         }
                     }
-                    "quit" => app.exit(0),
+                    "quit" => {
+                        QUITTING.store(true, Ordering::SeqCst);
+                        app.exit(0);
+                    }
                     _ => {}
                 })
                 .build(app)?;
@@ -112,11 +125,13 @@ pub fn run() {
         // Without a custom handler Tauri exits when the last window goes
         // away — fine for a normal app, wrong for a menu-bar agent whose
         // primary UI is the tray, not the settings dialog. `app.exit(0)`
-        // from the Quit menu bypasses this (it calls `std::process::exit`
-        // directly), so prevent_exit() only swallows the implicit
-        // last-window-closed exit.
+        // from the Quit menu also routes through ExitRequested, so we gate
+        // prevent_exit() on the QUITTING flag the Quit handler sets — only
+        // the implicit last-window-closed exit is swallowed.
         .run(|_app, event| {
-            if let RunEvent::ExitRequested { api, .. } = event {
+            if let RunEvent::ExitRequested { api, .. } = event
+                && !QUITTING.load(Ordering::SeqCst)
+            {
                 api.prevent_exit();
             }
         });
@@ -124,17 +139,49 @@ pub fn run() {
 
 /// Open (or focus) the Settings window.
 fn open_settings(app: &AppHandle) -> tauri::Result<()> {
+    // While Settings is open the app behaves like a normal foreground app:
+    // show a Dock icon so it's a real, focusable window. We drop back to the
+    // Dock-less Accessory policy when the window closes.
+    set_dock_visible(app, true);
+
     if let Some(existing) = app.get_webview_window(SETTINGS_WINDOW) {
         existing.set_focus()?;
         return Ok(());
     }
-    WebviewWindowBuilder::new(app, SETTINGS_WINDOW, WebviewUrl::App("index.html".into()))
-        .title("Frost — Settings")
-        .inner_size(460.0, 280.0)
-        .resizable(false)
-        .center()
-        .build()?;
+    let window =
+        WebviewWindowBuilder::new(app, SETTINGS_WINDOW, WebviewUrl::App("index.html".into()))
+            .title("Frost — Settings")
+            .inner_size(460.0, 280.0)
+            .resizable(false)
+            .center()
+            .focused(true)
+            .build()?;
+    window.on_window_event({
+        let app = app.clone();
+        move |event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                set_dock_visible(&app, false);
+            }
+        }
+    });
+    window.set_focus()?;
     Ok(())
+}
+
+/// Toggle the macOS Dock tile (and foreground behavior) on/off. Visible while
+/// the Settings window is up; hidden otherwise so we stay a menu-bar agent.
+fn set_dock_visible(app: &AppHandle, visible: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let policy = if visible {
+            tauri::ActivationPolicy::Regular
+        } else {
+            tauri::ActivationPolicy::Accessory
+        };
+        let _ = app.set_activation_policy(policy);
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, visible);
 }
 
 /// Run a full credential refresh and persist the resulting state.
