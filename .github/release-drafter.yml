@@ -10,6 +10,12 @@ categories:
     labels:
       - 'fix'
       - 'bug'
+  - title: '📝 Documentation'
+    labels:
+      - 'docs'
+  - title: '🤖 CI & Build'
+    labels:
+      - 'ci'
   - title: '🧰 Maintenance'
     labels:
       - 'chore'
@@ -18,6 +24,10 @@ categories:
 change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
 change-title-escapes: '\<*_&'
 
+# Conventional Commits → SemVer: feat = minor, fix/chore/etc = patch, ! = major.
+# The autolabeler below applies 'minor'/'major' labels in addition to the
+# category label so a single PR title drives both the changelog section and
+# the version bump.
 version-resolver:
   major:
     labels:
@@ -30,7 +40,44 @@ version-resolver:
       - 'patch'
   default: patch
 
+# Title-based labels (Conventional Commits). The trailing branch rules below
+# are kept so feature/* and fix/* branches without a Conv Commits title still
+# get a useful label.
 autolabeler:
+  # Breaking changes — feat!: , fix!: , feat(scope)!: , …
+  - label: 'major'
+    title:
+      - '/^[a-z]+(\(.+\))?!:/'
+
+  # feat: → feature + minor
+  - label: 'feature'
+    title:
+      - '/^feat(\(.+\))?!?:/'
+  - label: 'minor'
+    title:
+      - '/^feat(\(.+\))?!?:/'
+
+  # fix: → fix
+  - label: 'fix'
+    title:
+      - '/^fix(\(.+\))?!?:/'
+
+  # docs: → docs
+  - label: 'docs'
+    title:
+      - '/^docs(\(.+\))?!?:/'
+
+  # ci: / build: → ci
+  - label: 'ci'
+    title:
+      - '/^(ci|build)(\(.+\))?!?:/'
+
+  # chore: / refactor: / perf: / style: / test: → chore
+  - label: 'chore'
+    title:
+      - '/^(chore|refactor|perf|style|test)(\(.+\))?!?:/'
+
+  # Branch-name fallback for older flows.
   - label: 'feature'
     branch:
       - '/^feat(ure)?[/-].+/'
