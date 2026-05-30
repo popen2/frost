@@ -51,7 +51,7 @@ fn open_login_window(handle: &AppHandle, url: Url) -> AwsResult<()> {
     }
     WebviewWindowBuilder::new(handle, LOGIN_WINDOW, WebviewUrl::External(url))
         .title("Frost — Sign in")
-        .inner_size(480.0, 720.0)
+        .inner_size(550.0, 700.0)
         .always_on_top(true)
         .focused(true)
         .center()
