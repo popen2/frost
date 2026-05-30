@@ -33,7 +33,8 @@ impl LoginBrowser for SystemLoginBrowser {
         let handle = self.handle.clone();
         let _ = run_on_main(&self.handle, move || {
             if let Some(w) = handle.get_webview_window(LOGIN_WINDOW) {
-                w.close().map_err(|e| Error::Browser(format!("close login: {e}")))?;
+                w.close()
+                    .map_err(|e| Error::Browser(format!("close login: {e}")))?;
             }
             Ok(())
         })
