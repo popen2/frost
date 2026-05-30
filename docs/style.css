@@ -1024,6 +1024,19 @@ main {
   border-bottom-color: var(--border-strong);
 }
 
+/* Support / star call-to-action under the privacy section */
+.support {
+  margin-top: clamp(2.5rem, 5vw, 3.5rem);
+  text-align: center;
+}
+
+.support p {
+  color: var(--text-muted);
+  max-width: 44rem;
+  margin: 0 auto 1.5rem;
+  font-size: 1.05rem;
+}
+
 /* Footer */
 .site-footer {
   border-top: 1px solid var(--border);

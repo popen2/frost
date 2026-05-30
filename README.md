@@ -1,18 +1,39 @@
 # Frost ❄️
 
-Frost is an app for people using AWS SSO.
+A menu-bar app that takes the friction out of AWS Identity Center (SSO).
+Point it at your start URL — Frost handles the sign-in, refreshes credentials
+in the background, writes a tidy `~/.aws/config`, and discovers EKS clusters
+into `~/.kube/config` along the way.
 
-AWS SSO requires users to run the `aws sso login` command every once in while to refresh their credentials. Also, users have to setup their workstations by running `aws configure sso` and answering a bunch of questions.
+**[Download the latest release →](https://github.com/popen2/frost/releases/latest)**
+· [popen2.github.io/frost](https://popen2.github.io/frost/)
 
-This app tries to automate the process by only requiring the AWS SSO start URL, then getting all the rest of the details directly from AWS SSO's API.
+Built with 🦀 **Rust** + **Tauri 2** — native, small, no bundled browser
+engine. The app updates itself in place from GitHub Releases; no Homebrew,
+no App Store, no package manager. Zero telemetry, zero analytics — every
+network call goes to AWS (to do its job) or GitHub (to check for its own
+updates).
 
-Once a user has successfully logged-in, Frost will create a `~/.aws/config` file with predictable profile names (see below).
+## What it does
 
-When using [AWS SSO with federation](https://docs.aws.amazon.com/singlesignon/latest/userguide/samlfederationconcept.html), such as Google Workspace, Frost can refresh credentials without interrupting the user in most cases.
+AWS Identity Center requires running `aws sso login` every few hours to
+refresh credentials, and `aws configure sso` to set workstations up. Frost
+automates both: you only provide the SSO start URL, and it gets everything
+else from the SSO API.
 
-## Profile Name Generation
+Once you've signed in, Frost writes `~/.aws/config` with predictable profile
+names (see below) and keeps your access tokens fresh so your shell, scripts,
+and long-running jobs don't trip over expired credentials. With AWS SSO + an
+IdP like Google Workspace, refreshes are usually silent.
 
-Profile names are generated automatically using the AWS account name and the permission set name. For example, let's assume a user is defined with the following accounts and permission sets:
+Sign-in happens in your default browser, so any MFA flow — TOTP, push
+notifications, YubiKey / FIDO2 / WebAuthn, passkeys — works exactly as it
+does anywhere else.
+
+## Profile name generation
+
+Profile names are generated automatically from the AWS account name and the
+permission set name. For example, assume the following:
 
 | AWS Account     | Permission Sets                      |
 | --------------- | ------------------------------------ |
@@ -20,7 +41,7 @@ Profile names are generated automatically using the AWS account name and the per
 | ACME Testing    | PowerUserAccess, BillingAccess       |
 | ACME Production | AdministratorAccess, PowerUserAccess |
 
-Then, the following profiles would be generated:
+Frost will generate:
 
 -   acme-main-administratoraccess
 -   acme-main-poweruseraccess
@@ -29,13 +50,11 @@ Then, the following profiles would be generated:
 -   acme-production-administratoraccess
 -   acme-production-poweruseraccess
 
-### Short Names
+### Short names
 
-This is fine, but the names could be shortened by adding #short-names to the AWS account name.
-
-To do that, [Change the AWS account names](https://aws.amazon.com/premiumsupport/knowledge-center/change-organizations-name/) you wish to shorten.
-
-Using the example above, let's say we've changed the account names to:
+These work, but they're long. Add a `#short-name` tag to your AWS account
+name and Frost will use it instead.
+[How to rename an AWS account.](https://aws.amazon.com/premiumsupport/knowledge-center/change-organizations-name/)
 
 | AWS Account             | Permission Sets                      |
 | ----------------------- | ------------------------------------ |
@@ -43,7 +62,7 @@ Using the example above, let's say we've changed the account names to:
 | ACME Testing (#test)    | PowerUserAccess, BillingAccess       |
 | ACME Production (#prod) | AdministratorAccess, PowerUserAccess |
 
-The profiles would now be named:
+Now the profiles are:
 
 -   main-administratoraccess
 -   main-poweruseraccess
@@ -52,7 +71,7 @@ The profiles would now be named:
 -   prod-administratoraccess
 -   prod-poweruseraccess
 
-As for permission set names, you should try to use short names for those. Still, in case you've already used the predefined permission set names, Frost will automatically shorten them by:
+Frost also shortens the standard AWS-managed permission set names:
 
 | Predefined Permission Set Name | Shortened Name |
 | ------------------------------ | -------------- |
@@ -67,7 +86,7 @@ As for permission set names, you should try to use short names for those. Still,
 | SystemAdministrator            | sysadmin       |
 | ViewOnlyAccess                 | viewonly       |
 
-So we end up with these profiles:
+So the final names are:
 
 -   main-admin
 -   main-poweruser
@@ -76,22 +95,68 @@ So we end up with these profiles:
 -   prod-admin
 -   prod-poweruser
 
-### Region Selection
+### Per-account region
 
-In some cases an AWS account should have a different default region than the one used by AWS SSO.
+If an account belongs in a different region than your Identity Center, add
+`@region` to the account name and Frost will use it as the profile's default
+`region`. For example, `ACME Testing (#test @eu-west-1)` tells Frost to write
+`region = eu-west-1` for that account's profiles so you can drop `--region`
+from your CLI calls.
 
-For example, your AWS SSO may have been created in `us-east-1` but one of the accounts has all of its services in `eu-west-1`. In this case, you'd like `~/.aws/config` to have `region = eu-west-1` for that specific account so that users don't have to pass a region to every CLI/API call.
+## EKS cluster discovery
 
-To do that, add an `@region` to the account name.
+Every credential refresh, Frost probes each AWS region for EKS clusters with
+every detected profile and writes the findings to `~/.kube/config`. Profiles
+without EKS access just produce errors that Frost silently ignores. Context
+names are derived deterministically from cluster info, so every teammate
+ends up with the same names in their kubeconfig — scripts and runbooks can
+reference clusters by short, predictable names without per-developer ARN
+aliases.
 
-In the example above, if the `ACME Testing` account is mainly used in `eu-west-1` we'd rename it to `ACME Testing (#test @eu-west-1)`.
+When clusters share a name across regions, accounts, or roles, Frost adds
+back only what's needed to tell them apart (e.g. `production:eu-west-1`).
 
-## EKS Cluster Discovery
+Authentication uses a copy of
+[AWS IAM Authenticator](https://github.com/kubernetes-sigs/aws-iam-authenticator)
+bundled into the app, so `kubectl` works out of the box — no AWS CLI install
+required.
 
-In addition to refreshing credentials automatically, Frost will scan for EKS clusters every time it obtains new credentials. The clusters will be saved in `~/.kube/config`.
+## Installing & updating
 
-The scan works by getting the list of regions, then trying to list EKS clusters in each region with every profile detected from AWS SSO.
+Download the `.dmg` (macOS) or `.AppImage` / `.deb` (Linux) for your
+architecture from the
+[latest release](https://github.com/popen2/frost/releases/latest), open it,
+and that's the whole install.
 
-This method may result in some errors as it makes sense that some profiles don't have access to EKS. This is fine as only successful calls to `eks:DescribeCluster` will result in an entry in `~/.kube/config`.
+Updates happen automatically in the background — Frost checks GitHub
+Releases on launch, downloads the new bundle if there is one, and applies
+it next time you start the app. No `brew upgrade`, no manual re-downloads.
 
-Authentication to the clusters uses a copy of [AWS IAM Authenticator](https://github.com/kubernetes-sigs/aws-iam-authenticator) embedded within the app. This allows using the app without installing AWS CLI.
+## Building from source
+
+Frost is a Cargo workspace plus a Tauri shell:
+
+```
+frost-core/   # pure logic — profile generation, kubeconfig, etc.
+frost-aws/    # AWS SDK adapters — SSO login, accounts, EKS
+src-tauri/           # Tauri 2 app — tray, settings, menu-bar agent
+ui/                  # static HTML for the Settings window
+docs/                # the landing site shipped to GitHub Pages
+```
+
+You'll need a recent Rust toolchain plus the
+[Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your
+platform. Then:
+
+```sh
+cargo test -p frost-core -p frost-aws   # 18 unit tests, no network
+cargo tauri dev                          # run the app
+cargo tauri build                        # produce a signed bundle (needs Apple secrets on macOS)
+```
+
+See [AGENTS.md](AGENTS.md) for contributor conventions (Conventional Commits
+drive the changelog + version bumps) and the CI / release pipeline.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
