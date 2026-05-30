@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Download Frost — AWS Identity Center Credentials, Automated</title>
+  <meta name="description" content="Download Frost for macOS and Linux. Pick your platform and architecture from the latest release." />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="index.html">
+      <img src="favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html#refresh">Refresh</a>
+      <a href="index.html#profiles">Profiles</a>
+      <a href="index.html#eks">EKS</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero download-hero">
+      <div class="hero-inner">
+        <img class="hero-logo" src="favicon.svg" alt="Frost app icon" width="96" height="96" />
+        <span class="badge"><span class="js-rel-version">latest release</span></span>
+        <h1>
+          Download <span class="gradient-text">Frost</span>
+        </h1>
+        <p class="lead">
+          Pick the build for your platform below. Frost is free and open
+          source — no account, no sign-up, just download and run.
+        </p>
+        <p class="hero-platforms js-rel-date" hidden></p>
+      </div>
+    </section>
+
+    <section class="section download-section">
+      <div class="download-grid js-download-grid">
+        <p class="download-loading js-download-loading">Loading the latest release…</p>
+      </div>
+
+      <p class="download-other">
+        Looking for an older build, source archives, or release notes?
+        <a href="https://github.com/popen2/frost/releases" target="_blank" rel="noopener">Other versions →</a>
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      const CACHE_TTL = 60 * 60 * 1000;
+      const RELEASE_URL = 'https://api.github.com/repos/popen2/frost/releases/latest';
+      const HEADERS = { 'Accept': 'application/vnd.github+json' };
+      // Release assets are named Frost-<os>-<arch>-<version>.zip
+      const ASSET_RE = /^Frost-(darwin|linux)-(x64|arm64)-(.+)\.zip$/i;
+
+      const APPLE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>';
+      const LINUX_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.004c.07 0 .14.024.197.067.176.118.293.295.34.482.038.135.046.27.046.4 0 .035-.002.07-.005.103.151.06.302.13.45.21a1.06 1.06 0 00.013-.166c-.02-.302-.103-.586-.292-.79a.84.84 0 00-.564-.292.83.83 0 00-.659.282 1.06 1.06 0 00-.288.79c.02.302.103.585.292.79a.84.84 0 00.564.292.83.83 0 00.659-.282z"/></svg>';
+      const DL_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42L11 13.6V4a1 1 0 0 1 1-1Zm-8 15a1 1 0 0 1 1 1v1h14v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>';
+
+      const OS_META = {
+        darwin: { name: 'macOS', icon: APPLE_ICON, order: 0,
+                  archLabel: { arm64: 'Apple Silicon', x64: 'Intel' },
+                  archOrder: { arm64: 0, x64: 1 } },
+        linux:  { name: 'Linux', icon: LINUX_ICON, order: 1,
+                  archLabel: { x64: 'x86-64', arm64: 'ARM64' },
+                  archOrder: { x64: 0, arm64: 1 } },
+      };
+
+      function formatSize(bytes) {
+        if (!bytes) return '';
+        const mb = bytes / (1024 * 1024);
+        return mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : Math.round(mb) + ' MB';
+      }
+
+      function detectOS() {
+        const ua = (navigator.userAgent || '').toLowerCase();
+        if (ua.indexOf('android') !== -1) return null;
+        if (ua.indexOf('mac') !== -1) return 'darwin';
+        if (ua.indexOf('linux') !== -1 || ua.indexOf('x11') !== -1) return 'linux';
+        return null;
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function renderMeta(data) {
+        if (!data || !data.tag_name) return;
+        document.querySelectorAll('.js-rel-version').forEach(function (el) {
+          el.textContent = data.tag_name;
+        });
+        if (data.published_at) {
+          const d = new Date(data.published_at);
+          const formatted = 'Released ' + d.toLocaleDateString(undefined, {
+            year: 'numeric', month: 'long', day: 'numeric'
+          });
+          document.querySelectorAll('.js-rel-date').forEach(function (el) {
+            el.textContent = formatted;
+            el.hidden = false;
+          });
+        }
+      }
+
+      function renderDownloads(data) {
+        const grid = document.querySelector('.js-download-grid');
+        const loading = document.querySelector('.js-download-loading');
+        if (!grid) return;
+
+        if (!data || !Array.isArray(data.assets)) {
+          if (loading) loading.textContent = 'Could not load the latest release. Try the releases page below.';
+          return;
+        }
+
+        const groups = {};
+        data.assets.forEach(function (asset) {
+          const m = ASSET_RE.exec(asset.name);
+          if (!m) return;
+          const os = m[1].toLowerCase();
+          const arch = m[2].toLowerCase();
+          (groups[os] = groups[os] || []).push({
+            arch: arch,
+            url: asset.browser_download_url,
+            size: asset.size,
+          });
+        });
+
+        const osKeys = Object.keys(groups).sort(function (a, b) {
+          return ((OS_META[a] || {}).order != null ? OS_META[a].order : 99) -
+                 ((OS_META[b] || {}).order != null ? OS_META[b].order : 99);
+        });
+
+        if (!osKeys.length) {
+          if (loading) loading.textContent = 'No downloadable builds were found in the latest release. Try the releases page below.';
+          return;
+        }
+
+        const detected = detectOS();
+        let html = '';
+
+        osKeys.forEach(function (os) {
+          const meta = OS_META[os] || { name: os, icon: '', archLabel: {}, archOrder: {} };
+          const archs = groups[os].slice().sort(function (a, b) {
+            const oa = meta.archOrder[a.arch] != null ? meta.archOrder[a.arch] : 99;
+            const ob = meta.archOrder[b.arch] != null ? meta.archOrder[b.arch] : 99;
+            return oa - ob;
+          });
+          const isDetected = os === detected;
+
+          html += '<article class="os-card' + (isDetected ? ' os-card-detected' : '') + '">';
+          html += '<div class="os-card-head"><span class="os-icon" aria-hidden="true">' + meta.icon + '</span>';
+          html += '<div class="os-card-title"><h2>' + escapeHtml(meta.name) + '</h2>';
+          if (isDetected) html += '<span class="os-detected-tag">Detected on your device</span>';
+          html += '</div></div>';
+
+          html += '<div class="os-downloads">';
+          archs.forEach(function (a) {
+            const label = meta.archLabel[a.arch] || a.arch;
+            const sub = a.arch + (a.size ? ' · ' + formatSize(a.size) : '');
+            html += '<a class="os-dl" href="' + escapeHtml(a.url) + '">' + DL_ICON +
+              '<span class="btn-stack"><span class="btn-line"><span>' + escapeHtml(label) + '</span></span>' +
+              '<span class="btn-sub">' + escapeHtml(sub) + '</span></span></a>';
+          });
+          html += '</div></article>';
+        });
+
+        grid.innerHTML = html;
+      }
+
+      function fromCache(key) {
+        try {
+          const cached = JSON.parse(sessionStorage.getItem(key) || 'null');
+          if (cached && cached.at > Date.now() - CACHE_TTL) return cached.data;
+        } catch (e) {}
+        return null;
+      }
+
+      function handle(data) {
+        renderMeta(data);
+        renderDownloads(data);
+      }
+
+      const cached = fromCache('frost-latest-release');
+      if (cached) {
+        handle(cached);
+        return;
+      }
+
+      fetch(RELEASE_URL, { headers: HEADERS })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) {
+            renderDownloads(null);
+            return;
+          }
+          handle(data);
+          try { sessionStorage.setItem('frost-latest-release', JSON.stringify({ at: Date.now(), data: data })); } catch (e) {}
+        })
+        .catch(function () { renderDownloads(null); });
+    })();
+  </script>
+</body>
+</html>
