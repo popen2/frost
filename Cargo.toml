@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["frost-core"]
+members = ["frost-core", "frost-aws"]
 
 [workspace.package]
 # Placeholder — CI stamps the real version from the release tag (see

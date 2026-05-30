@@ -1,0 +1,20 @@
+[package]
+name = "frost-aws"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+frost-core = { path = "../frost-core" }
+aws-config = "1"
+aws-sdk-ssooidc = "1"
+aws-sdk-sso = "1"
+aws-sdk-eks = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "fs"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+dirs = "6"
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+tracing = "0.1"
