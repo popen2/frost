@@ -42,15 +42,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Linux (deb/rpm/appimage) is intentionally omitted for now; it will
+        # be reintroduced in a later version. Only macOS is built and signed.
         include:
           - os: { name: darwin, runs-on: macos-latest }
             arch: { name: aarch64, target: aarch64-apple-darwin, aws: arm64 }
           - os: { name: darwin, runs-on: macos-latest }
             arch: { name: x86_64, target: x86_64-apple-darwin, aws: amd64 }
-          - os: { name: linux, runs-on: ubuntu-latest }
-            arch: { name: x86_64, target: x86_64-unknown-linux-gnu, aws: amd64 }
-          - os: { name: linux, runs-on: ubuntu-24.04-arm }
-            arch: { name: aarch64, target: aarch64-unknown-linux-gnu, aws: arm64 }
     runs-on: ${{ matrix.os.runs-on }}
     permissions:
       contents: write
@@ -81,18 +79,6 @@ jobs:
           # happened — flip it on so the deps cache survives across red
           # builds and the next attempt doesn't have to rebuild from scratch.
           cache-on-failure: true
-
-      - name: 🐧 Install Linux system deps
-        if: matrix.os.name == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libsoup-3.0-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf
 
       - name: 🔐 Import Developer ID into a keychain (macOS)
         # Apple notarization rejects bundles that contain *any* unsigned
