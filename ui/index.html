@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Frost — Settings</title>
+    <style>
+      :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+      body { margin: 0; padding: 20px 24px; min-width: 420px; }
+      h1 { font-size: 14px; font-weight: 600; margin: 0 0 16px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
+      label { display: block; font-size: 12px; margin: 12px 0 4px; opacity: 0.7; }
+      input { width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 13px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 6px; background: transparent; color: inherit; }
+      input:focus { outline: 2px solid #0a84ff; outline-offset: 0; }
+      .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+      button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 0; cursor: pointer; }
+      button.primary { background: #0a84ff; color: white; }
+      button.secondary { background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; }
+      #status { margin-top: 12px; font-size: 12px; opacity: 0.7; min-height: 1em; }
+    </style>
+  </head>
+  <body>
+    <h1>AWS SSO</h1>
+    <form id="settings">
+      <label for="start_url">Start URL</label>
+      <input id="start_url" name="start_url" type="url" required placeholder="https://my-org.awsapps.com/start" />
+
+      <label for="region">SSO Region</label>
+      <input id="region" name="region" type="text" required placeholder="us-east-1" value="us-east-1" />
+
+      <div id="status"></div>
+      <div class="row">
+        <button type="button" class="secondary" id="cancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+
+    <script>
+      const { invoke } = window.__TAURI__.core;
+      const status = document.getElementById("status");
+
+      async function load() {
+        try {
+          const cfg = await invoke("get_user_config");
+          if (cfg) {
+            document.getElementById("start_url").value = cfg.start_url ?? "";
+            document.getElementById("region").value = cfg.region ?? "us-east-1";
+          }
+        } catch (e) {
+          status.textContent = `Could not load: ${e}`;
+        }
+      }
+
+      document.getElementById("settings").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const start_url = document.getElementById("start_url").value.trim();
+        const region = document.getElementById("region").value.trim();
+        status.textContent = "Saving…";
+        try {
+          await invoke("save_user_config", { startUrl: start_url, region });
+          status.textContent = "Saved. Closing…";
+          await invoke("close_settings");
+        } catch (e) {
+          status.textContent = `Error: ${e}`;
+        }
+      });
+
+      document.getElementById("cancel").addEventListener("click", async () => {
+        try { await invoke("close_settings"); } catch (_) {}
+      });
+
+      load();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Frost",
+  "version": "0.0.0",
+  "identifier": "frost",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "macOSPrivateApi": false
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "category": "DeveloperTool",
+    "shortDescription": "AWS SSO Credentials Refresher",
+    "longDescription": "Frost automates AWS SSO login, refreshes credentials, and discovers EKS clusters.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": ["resources/*"],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "Developer ID Application: Zohar Zilberman (8ENBEJ25SM)"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/popen2/frost/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU0OTFGNDU0MjBBMUQxRkEKUldUNjBhRWdWUFNSVktlVzlMS0h3VHozWXZDMzRleU13M1Zqby8rMjY2bytybkdrMlEwMEVHMFkK"
+    }
+  }
+}
