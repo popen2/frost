@@ -757,6 +757,78 @@
       word-break: break-all;
     }
 
+    /* ── Behavior Tab ── */
+    .radio-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: background 0.1s, border-color 0.1s;
+    }
+
+    .radio-option:hover { background: var(--surface-raised); }
+
+    .radio-option input[type="radio"] {
+      margin-top: 2px;
+      accent-color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .radio-option:has(input:checked) {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .radio-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .radio-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+      line-height: 1.5;
+    }
+
+    .hotkey-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hotkey-display {
+      font-family: monospace;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 14px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      min-width: 140px;
+      text-align: center;
+      letter-spacing: 0.03em;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .hotkey-display.recording {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary);
+      animation: pulse-border 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 0 2px var(--primary-light); }
+      50% { box-shadow: 0 0 0 4px var(--primary-light); }
+    }
+
     /* Empty states */
     .empty-state {
       text-align: center;
@@ -811,6 +883,7 @@
 <!-- Tab Navigation -->
 <nav class="tabs">
   <button class="tab-btn active" data-tab="settings">Settings</button>
+  <button class="tab-btn" data-tab="behavior">Behavior</button>
   <button class="tab-btn" data-tab="credentials">Credentials</button>
   <button class="tab-btn" data-tab="eks">EKS</button>
   <button class="tab-btn" data-tab="logs">Logs</button>
@@ -884,6 +957,50 @@
         <li><code>#short-name</code> — use this as the profile name prefix, e.g. <em>Acme Production (#prod)</em> → <code>prod-admin</code></li>
         <li><code>@region</code> — set a preferred region for this account, e.g. <em>Acme EU (#eu @eu-west-1)</em></li>
       </ul>
+    </div>
+  </div>
+
+  <!-- Behavior Panel -->
+  <div class="panel" id="panel-behavior">
+    <div class="card">
+      <div class="card-title">Authentication Mode</div>
+      <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;">
+        Choose what happens when Frost needs to renew your AWS SSO token.
+      </p>
+
+      <label class="radio-option" id="radio-auto">
+        <input type="radio" name="refreshMode" value="auto">
+        <div class="radio-content">
+          <div class="radio-label">Auto-open browser</div>
+          <div class="radio-desc">The AWS login browser window opens automatically when credentials need renewal.</div>
+        </div>
+      </label>
+
+      <label class="radio-option" id="radio-notify">
+        <input type="radio" name="refreshMode" value="notify">
+        <div class="radio-content">
+          <div class="radio-label">Notification + hotkey</div>
+          <div class="radio-desc">A system notification appears instead. Press the hotkey (or click the notification) to open the login browser when you're ready.</div>
+        </div>
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Refresh Hotkey</div>
+      <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
+        A global shortcut that triggers a credential refresh from anywhere, or opens the login browser when a renewal is waiting.
+      </p>
+      <div class="hotkey-row">
+        <div class="hotkey-display" id="hotkey-display" tabindex="0">⌘/Ctrl+⇧+R</div>
+        <button class="btn btn-secondary" id="btn-record-hotkey">Change</button>
+        <button class="btn btn-secondary" id="btn-cancel-record" style="display:none;">Cancel</button>
+      </div>
+      <div class="hint" style="margin-top:8px;">Click <strong>Change</strong> and press your desired key combination. Press Escape to cancel.</div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-primary" id="btn-save-behavior">Save</button>
+      <span class="save-feedback" id="behavior-save-feedback">✓ Saved</span>
     </div>
   </div>
 
@@ -1344,6 +1461,103 @@
     return '';
   }
 
+  // ── Behavior tab ─────────────────────────────────────────────────────────
+
+  let currentBehavior = { refreshMode: 'auto', refreshHotkey: 'CmdOrCtrl+Shift+R' };
+  let recordingHotkey = false;
+
+  function formatHotkey(accelerator) {
+    return accelerator
+      .replace('CmdOrCtrl', '⌘/Ctrl')
+      .replace('CommandOrControl', '⌘/Ctrl')
+      .replace('Shift', '⇧')
+      .replace('Alt', '⌥');
+  }
+
+  function updateHotkeyDisplay(accelerator) {
+    document.getElementById('hotkey-display').textContent = formatHotkey(accelerator);
+  }
+
+  function populateBehavior(state) {
+    const cfg = state.behaviorConfig || { refreshMode: 'auto', refreshHotkey: 'CmdOrCtrl+Shift+R' };
+    currentBehavior = { ...cfg };
+    const radio = document.querySelector(`input[name="refreshMode"][value="${cfg.refreshMode}"]`);
+    if (radio) radio.checked = true;
+    updateHotkeyDisplay(cfg.refreshHotkey);
+  }
+
+  // Hotkey recording
+  document.getElementById('btn-record-hotkey').addEventListener('click', async () => {
+    recordingHotkey = true;
+    await ipcRenderer.invoke('set-hotkey-recording', true);
+    const display = document.getElementById('hotkey-display');
+    display.textContent = 'Press keys…';
+    display.classList.add('recording');
+    document.getElementById('btn-record-hotkey').style.display = 'none';
+    document.getElementById('btn-cancel-record').style.display = '';
+  });
+
+  document.getElementById('btn-cancel-record').addEventListener('click', async () => {
+    recordingHotkey = false;
+    await ipcRenderer.invoke('set-hotkey-recording', false);
+    document.getElementById('hotkey-display').classList.remove('recording');
+    document.getElementById('btn-record-hotkey').style.display = '';
+    document.getElementById('btn-cancel-record').style.display = 'none';
+    updateHotkeyDisplay(currentBehavior.refreshHotkey);
+  });
+
+  // Key capture (capture phase to intercept before other handlers)
+  document.addEventListener('keydown', async (e) => {
+    if (!recordingHotkey) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    if (e.key === 'Escape') {
+      document.getElementById('btn-cancel-record').click();
+      return;
+    }
+
+    // Ignore bare modifier presses
+    if (['Control', 'Meta', 'Alt', 'Shift', 'CapsLock'].includes(e.key)) return;
+
+    const parts = [];
+    if (e.metaKey || e.ctrlKey) parts.push('CmdOrCtrl');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey) parts.push('Shift');
+
+    let key = e.key;
+    if (key.length === 1) {
+      key = key.toUpperCase();
+    } else {
+      const MAP = {
+        ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+        ' ': 'Space', Enter: 'Return', Backspace: 'Backspace', Delete: 'Delete',
+        Tab: 'Tab', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
+      };
+      key = MAP[key] || key;
+    }
+
+    parts.push(key);
+    const accelerator = parts.join('+');
+    currentBehavior.refreshHotkey = accelerator;
+
+    recordingHotkey = false;
+    await ipcRenderer.invoke('set-hotkey-recording', false);
+    document.getElementById('hotkey-display').classList.remove('recording');
+    document.getElementById('btn-record-hotkey').style.display = '';
+    document.getElementById('btn-cancel-record').style.display = 'none';
+    updateHotkeyDisplay(accelerator);
+  }, true);
+
+  document.getElementById('btn-save-behavior').addEventListener('click', async () => {
+    const mode = document.querySelector('input[name="refreshMode"]:checked');
+    if (mode) currentBehavior.refreshMode = mode.value;
+    await ipcRenderer.invoke('save-behavior', currentBehavior);
+    const fb = document.getElementById('behavior-save-feedback');
+    fb.classList.add('visible');
+    setTimeout(() => fb.classList.remove('visible'), 3000);
+  });
+
   // ── State management ──────────────────────────────────────────────────────
 
   let currentState = null;
@@ -1352,6 +1566,7 @@
     currentState = state;
     updateHeaderStatus(state);
     populateSettings(state);
+    populateBehavior(state);
     updateCredentials(state);
     updateEks(state);
     updateLogs(state);

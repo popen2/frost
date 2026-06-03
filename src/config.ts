@@ -79,6 +79,13 @@ export const config = new Store({
         lastRun: {
             type: "object",
         },
+        behaviorConfig: {
+            type: "object",
+            properties: {
+                refreshMode: { type: "string" },
+                refreshHotkey: { type: "string" },
+            },
+        },
     },
 });
 
@@ -93,3 +100,13 @@ export interface StoredProfile {
     roleName: string;
     accountId: string;
 }
+
+export interface BehaviorConfig {
+    refreshMode: "auto" | "notify";
+    refreshHotkey: string;
+}
+
+export const DEFAULT_BEHAVIOR: BehaviorConfig = {
+    refreshMode: "auto",
+    refreshHotkey: "CmdOrCtrl+Shift+R",
+};

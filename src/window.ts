@@ -1,8 +1,14 @@
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import log from "electron-log/main";
-import { config, type UserConfig, type StoredProfile } from "./config.js";
+import {
+    config,
+    type UserConfig,
+    type StoredProfile,
+    type BehaviorConfig,
+    DEFAULT_BEHAVIOR,
+} from "./config.js";
 import { runLogEmitter, type RunLog } from "./run-log.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,11 +21,14 @@ export interface DashboardState {
     profiles: StoredProfile[];
     clusters: { name: string; profile: string; region: string }[];
     lastRun?: RunLog;
+    behaviorConfig: BehaviorConfig;
 }
 
 export interface IpcCallbacks {
     onSaveSettings: (settings: UserConfig) => void;
     onTriggerRefresh: () => void;
+    onSaveBehavior: (behavior: BehaviorConfig) => void;
+    onSetHotkeyRecording: (recording: boolean) => void;
 }
 
 let dashboardWindow: BrowserWindow | null = null;
@@ -38,6 +47,9 @@ function getState(): DashboardState {
                 region: string;
             }[]) || [],
         lastRun: config.get("lastRun") as RunLog | undefined,
+        behaviorConfig:
+            (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
+            DEFAULT_BEHAVIOR,
     };
 }
 
@@ -70,6 +82,20 @@ export function setupIpc(callbacks: IpcCallbacks) {
         callbacks.onTriggerRefresh();
     });
 
+    ipcMain.handle("save-behavior", (_event, behavior: BehaviorConfig) => {
+        log.info(
+            "[save-behavior] mode=%s hotkey=%s",
+            behavior.refreshMode,
+            behavior.refreshHotkey
+        );
+        config.set("behaviorConfig", behavior);
+        callbacks.onSaveBehavior(behavior);
+    });
+
+    ipcMain.handle("set-hotkey-recording", (_event, recording: boolean) => {
+        callbacks.onSetHotkeyRecording(recording);
+    });
+
     config.onDidAnyChange(() => {
         pushStateUpdate();
     });
@@ -86,6 +112,8 @@ export function openDashboard() {
     }
 
     log.info("[openDashboard] Opening dashboard window");
+    if (app.dock) app.dock.show();
+
     dashboardWindow = new BrowserWindow({
         width: 820,
         height: 580,
