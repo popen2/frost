@@ -14,11 +14,14 @@ import log from "electron-log/main";
 import { config } from "./config.js";
 import { Profile } from "./profiles.js";
 import { writeKubeconfig } from "./kubeconfig.js";
+import { startEksStep, addEksEntry, completeEksStep } from "./run-log.js";
 
 export async function updateKubeConfig(profiles: Profile[]) {
     if (profiles.length === 0) {
         return;
     }
+
+    startEksStep();
 
     const regions = await getRegions(profiles[0]);
     const clusters = (
@@ -39,6 +42,8 @@ export async function updateKubeConfig(profiles: Profile[]) {
             region: cluster.region.RegionName,
         }))
     );
+
+    completeEksStep("success");
 
     await writeKubeconfig(clusters);
 }
@@ -66,7 +71,7 @@ async function getClusters(
     region: Region
 ): Promise<ClusterInfo[]> {
     log.info("[getClusters] Getting clusters for %s", region);
-    const regionName = region.RegionName;
+    const regionName = region.RegionName!;
     const eks = new EKSClient({
         region: regionName,
         credentials: fromSSO({ profile: profile.name }),
@@ -89,6 +94,15 @@ async function getClusters(
             nextToken = res.nextToken;
         } while (nextToken);
 
+        if (clusterNames.length > 0) {
+            addEksEntry({
+                profileName: profile.name,
+                regionName,
+                status: "success",
+                clusters: clusterNames,
+            });
+        }
+
         const clusterResponses = await Promise.all(
             clusterNames.map((name) =>
                 eks.send(new DescribeClusterCommand({ name }))
@@ -107,6 +121,13 @@ async function getClusters(
             region,
             err
         );
+        addEksEntry({
+            profileName: profile.name,
+            regionName,
+            status: "error",
+            clusters: [],
+            error: `${err}`,
+        });
     }
     return [];
 }

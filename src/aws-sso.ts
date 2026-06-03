@@ -16,6 +16,12 @@ import { refreshProfiles } from "./profiles.js";
 import { writeSsoConfig } from "./aws-config.js";
 import { updateTrayIcon } from "./tray.js";
 import { updateKubeConfig } from "./aws-eks.js";
+import {
+    startRun,
+    completeRun,
+    startTokenStep,
+    completeTokenStep,
+} from "./run-log.js";
 
 let timeoutId: NodeJS.Timeout | undefined;
 
@@ -33,10 +39,7 @@ export function setNextTokenRefresh() {
     const expiresAt = expiresAtConfig
         ? moment(expiresAtConfig, moment.ISO_8601)
         : now;
-    const timeoutMs = Math.max(
-        expiresAt.diff(now),
-        500
-    );
+    const timeoutMs = Math.max(expiresAt.diff(now), 500);
 
     timeoutId = setTimeout(refresh, timeoutMs);
     log.info("[setNextTokenRefresh] New timeout set to %sms", timeoutMs);
@@ -53,17 +56,30 @@ export async function refresh() {
         return;
     }
 
+    startRun();
+
     try {
         config.set("isWorking", true);
         updateTrayIcon();
 
-        const newToken = await getNewToken(userConfig);
-        log.info("[refresh] Successfully got new token");
+        startTokenStep();
+        let newToken: CreateTokenCommandOutput;
+        try {
+            newToken = await getNewToken(userConfig);
+            log.info("[refresh] Successfully got new token");
+            completeTokenStep("success");
+        } catch (tokenErr) {
+            completeTokenStep("error", `${tokenErr}`);
+            throw tokenErr;
+        }
+
         await saveToken(userConfig, newToken);
         setNextTokenRefresh();
 
         const profiles = await refreshProfiles();
         await updateKubeConfig(profiles);
+
+        completeRun("success");
     } catch (err) {
         log.error("[refresh] Error: %s", err);
         if (err instanceof Error && err.name == "InvalidClientException") {
@@ -73,6 +89,7 @@ export async function refresh() {
             );
         }
         config.set("lastError", `${err}`);
+        completeRun("error", `${err}`);
         setNextTokenRefresh();
     } finally {
         config.set("isWorking", false);

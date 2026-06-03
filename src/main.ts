@@ -4,6 +4,7 @@ import { updateElectronApp } from "update-electron-app";
 import { updateTrayIcon } from "./tray.js";
 import { setNextTokenRefresh } from "./aws-sso.js";
 import { config } from "./config.js";
+import { openDashboard, setupIpc } from "./window.js";
 
 async function main() {
     log.info("[main] =================== Starting app ===================");
@@ -21,11 +22,23 @@ async function main() {
     }
 
     app.on("window-all-closed", () => {
-        // Keep running in the tray when the login window is closed.
+        // Keep running in the tray when windows are closed.
+    });
+
+    setupIpc({
+        onSaveSettings: (settings) => {
+            config.set("userConfig", settings);
+            config.delete("accessToken");
+            config.delete("expiresAt");
+            setNextTokenRefresh();
+        },
+        onTriggerRefresh: () => {
+            setNextTokenRefresh();
+        },
     });
 
     setNextTokenRefresh();
-    updateTrayIcon();
+    updateTrayIcon(openDashboard);
 
     app.setLoginItemSettings({
         openAtLogin: true,

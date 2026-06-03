@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Frost</title>
+  <style>
+    :root {
+      --bg: #f0f4ff;
+      --surface: #ffffff;
+      --surface-raised: #f8faff;
+      --border: #dde4f0;
+      --text: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --primary: #3730a3;
+      --primary-light: #ede9fe;
+      --primary-hover: #312e81;
+      --tab-active-bg: #ede9fe;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --error: #dc2626;
+      --error-bg: #fee2e2;
+      --warning: #d97706;
+      --warning-bg: #fef3c7;
+      --in-progress: #7c3aed;
+      --in-progress-bg: #ede9fe;
+      --header-from: #1e1b4b;
+      --header-to: #312e81;
+      --chip-bg: #e0e7ff;
+      --chip-text: #3730a3;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow: 0 4px 12px rgba(0,0,0,0.08);
+      --radius: 8px;
+      --radius-sm: 4px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --surface-raised: #273348;
+        --border: #334155;
+        --text: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --primary: #818cf8;
+        --primary-light: #1e1b4b;
+        --primary-hover: #a5b4fc;
+        --tab-active-bg: #1e1b4b;
+        --chip-bg: #1e1b4b;
+        --chip-text: #a5b4fc;
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+        --shadow: 0 4px 12px rgba(0,0,0,0.3);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--header-from), var(--header-to));
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      -webkit-app-region: drag;
+    }
+
+    .header-icon {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+    }
+
+    .header-text { flex: 1; }
+
+    .header-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.2px;
+    }
+
+    .header-subtitle {
+      font-size: 11px;
+      color: rgba(255,255,255,0.65);
+      margin-top: 1px;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      -webkit-app-region: no-drag;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.idle { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+    .status-dot.working {
+      background: #fbbf24;
+      box-shadow: 0 0 6px #fbbf24;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .status-dot.error { background: #f87171; box-shadow: 0 0 6px #f87171; }
+    .status-dot.unconfigured { background: #94a3b8; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-label { font-size: 11px; color: rgba(255,255,255,0.75); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 12px;
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      padding: 10px 14px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      background: var(--surface-raised);
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: var(--tab-active-bg);
+    }
+
+    /* Panels */
+    .panels { flex: 1; overflow: hidden; position: relative; }
+
+    .panel {
+      display: none;
+      height: 100%;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .panel.active { display: block; }
+
+    /* Scrollbar */
+    .panel::-webkit-scrollbar { width: 6px; }
+    .panel::-webkit-scrollbar-track { background: transparent; }
+    .panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* ── Settings Tab ── */
+    .settings-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 20px 0 24px;
+    }
+
+    .settings-hero-icon {
+      width: 72px;
+      height: 72px;
+      margin-bottom: 12px;
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .settings-hero-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    .settings-hero-desc {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 5px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+    }
+
+    .form-group input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+
+    .form-group .hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      font-family: inherit;
+    }
+
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .btn-secondary {
+      background: var(--surface-raised);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { background: var(--border); }
+
+    .form-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .save-feedback {
+      font-size: 12px;
+      color: var(--success);
+      display: none;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .save-feedback.visible { display: flex; }
+
+    /* ── Credentials Tab ── */
+    .cred-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .cred-status-dot-wrap {
+      margin-top: 2px;
+    }
+
+    .cred-status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .cred-status-dot.active { background: var(--success); }
+    .cred-status-dot.working {
+      background: var(--warning);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .cred-status-dot.error { background: var(--error); }
+    .cred-status-dot.none { background: var(--text-muted); }
+
+    .cred-status-info .label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .cred-status-info .detail {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .error-text {
+      font-size: 11.5px;
+      color: var(--error);
+      background: var(--error-bg);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      margin-top: 10px;
+      font-family: monospace;
+      word-break: break-all;
+    }
+
+    .section-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      margin: 16px 0 8px;
+    }
+
+    .account-group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .account-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.1s;
+    }
+
+    .account-header:hover { background: var(--surface-raised); }
+
+    .account-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .account-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--primary), #7c3aed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .account-name-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .account-id-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .account-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: var(--chip-bg);
+      color: var(--chip-text);
+    }
+
+    .badge.success { background: var(--success-bg); color: var(--success); }
+    .badge.error { background: var(--error-bg); color: var(--error); }
+    .badge.warning { background: var(--warning-bg); color: var(--warning); }
+    .badge.in-progress { background: var(--in-progress-bg); color: var(--in-progress); }
+
+    .chevron {
+      font-size: 10px;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+    }
+
+    .account-group.expanded .chevron { transform: rotate(90deg); }
+
+    .account-roles {
+      display: none;
+      padding: 4px 14px 12px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .account-group.expanded .account-roles { display: flex; }
+
+    .role-chip {
+      font-size: 11.5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--chip-bg);
+      color: var(--chip-text);
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .role-chip::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      flex-shrink: 0;
+    }
+
+    /* ── EKS Tab ── */
+    .eks-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .eks-table th {
+      padding: 9px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      background: var(--surface-raised);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .eks-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--text);
+    }
+
+    .eks-table tr:last-child td { border-bottom: none; }
+
+    .eks-table tr:hover td { background: var(--surface-raised); }
+
+    .cluster-name-cell {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cluster-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, #0ea5e9, #0369a1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .profile-tag {
+      font-family: monospace;
+      font-size: 11.5px;
+      background: var(--chip-bg);
+      color: var(--chip-text);
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+    }
+
+    .region-tag {
+      font-size: 11.5px;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .region-tag { background: #0c1927; color: #38bdf8; }
+    }
+
+    /* ── Logs Tab ── */
+    .run-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .run-header.success { border-left: 3px solid var(--success); }
+    .run-header.error { border-left: 3px solid var(--error); }
+    .run-header.in-progress { border-left: 3px solid var(--in-progress); }
+
+    .run-status-icon { font-size: 18px; flex-shrink: 0; }
+
+    .run-title { font-size: 13px; font-weight: 600; color: var(--text); }
+
+    .run-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .run-badge { margin-left: auto; }
+
+    .log-steps { display: flex; flex-direction: column; gap: 8px; }
+
+    details.log-step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    details.log-step[open] { }
+
+    summary.step-summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+      transition: background 0.1s;
+    }
+
+    summary.step-summary::-webkit-details-marker { display: none; }
+
+    summary.step-summary:hover { background: var(--surface-raised); }
+
+    .step-chevron {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-left: auto;
+      transition: transform 0.2s;
+    }
+
+    details[open] .step-chevron { transform: rotate(90deg); }
+
+    .step-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .step-status-dot.success { background: var(--success); }
+    .step-status-dot.error { background: var(--error); }
+    .step-status-dot.in-progress {
+      background: var(--in-progress);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .step-name-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .step-count-text {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    .step-body {
+      padding: 4px 14px 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    details.log-account {
+      margin-top: 8px;
+    }
+
+    summary.account-sum {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      user-select: none;
+      list-style: none;
+      transition: background 0.1s;
+    }
+
+    summary.account-sum::-webkit-details-marker { display: none; }
+    summary.account-sum:hover { background: var(--surface-raised); }
+
+    .account-sum-name {
+      font-weight: 600;
+      font-size: 12.5px;
+      flex: 1;
+    }
+
+    .account-sum-id {
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .roles-log-list {
+      list-style: none;
+      padding: 4px 0 4px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .roles-log-list li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .role-log-name {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: monospace;
+    }
+
+    .role-log-profile {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    details.log-region {
+      margin-top: 8px;
+    }
+
+    summary.region-sum {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      user-select: none;
+      list-style: none;
+      transition: background 0.1s;
+    }
+
+    summary.region-sum::-webkit-details-marker { display: none; }
+    summary.region-sum:hover { background: var(--surface-raised); }
+
+    .region-sum-name {
+      font-weight: 600;
+      font-size: 12.5px;
+      flex: 1;
+    }
+
+    .cluster-log-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px 5px 28px;
+    }
+
+    .cluster-log-name {
+      font-size: 12px;
+      font-weight: 500;
+      flex: 1;
+    }
+
+    .cluster-log-profile {
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-secondary);
+      background: var(--chip-bg);
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+    }
+
+    .error-log-text {
+      font-size: 11px;
+      color: var(--error);
+      padding: 4px 10px;
+      font-family: monospace;
+      word-break: break-all;
+    }
+
+    /* Empty states */
+    .empty-state {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 40px 20px;
+      font-size: 13px;
+    }
+
+    .empty-state-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .empty-state-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <svg class="header-icon" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1.17158,0,0,1.17158,0.0181239,0.141408)">
+      <path d="M14.246,4.271C14.246,2.455 12.772,0.981 10.956,0.981L4.376,0.981C2.561,0.981 1.086,2.455 1.086,4.271L1.086,10.851C1.086,12.667 2.561,14.141 4.376,14.141L10.956,14.141C12.772,14.141 14.246,12.667 14.246,10.851L14.246,4.271Z" style="fill:url(#hdr1);"/>
+    </g>
+    <g transform="matrix(1.27745,0,0,1.44877,-0.118489,14.6876)">
+      <g transform="matrix(21.8461,0,0,21.8461,1.87311,7.09554)">
+        <path d="M0.293,-0.57L0.424,-0.613L0.454,-0.518L0.323,-0.476L0.406,-0.362L0.323,-0.301L0.239,-0.416L0.158,-0.306L0.077,-0.367L0.161,-0.476L0.028,-0.522L0.06,-0.617L0.191,-0.57L0.191,-0.708L0.293,-0.708L0.293,-0.57Z" style="fill:white;fill-rule:nonzero;"/>
+      </g>
+    </g>
+    <defs>
+      <linearGradient id="hdr1" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(13.1599,0,0,13.1599,1.08648,7.5612)">
+        <stop offset="0" style="stop-color:rgb(2,23,187);stop-opacity:1"/>
+        <stop offset="1" style="stop-color:rgb(46,46,244);stop-opacity:1"/>
+      </linearGradient>
+    </defs>
+  </svg>
+  <div class="header-text">
+    <div class="header-title">Frost</div>
+    <div class="header-subtitle">AWS SSO Credential Manager</div>
+  </div>
+  <div class="header-status">
+    <div class="status-dot unconfigured" id="header-status-dot"></div>
+    <span class="status-label" id="header-status-label">Loading...</span>
+  </div>
+</header>
+
+<!-- Tab Navigation -->
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="settings">Settings</button>
+  <button class="tab-btn" data-tab="credentials">Credentials</button>
+  <button class="tab-btn" data-tab="eks">EKS</button>
+  <button class="tab-btn" data-tab="logs">Logs</button>
+</nav>
+
+<!-- Panels -->
+<div class="panels">
+
+  <!-- Settings Panel -->
+  <div class="panel active" id="panel-settings">
+    <div class="settings-hero">
+      <svg class="settings-hero-icon" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+        <g transform="matrix(1.17158,0,0,1.17158,0.0181239,0.141408)">
+          <path d="M14.246,4.271C14.246,2.455 12.772,0.981 10.956,0.981L4.376,0.981C2.561,0.981 1.086,2.455 1.086,4.271L1.086,10.851C1.086,12.667 2.561,14.141 4.376,14.141L10.956,14.141C12.772,14.141 14.246,12.667 14.246,10.851L14.246,4.271Z" style="fill:url(#hero1);"/>
+        </g>
+        <g transform="matrix(1.27745,0,0,1.44877,-0.118489,14.6876)">
+          <g transform="matrix(21.8461,0,0,21.8461,1.87311,7.09554)">
+            <path d="M0.293,-0.57L0.424,-0.613L0.454,-0.518L0.323,-0.476L0.406,-0.362L0.323,-0.301L0.239,-0.416L0.158,-0.306L0.077,-0.367L0.161,-0.476L0.028,-0.522L0.06,-0.617L0.191,-0.57L0.191,-0.708L0.293,-0.708L0.293,-0.57Z" style="fill:white;fill-rule:nonzero;"/>
+          </g>
+        </g>
+        <defs>
+          <linearGradient id="hero1" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(13.1599,0,0,13.1599,1.08648,7.5612)">
+            <stop offset="0" style="stop-color:rgb(2,23,187);stop-opacity:1"/>
+            <stop offset="1" style="stop-color:rgb(46,46,244);stop-opacity:1"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="settings-hero-title">Frost</div>
+      <div class="settings-hero-desc">Automatically refreshes your AWS SSO credentials and updates kubeconfig</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">SSO Configuration</div>
+
+      <div class="form-group">
+        <label for="input-start-url">SSO Start URL</label>
+        <input
+          type="url"
+          id="input-start-url"
+          placeholder="https://d-xxxxxxxxxxxx.awsapps.com/start"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="hint">The AWS access portal URL for your organization. You can find this in the AWS SSO console or from your IT department.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="input-region">AWS Region</label>
+        <input
+          type="text"
+          id="input-region"
+          placeholder="us-east-1"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="hint">The AWS region where your IAM Identity Center (SSO) is configured, e.g. <code>us-east-1</code>, <code>eu-west-1</code>.</div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary" id="btn-save">Save &amp; Refresh</button>
+        <span class="save-feedback" id="save-feedback">✓ Saved — refresh started</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Account Name Tips</div>
+      <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;">
+        In AWS SSO, you can control how account names appear in Frost by appending special annotations to your AWS account names:
+      </p>
+      <ul style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;padding-left:18px;margin-top:8px;">
+        <li><code>#short-name</code> — use this as the profile name prefix, e.g. <em>Acme Production (#prod)</em> → <code>prod-admin</code></li>
+        <li><code>@region</code> — set a preferred region for this account, e.g. <em>Acme EU (#eu @eu-west-1)</em></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Credentials Panel -->
+  <div class="panel" id="panel-credentials">
+    <div class="card" id="cred-status-card">
+      <div class="card-title">Token Status</div>
+      <div class="cred-status">
+        <div class="cred-status-dot-wrap">
+          <div class="cred-status-dot none" id="cred-dot"></div>
+        </div>
+        <div class="cred-status-info">
+          <div class="label" id="cred-label">Not configured</div>
+          <div class="detail" id="cred-detail"></div>
+        </div>
+      </div>
+      <div class="error-text" id="cred-error" style="display:none;"></div>
+    </div>
+
+    <div id="accounts-section">
+      <div class="section-header" id="accounts-section-header"></div>
+      <div id="accounts-list"></div>
+    </div>
+  </div>
+
+  <!-- EKS Panel -->
+  <div class="panel" id="panel-eks">
+    <div id="eks-content">
+      <div class="empty-state">
+        <div class="empty-state-icon">⎈</div>
+        <div class="empty-state-title">No clusters discovered</div>
+        <div>Run a credential refresh to scan all regions for EKS clusters.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logs Panel -->
+  <div class="panel" id="panel-logs">
+    <div id="logs-content">
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <div class="empty-state-title">No runs yet</div>
+        <div>Use "Refresh now" from the tray or click "Save &amp; Refresh" in Settings.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  'use strict';
+
+  const { ipcRenderer } = require('electron');
+
+  // ── Tab switching ──────────────────────────────────────────────────────────
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function timeFromNow(isoString) {
+    if (!isoString) return '';
+    const diff = new Date(isoString).getTime() - Date.now();
+    const abs = Math.abs(diff);
+    const future = diff > 0;
+    if (abs < 60000) return future ? 'in a moment' : 'just now';
+    if (abs < 3600000) {
+      const m = Math.round(abs / 60000);
+      return future ? `in ${m}m` : `${m}m ago`;
+    }
+    const h = Math.floor(abs / 3600000);
+    const m = Math.round((abs % 3600000) / 60000);
+    const hStr = h > 0 ? `${h}h ` : '';
+    const mStr = m > 0 ? `${m}m` : '';
+    return future ? `in ${hStr}${mStr}`.trim() : `${hStr}${mStr} ago`.trim();
+  }
+
+  function formatLocalTime(isoString) {
+    if (!isoString) return '';
+    return new Date(isoString).toLocaleString();
+  }
+
+  function durationStr(startIso, endIso) {
+    if (!startIso || !endIso) return '';
+    const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+  }
+
+  function statusEmoji(status) {
+    if (status === 'success') return '✓';
+    if (status === 'error') return '✕';
+    if (status === 'in-progress') return '⋯';
+    return '?';
+  }
+
+  function initials(name) {
+    return name.slice(0, 2).toUpperCase();
+  }
+
+  // ── Settings tab ──────────────────────────────────────────────────────────
+
+  function populateSettings(state) {
+    const uc = state.userConfig || {};
+    document.getElementById('input-start-url').value = uc.startUrl || '';
+    document.getElementById('input-region').value = uc.region || '';
+  }
+
+  document.getElementById('btn-save').addEventListener('click', async () => {
+    const startUrl = document.getElementById('input-start-url').value.trim();
+    const region = document.getElementById('input-region').value.trim();
+    if (!startUrl || !region) return;
+
+    await ipcRenderer.invoke('save-settings', { startUrl, region });
+
+    const fb = document.getElementById('save-feedback');
+    fb.classList.add('visible');
+    setTimeout(() => fb.classList.remove('visible'), 3000);
+  });
+
+  // ── Header status ─────────────────────────────────────────────────────────
+
+  function updateHeaderStatus(state) {
+    const dot = document.getElementById('header-status-dot');
+    const label = document.getElementById('header-status-label');
+
+    dot.className = 'status-dot';
+
+    if (!state.userConfig) {
+      dot.classList.add('unconfigured');
+      label.textContent = 'Not configured';
+    } else if (state.isWorking) {
+      dot.classList.add('working');
+      label.textContent = 'Refreshing…';
+    } else if (state.lastError) {
+      dot.classList.add('error');
+      label.textContent = 'Error';
+    } else if (state.expiresAt) {
+      dot.classList.add('idle');
+      label.textContent = `Expires ${timeFromNow(state.expiresAt)}`;
+    } else {
+      dot.classList.add('unconfigured');
+      label.textContent = 'Idle';
+    }
+  }
+
+  // ── Credentials tab ───────────────────────────────────────────────────────
+
+  function updateCredentials(state) {
+    const dot = document.getElementById('cred-dot');
+    const label = document.getElementById('cred-label');
+    const detail = document.getElementById('cred-detail');
+    const errEl = document.getElementById('cred-error');
+
+    dot.className = 'cred-status-dot';
+
+    if (!state.userConfig) {
+      dot.classList.add('none');
+      label.textContent = 'Not configured';
+      detail.textContent = 'Enter your SSO Start URL in Settings to get started.';
+    } else if (state.isWorking) {
+      dot.classList.add('working');
+      label.textContent = 'Refreshing credentials…';
+      detail.textContent = 'Authenticating with AWS SSO';
+    } else if (state.lastError) {
+      dot.classList.add('error');
+      label.textContent = 'Refresh failed';
+      detail.textContent = state.expiresAt
+        ? `Last successful refresh: ${formatLocalTime(state.expiresAt)}`
+        : 'No valid token';
+      errEl.textContent = state.lastError;
+      errEl.style.display = 'block';
+    } else if (state.expiresAt) {
+      dot.classList.add('active');
+      const future = new Date(state.expiresAt).getTime() > Date.now();
+      label.textContent = future ? 'Active' : 'Token expired';
+      detail.textContent = future
+        ? `Expires ${timeFromNow(state.expiresAt)} · ${formatLocalTime(state.expiresAt)}`
+        : `Expired ${timeFromNow(state.expiresAt)}`;
+      errEl.style.display = 'none';
+    } else {
+      dot.classList.add('none');
+      label.textContent = 'No token';
+      detail.textContent = 'Click "Refresh now" in the tray to authenticate.';
+    }
+
+    if (!state.lastError) errEl.style.display = 'none';
+
+    // Accounts list
+    const hdr = document.getElementById('accounts-section-header');
+    const list = document.getElementById('accounts-list');
+    const profiles = state.profiles || [];
+
+    if (profiles.length === 0) {
+      hdr.textContent = '';
+      list.innerHTML = '';
+      return;
+    }
+
+    // Group by accountId
+    const accountMap = new Map();
+    for (const p of profiles) {
+      if (!accountMap.has(p.accountId)) {
+        accountMap.set(p.accountId, { accountName: p.accountName, accountId: p.accountId, roles: [] });
+      }
+      accountMap.get(p.accountId).roles.push(p.roleName);
+    }
+
+    const totalAccounts = accountMap.size;
+    const totalRoles = profiles.length;
+    hdr.textContent = `${totalAccounts} Account${totalAccounts !== 1 ? 's' : ''} · ${totalRoles} Permission Set${totalRoles !== 1 ? 's' : ''}`;
+
+    let html = '';
+    for (const [, acct] of accountMap) {
+      html += `
+      <div class="account-group" onclick="this.classList.toggle('expanded')">
+        <div class="account-header">
+          <div class="account-header-left">
+            <div class="account-avatar">${escHtml(initials(acct.accountName))}</div>
+            <div>
+              <div class="account-name-text">${escHtml(acct.accountName)}</div>
+              <div class="account-id-text">${escHtml(acct.accountId)}</div>
+            </div>
+          </div>
+          <div class="account-header-right">
+            <span class="badge">${acct.roles.length} role${acct.roles.length !== 1 ? 's' : ''}</span>
+            <span class="chevron">▶</span>
+          </div>
+        </div>
+        <div class="account-roles">
+          ${acct.roles.map(r => `<span class="role-chip">${escHtml(r)}</span>`).join('')}
+        </div>
+      </div>`;
+    }
+    list.innerHTML = html;
+  }
+
+  // ── EKS tab ───────────────────────────────────────────────────────────────
+
+  function updateEks(state) {
+    const clusters = state.clusters || [];
+    const el = document.getElementById('eks-content');
+
+    if (clusters.length === 0) {
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⎈</div>
+          <div class="empty-state-title">No clusters discovered</div>
+          <div>Run a credential refresh to scan all regions for EKS clusters.</div>
+        </div>`;
+      return;
+    }
+
+    let html = `<table class="eks-table">
+      <thead>
+        <tr>
+          <th>Cluster</th>
+          <th>Profile</th>
+          <th>Region</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    for (const c of clusters) {
+      html += `<tr>
+        <td>
+          <div class="cluster-name-cell">
+            <div class="cluster-icon">⎈</div>
+            ${escHtml(c.name)}
+          </div>
+        </td>
+        <td><span class="profile-tag">${escHtml(c.profile)}</span></td>
+        <td><span class="region-tag">${escHtml(c.region)}</span></td>
+      </tr>`;
+    }
+
+    html += `</tbody></table>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-muted);text-align:right;">
+      ${clusters.length} cluster${clusters.length !== 1 ? 's' : ''} across ${new Set(clusters.map(c => c.region)).size} region${new Set(clusters.map(c => c.region)).size !== 1 ? 's' : ''}
+    </div>`;
+
+    el.innerHTML = html;
+  }
+
+  // ── Logs tab ──────────────────────────────────────────────────────────────
+
+  function updateLogs(state) {
+    const run = state.lastRun;
+    const el = document.getElementById('logs-content');
+
+    if (!run) {
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <div class="empty-state-title">No runs yet</div>
+          <div>Use "Refresh now" from the tray or click "Save &amp; Refresh" in Settings.</div>
+        </div>`;
+      return;
+    }
+
+    const duration = run.endedAt ? durationStr(run.startedAt, run.endedAt) : null;
+    const statusBadgeClass = run.status === 'success' ? 'success' : run.status === 'error' ? 'error' : 'in-progress';
+
+    let html = `
+    <div class="run-header ${run.status}">
+      <div class="run-status-icon">${statusEmoji(run.status)}</div>
+      <div style="flex:1;">
+        <div class="run-title">Credential Refresh</div>
+        <div class="run-meta">
+          Started ${timeFromNow(run.startedAt)}
+          ${duration ? ` · took ${duration}` : ' · in progress'}
+          · ${formatLocalTime(run.startedAt)}
+        </div>
+      </div>
+      <span class="badge ${statusBadgeClass} run-badge">${run.status.replace('-', ' ')}</span>
+    </div>
+    <div class="log-steps">`;
+
+    for (const step of (run.steps || [])) {
+      html += renderLogStep(step);
+    }
+
+    html += '</div>';
+
+    if (run.error) {
+      html += `<div class="error-log-text" style="margin-top:8px;">${escHtml(run.error)}</div>`;
+    }
+
+    el.innerHTML = html;
+  }
+
+  function renderLogStep(step) {
+    const sc = step.status === 'success' ? 'success' : step.status === 'error' ? 'error' : 'in-progress';
+
+    if (step.type === 'token') {
+      return `
+      <details class="log-step" open>
+        <summary class="step-summary">
+          <div class="step-status-dot ${sc}"></div>
+          <span class="step-name-text">Token Refresh</span>
+          ${step.error ? `<span class="step-count-text" style="color:var(--error);">${escHtml(step.error)}</span>` : ''}
+          <span class="step-chevron">▶</span>
+        </summary>
+        <div class="step-body">
+          <span style="font-size:12px;color:var(--text-secondary);">
+            ${step.status === 'success' ? 'AWS SSO device authorization flow completed successfully.' : step.status === 'in-progress' ? 'Waiting for authorization…' : 'Authorization failed.'}
+          </span>
+        </div>
+      </details>`;
+    }
+
+    if (step.type === 'profiles') {
+      const accounts = step.accounts || [];
+      const totalRoles = accounts.reduce((s, a) => s + a.roles.length, 0);
+      let inner = '';
+      for (const acct of accounts) {
+        inner += `
+        <details class="log-account">
+          <summary class="account-sum">
+            <div class="account-avatar" style="width:20px;height:20px;font-size:9px;border-radius:4px;background:linear-gradient(135deg,var(--primary),#7c3aed);display:inline-flex;align-items:center;justify-content:center;color:white;font-weight:700;flex-shrink:0;">${escHtml(initials(acct.accountName))}</div>
+            <span class="account-sum-name">${escHtml(acct.accountName)}</span>
+            <span class="account-sum-id">${escHtml(acct.accountId)}</span>
+            <span class="badge">${acct.roles.length}</span>
+          </summary>
+          <div style="padding:0 10px 8px 36px;display:flex;flex-wrap:wrap;gap:5px;">
+            ${acct.roles.map(r =>
+              `<span class="role-chip" style="font-size:11px;">
+                <span>${escHtml(r.roleName)}</span>
+                <span style="color:var(--text-muted);font-size:10px;">→ ${escHtml(r.profileName)}</span>
+              </span>`
+            ).join('')}
+          </div>
+        </details>`;
+      }
+
+      return `
+      <details class="log-step" ${accounts.length > 0 ? 'open' : ''}>
+        <summary class="step-summary">
+          <div class="step-status-dot ${sc}"></div>
+          <span class="step-name-text">Profile Refresh</span>
+          <span class="step-count-text">${accounts.length} accounts · ${totalRoles} permission sets</span>
+          <span class="step-chevron">▶</span>
+        </summary>
+        <div class="step-body">${inner || '<span style="font-size:12px;color:var(--text-muted);">No accounts found.</span>'}</div>
+      </details>`;
+    }
+
+    if (step.type === 'eks') {
+      const entries = step.entries || [];
+      const found = entries.filter(e => e.clusters.length > 0);
+      const errors = entries.filter(e => e.status === 'error');
+      const totalClusters = found.reduce((s, e) => s + e.clusters.length, 0);
+
+      // Group found entries by region
+      const byRegion = new Map();
+      for (const e of found) {
+        if (!byRegion.has(e.regionName)) byRegion.set(e.regionName, []);
+        byRegion.get(e.regionName).push(e);
+      }
+
+      let inner = '';
+      for (const [region, regionEntries] of byRegion) {
+        const regionTotal = regionEntries.reduce((s, e) => s + e.clusters.length, 0);
+        inner += `
+        <details class="log-region" open>
+          <summary class="region-sum">
+            <span class="region-tag" style="font-size:11px;">${escHtml(region)}</span>
+            <span class="region-sum-name"></span>
+            <span class="badge success">${regionTotal} cluster${regionTotal !== 1 ? 's' : ''}</span>
+          </summary>
+          ${regionEntries.map(e =>
+            e.clusters.map(c =>
+              `<div class="cluster-log-row">
+                <span class="cluster-log-name">${escHtml(c)}</span>
+                <span class="cluster-log-profile">${escHtml(e.profileName)}</span>
+              </div>`
+            ).join('')
+          ).join('')}
+        </details>`;
+      }
+
+      if (errors.length > 0 && found.length === 0) {
+        inner += `<div style="padding:6px 10px;font-size:12px;color:var(--text-muted);">No clusters found. Some regions/profiles returned access errors (normal if IAM permissions are restricted).</div>`;
+      }
+
+      if (entries.length === 0) {
+        inner = `<span style="font-size:12px;color:var(--text-muted);">No entries recorded yet.</span>`;
+      }
+
+      return `
+      <details class="log-step" ${totalClusters > 0 ? 'open' : ''}>
+        <summary class="step-summary">
+          <div class="step-status-dot ${sc}"></div>
+          <span class="step-name-text">EKS Discovery</span>
+          <span class="step-count-text">${totalClusters} cluster${totalClusters !== 1 ? 's' : ''} found${errors.length > 0 ? ` · ${errors.length} access error${errors.length !== 1 ? 's' : ''}` : ''}</span>
+          <span class="step-chevron">▶</span>
+        </summary>
+        <div class="step-body">${inner}</div>
+      </details>`;
+    }
+
+    return '';
+  }
+
+  // ── State management ──────────────────────────────────────────────────────
+
+  let currentState = null;
+
+  function applyState(state) {
+    currentState = state;
+    updateHeaderStatus(state);
+    populateSettings(state);
+    updateCredentials(state);
+    updateEks(state);
+    updateLogs(state);
+  }
+
+  ipcRenderer.on('state-updated', (event, state) => {
+    applyState(state);
+  });
+
+  // Initial load
+  ipcRenderer.invoke('get-state').then(state => {
+    applyState(state);
+  });
+
+  // Refresh relative timestamps every 30s
+  setInterval(() => {
+    if (currentState) {
+      updateHeaderStatus(currentState);
+      if (currentState.expiresAt) {
+        const detail = document.getElementById('cred-detail');
+        if (detail && currentState.expiresAt) {
+          const future = new Date(currentState.expiresAt).getTime() > Date.now();
+          if (currentState.expiresAt && !currentState.isWorking && !currentState.lastError) {
+            detail.textContent = future
+              ? `Expires ${timeFromNow(currentState.expiresAt)} · ${formatLocalTime(currentState.expiresAt)}`
+              : `Expired ${timeFromNow(currentState.expiresAt)}`;
+          }
+        }
+      }
+    }
+  }, 30000);
+</script>
+</body>
+</html>
