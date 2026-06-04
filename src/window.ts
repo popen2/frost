@@ -20,7 +20,7 @@ export interface DashboardState {
     lastError?: string | null;
     profiles: StoredProfile[];
     clusters: { name: string; profile: string; region: string }[];
-    lastRun?: RunLog;
+    runHistory: RunLog[];
     behaviorConfig: BehaviorConfig;
 }
 
@@ -46,7 +46,7 @@ function getState(): DashboardState {
                 profile: string;
                 region: string;
             }[]) || [],
-        lastRun: config.get("lastRun") as RunLog | undefined,
+        runHistory: (config.get("runHistory") as RunLog[]) || [],
         behaviorConfig:
             (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
             DEFAULT_BEHAVIOR,

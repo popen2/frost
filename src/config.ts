@@ -76,14 +76,18 @@ export const config = new Store({
                 },
             },
         },
-        lastRun: {
-            type: "object",
+        runHistory: {
+            type: "array",
+            items: {
+                type: "object",
+            },
         },
         behaviorConfig: {
             type: "object",
             properties: {
                 refreshMode: { type: "string" },
                 refreshHotkey: { type: "string" },
+                historyRetentionDays: { type: "number" },
             },
         },
     },
@@ -104,9 +108,11 @@ export interface StoredProfile {
 export interface BehaviorConfig {
     refreshMode: "auto" | "notify";
     refreshHotkey: string;
+    historyRetentionDays: number;
 }
 
 export const DEFAULT_BEHAVIOR: BehaviorConfig = {
     refreshMode: "auto",
     refreshHotkey: "CmdOrCtrl+Shift+R",
+    historyRetentionDays: 7,
 };

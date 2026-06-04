@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { EventEmitter } from "events";
-import { config } from "./config.js";
+import { config, BehaviorConfig, DEFAULT_BEHAVIOR } from "./config.js";
 
 export interface ProfileEntry {
     accountId: string;
@@ -52,10 +52,32 @@ export const runLogEmitter = new EventEmitter();
 let currentRun: RunLog | null = null;
 
 function saveRun() {
-    if (currentRun) {
-        config.set("lastRun", currentRun as object);
-        runLogEmitter.emit("updated", currentRun);
+    if (!currentRun) return;
+
+    const behavior =
+        (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
+        DEFAULT_BEHAVIOR;
+    const retentionDays = behavior.historyRetentionDays ?? 7;
+    const cutoff = new Date(
+        Date.now() - retentionDays * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const stored = (config.get("runHistory") as RunLog[]) || [];
+    const idx = stored.findIndex((r) => r.runId === currentRun!.runId);
+
+    let updated: RunLog[];
+    if (idx >= 0) {
+        updated = stored.map((r, i) => (i === idx ? currentRun! : r));
+    } else {
+        updated = [currentRun, ...stored];
     }
+
+    updated = updated.filter(
+        (r) => r.runId === currentRun!.runId || r.startedAt >= cutoff
+    );
+
+    config.set("runHistory", updated as object[]);
+    runLogEmitter.emit("updated");
 }
 
 export function getCurrentRun(): RunLog | null {

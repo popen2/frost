@@ -13,17 +13,17 @@
       --text:         #000000;
       --text-2:       #6C6C70;
       --text-3:       #AEAEB2;
-      --sep:          rgba(60,60,67,0.18);
-      --sep-strong:   rgba(60,60,67,0.29);
+      --sep:          rgba(60,60,67,0.12);
+      --sep-strong:   rgba(60,60,67,0.22);
       --accent:       #007AFF;
       --accent-dim:   rgba(0,122,255,0.12);
-      --nav-active:   rgba(0,122,255,0.13);
-      --hover:        rgba(0,0,0,0.05);
+      --nav-active:   rgba(0,122,255,0.11);
+      --hover:        rgba(0,0,0,0.04);
       --input-bg:     #FFFFFF;
-      --input-border: rgba(0,0,0,0.18);
-      --badge-bg:     rgba(120,120,128,0.16);
+      --input-border: rgba(0,0,0,0.14);
+      --badge-bg:     rgba(120,120,128,0.14);
       --badge-text:   #3C3C43;
-      --chip-bg:      rgba(0,122,255,0.1);
+      --chip-bg:      rgba(0,122,255,0.08);
       --chip-text:    #007AFF;
       --success:      #34C759;
       --success-bg:   rgba(52,199,89,0.1);
@@ -38,21 +38,21 @@
         --bg:           #1C1C1E;
         --sidebar-bg:   #161618;
         --card:         #2C2C2E;
-        --card-alt:     #343438;
+        --card-alt:     #3A3A3C;
         --text:         #FFFFFF;
         --text-2:       #98989E;
         --text-3:       #636366;
-        --sep:          rgba(84,84,88,0.4);
-        --sep-strong:   rgba(84,84,88,0.65);
+        --sep:          rgba(84,84,88,0.32);
+        --sep-strong:   rgba(84,84,88,0.55);
         --accent:       #0A84FF;
         --accent-dim:   rgba(10,132,255,0.18);
-        --nav-active:   rgba(10,132,255,0.2);
-        --hover:        rgba(255,255,255,0.06);
+        --nav-active:   rgba(10,132,255,0.18);
+        --hover:        rgba(255,255,255,0.05);
         --input-bg:     #3A3A3C;
         --input-border: rgba(255,255,255,0.1);
-        --badge-bg:     rgba(120,120,128,0.32);
+        --badge-bg:     rgba(120,120,128,0.28);
         --badge-text:   #EBEBF5;
-        --chip-bg:      rgba(10,132,255,0.18);
+        --chip-bg:      rgba(10,132,255,0.16);
         --chip-text:    #409CFF;
         --success:      #32D74B;
         --success-bg:   rgba(50,215,75,0.12);
@@ -66,7 +66,6 @@
 
     /* ── Reset ───────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     html, body { height: 100%; overflow: hidden; }
 
     body {
@@ -79,12 +78,11 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Title-bar strip (traffic-light zone on macOS hiddenInset) ───────── */
+    /* ── Title-bar strip ─────────────────────────────────────────────────── */
     .titlebar {
       height: 36px;
       flex-shrink: 0;
       -webkit-app-region: drag;
-      /* Split background: sidebar colour left of nav, content colour right */
       background: linear-gradient(to right, var(--sidebar-bg) 168px, var(--bg) 168px);
     }
 
@@ -104,7 +102,7 @@
       border-right: 1px solid var(--sep);
       display: flex;
       flex-direction: column;
-      padding: 6px 8px 12px;
+      padding: 4px 8px 12px;
       -webkit-app-region: drag;
       overflow: hidden;
     }
@@ -113,14 +111,15 @@
       display: flex;
       align-items: center;
       gap: 7px;
-      padding: 4px 6px 10px;
+      padding: 6px 6px 10px;
       -webkit-app-region: no-drag;
     }
 
     .sidebar-app-icon {
-      width: 22px;
-      height: 22px;
+      width: 16px;
+      height: 16px;
       flex-shrink: 0;
+      color: var(--accent);
     }
 
     .sidebar-app-name {
@@ -130,13 +129,28 @@
       letter-spacing: -0.1px;
     }
 
+    /* ── Nav sections ────────────────────────────────────────────────────── */
     .nav { -webkit-app-region: no-drag; flex: 1; }
+
+    .nav-section { margin-bottom: 2px; }
+    .nav-section + .nav-section { margin-top: 6px; }
+
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-3);
+      padding: 0 8px 3px;
+      user-select: none;
+      -webkit-app-region: no-drag;
+    }
 
     .nav-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 8px;
+      gap: 7px;
+      padding: 5px 8px;
       border-radius: 7px;
       cursor: pointer;
       color: var(--text);
@@ -145,6 +159,7 @@
       margin-bottom: 1px;
       transition: background 0.1s;
       user-select: none;
+      -webkit-app-region: no-drag;
     }
 
     .nav-item:hover { background: var(--hover); }
@@ -155,28 +170,24 @@
       font-weight: 600;
     }
 
+    /* ── Nav icons (monochrome, no colored box) ──────────────────────────── */
     .nav-icon {
-      width: 26px;
-      height: 26px;
-      border-radius: 6px;
+      width: 16px;
+      height: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      color: #fff;
     }
 
     .nav-icon svg {
-      width: 14px;
-      height: 14px;
-      fill: white;
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+      opacity: 0.55;
     }
 
-    .nav-icon-gray   { background: #636366; }
-    .nav-icon-purple { background: #5E5CE6; }
-    .nav-icon-orange { background: #FF9500; }
-    .nav-icon-teal   { background: #30B0C7; }
-    .nav-icon-indigo { background: #5E5CE6; }
+    .nav-item.active .nav-icon svg { opacity: 1; }
 
     /* ── Content panels ──────────────────────────────────────────────────── */
     .panels {
@@ -193,7 +204,7 @@
     .panel { display: none; }
     .panel.active { display: block; }
 
-    /* ── Section groups (macOS grouped table style) ───────────────────────── */
+    /* ── Section groups ──────────────────────────────────────────────────── */
     .section { margin-bottom: 20px; }
 
     .section-title {
@@ -239,7 +250,7 @@
       line-height: 1.5;
     }
 
-    /* ── Native-style form controls ──────────────────────────────────────── */
+    /* ── Form controls ───────────────────────────────────────────────────── */
     .field {
       width: 100%;
       padding: 6px 9px;
@@ -284,7 +295,6 @@
     }
 
     .btn:active { filter: brightness(0.9); }
-
     .btn-primary { background: var(--accent); color: #fff; }
     .btn-secondary {
       background: var(--card);
@@ -401,6 +411,7 @@
       border-radius: 20px;
       background: var(--badge-bg);
       color: var(--badge-text);
+      white-space: nowrap;
     }
     .badge.s { background: var(--success-bg); color: var(--success); }
     .badge.e { background: var(--error-bg);   color: var(--error);   }
@@ -433,24 +444,57 @@
     }
     .eks-table tr:hover td { background: var(--hover); }
     .mono { font-family: "SF Mono", Menlo, monospace; font-size: 11.5px; }
-    .region-tag { background: rgba(48,176,199,0.12); color: #30B0C7; padding: 2px 7px; border-radius: 4px; font-size: 11.5px; font-weight: 500; }
-    @media (prefers-color-scheme: dark) { .region-tag { color: #64D2E0; } }
+    .region-tag { background: rgba(48,176,199,0.1); color: #30B0C7; padding: 2px 7px; border-radius: 4px; font-size: 11.5px; font-weight: 500; }
+    @media (prefers-color-scheme: dark) { .region-tag { color: #64D2E0; background: rgba(100,210,224,0.12); } }
 
-    /* ── Logs ────────────────────────────────────────────────────────────── */
-    .run-banner {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 11px 14px;
+    /* ── History run entries ─────────────────────────────────────────────── */
+    details.run-entry {
       background: var(--card);
       border-radius: 10px;
-      margin-bottom: 10px;
-      border-left: 3px solid var(--text-3);
+      margin-bottom: 8px;
+      overflow: hidden;
     }
-    .run-banner.s { border-left-color: var(--success); }
-    .run-banner.e { border-left-color: var(--error); }
-    .run-banner.p { border-left-color: var(--inprog); }
 
+    summary.run-summary {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 12px 14px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      transition: background 0.1s;
+    }
+    summary.run-summary::-webkit-details-marker { display: none; }
+    summary.run-summary:hover { background: var(--hover); }
+
+    .run-meta {
+      font-size: 11.5px;
+      color: var(--text-2);
+      margin-top: 2px;
+    }
+
+    .run-chevron {
+      font-size: 9px;
+      color: var(--text-3);
+      margin-left: auto;
+      flex-shrink: 0;
+      transition: transform 0.18s;
+    }
+    details.run-entry[open] .run-chevron { transform: rotate(90deg); }
+
+    .run-detail { border-top: 1px solid var(--sep); }
+
+    /* Step groups inside run detail — flat, no nested cards */
+    .run-detail details.log-group {
+      background: transparent;
+      border-radius: 0;
+      margin-bottom: 0;
+      border-top: 1px solid var(--sep);
+    }
+    .run-detail details.log-group:first-child { border-top: none; }
+
+    /* ── Log step groups (standalone or inside run-detail) ───────────────── */
     details.log-group {
       background: var(--card);
       border-radius: 10px;
@@ -576,64 +620,65 @@
 </head>
 <body>
 
-<!-- Traffic-light / title-bar strip -->
 <div class="titlebar"></div>
 
-<!-- Main layout -->
 <div class="layout">
 
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <svg class="sidebar-app-icon" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;">
-        <g transform="matrix(1.17158,0,0,1.17158,0.0181239,0.141408)">
-          <path d="M14.246,4.271C14.246,2.455 12.772,0.981 10.956,0.981L4.376,0.981C2.561,0.981 1.086,2.455 1.086,4.271L1.086,10.851C1.086,12.667 2.561,14.141 4.376,14.141L10.956,14.141C12.772,14.141 14.246,12.667 14.246,10.851L14.246,4.271Z" fill="url(#sb1)"/>
-        </g>
+      <!-- Bare asterisk from tray icon, accent-colored, no box -->
+      <svg class="sidebar-app-icon" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
         <g transform="matrix(1.27745,0,0,1.44877,-0.118489,14.6876)">
           <g transform="matrix(21.8461,0,0,21.8461,1.87311,7.09554)">
-            <path d="M0.293,-0.57L0.424,-0.613L0.454,-0.518L0.323,-0.476L0.406,-0.362L0.323,-0.301L0.239,-0.416L0.158,-0.306L0.077,-0.367L0.161,-0.476L0.028,-0.522L0.06,-0.617L0.191,-0.57L0.191,-0.708L0.293,-0.708L0.293,-0.57Z" fill="white"/>
+            <path d="M0.293,-0.57L0.424,-0.613L0.454,-0.518L0.323,-0.476L0.406,-0.362L0.323,-0.301L0.239,-0.416L0.158,-0.306L0.077,-0.367L0.161,-0.476L0.028,-0.522L0.06,-0.617L0.191,-0.57L0.191,-0.708L0.293,-0.708L0.293,-0.57Z" fill="currentColor"/>
           </g>
         </g>
-        <defs>
-          <linearGradient id="sb1" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(13.1599,0,0,13.1599,1.08648,7.5612)">
-            <stop offset="0" stop-color="rgb(2,23,187)"/>
-            <stop offset="1" stop-color="rgb(46,46,244)"/>
-          </linearGradient>
-        </defs>
       </svg>
       <span class="sidebar-app-name">Frost</span>
     </div>
 
     <nav class="nav">
-      <div class="nav-item active" data-tab="settings">
-        <span class="nav-icon nav-icon-gray">
-          <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 014.472 10.015A4.003 4.003 0 0010 12a4.003 4.003 0 00-4.472 2.015A6 6 0 0110 4zm0 4a2 2 0 110 4 2 2 0 010-4zm0 6c1.28 0 2.434.51 3.29 1.337A5.98 5.98 0 0110 16a5.98 5.98 0 01-3.29-.663A4.002 4.002 0 0110 14z"/></svg>
-        </span>
-        Settings
+      <div class="nav-section">
+        <div class="nav-section-label">Configuration</div>
+        <div class="nav-item active" data-tab="settings">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 014.472 10.015A4.003 4.003 0 0010 12a4.003 4.003 0 00-4.472 2.015A6 6 0 0110 4zm0 4a2 2 0 110 4 2 2 0 010-4zm0 6c1.28 0 2.434.51 3.29 1.337A5.98 5.98 0 0110 16a5.98 5.98 0 01-3.29-.663A4.002 4.002 0 0110 14z"/></svg>
+          </span>
+          Settings
+        </div>
+        <div class="nav-item" data-tab="behavior">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M5 4a1 1 0 00-1 1v1H3a1 1 0 000 2h1v1a1 1 0 002 0V8h1a1 1 0 000-2H6V5a1 1 0 00-1-1zm10 8a1 1 0 00-1 1v1h-1a1 1 0 000 2h1v1a1 1 0 002 0v-1h1a1 1 0 000-2h-1v-1a1 1 0 00-1-1zM3 11a1 1 0 000 2h7a1 1 0 000-2H3zm7-8a1 1 0 000 2h7a1 1 0 000-2h-7z"/></svg>
+          </span>
+          Behavior
+        </div>
       </div>
-      <div class="nav-item" data-tab="behavior">
-        <span class="nav-icon nav-icon-purple">
-          <svg viewBox="0 0 20 20"><path d="M5 4a1 1 0 00-1 1v1H3a1 1 0 000 2h1v1a1 1 0 002 0V8h1a1 1 0 000-2H6V5a1 1 0 00-1-1zm10 8a1 1 0 00-1 1v1h-1a1 1 0 000 2h1v1a1 1 0 002 0v-1h1a1 1 0 000-2h-1v-1a1 1 0 00-1-1zM3 11a1 1 0 000 2h7a1 1 0 000-2H3zm7-8a1 1 0 000 2h7a1 1 0 000-2h-7z"/></svg>
-        </span>
-        Behavior
+
+      <div class="nav-section">
+        <div class="nav-section-label">Status</div>
+        <div class="nav-item" data-tab="credentials">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4zm-2 3a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1z"/></svg>
+          </span>
+          Credentials
+        </div>
+        <div class="nav-item" data-tab="eks">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.5"/><path d="M10 1a9 9 0 100 18A9 9 0 0010 1zm0 2a7 7 0 110 14A7 7 0 0110 3zm0 2a5 5 0 100 10A5 5 0 0010 5zm0 2a3 3 0 110 6 3 3 0 010-6z"/></svg>
+          </span>
+          EKS
+        </div>
       </div>
-      <div class="nav-item" data-tab="credentials">
-        <span class="nav-icon nav-icon-orange">
-          <svg viewBox="0 0 20 20"><path d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4zm-2 3a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1z"/></svg>
-        </span>
-        Credentials
-      </div>
-      <div class="nav-item" data-tab="eks">
-        <span class="nav-icon nav-icon-teal">
-          <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.5"/><path d="M10 1a9 9 0 100 18A9 9 0 0010 1zm0 2a7 7 0 110 14A7 7 0 0110 3zm0 2a5 5 0 100 10A5 5 0 0010 5zm0 2a3 3 0 110 6 3 3 0 010-6z"/></svg>
-        </span>
-        EKS
-      </div>
-      <div class="nav-item" data-tab="logs">
-        <span class="nav-icon nav-icon-gray">
-          <svg viewBox="0 0 20 20"><path d="M4 4a1 1 0 011-1h10a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4zm2 1v10h8V5H6zm1 2h6v1.5H7V7zm0 3h6v1.5H7V10zm0 3h4v1.5H7V13z"/></svg>
-        </span>
-        Logs
+
+      <div class="nav-section">
+        <div class="nav-section-label">History</div>
+        <div class="nav-item" data-tab="history">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4zm1 3v4.414l2.293 2.293-1.414 1.414L9.586 12.4A1 1 0 019 11.586V7h2z"/></svg>
+          </span>
+          History
+        </div>
       </div>
     </nav>
   </aside>
@@ -665,25 +710,6 @@
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
         <button class="btn btn-primary" id="btn-save-settings">Save &amp; Refresh</button>
         <span class="save-notice" id="settings-notice">✓ Saved</span>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Account Name Tips</div>
-        <div class="section-body">
-          <div class="section-row">
-            <p style="font-size:12.5px;color:var(--text-2);line-height:1.6;">
-              Frost reads annotations in your AWS account names to shorten profile names and set per-account regions.
-            </p>
-            <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
-              <div style="font-size:12px;color:var(--text-2);">
-                <code>#short-name</code>&ensp;→ use as the profile prefix, e.g. <em>Acme Prod (#prod)</em> → <code>prod-admin</code>
-              </div>
-              <div style="font-size:12px;color:var(--text-2);">
-                <code>@region</code>&ensp;→ override the default region, e.g. <em>Acme EU (#eu @eu-west-1)</em>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -722,6 +748,22 @@
           </div>
         </div>
         <div class="row-hint" style="padding-left:4px;margin-top:6px;">Click <strong>Change</strong> and press your desired combination. Press Escape to cancel.</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">History Retention</div>
+        <div class="section-body">
+          <div class="section-row" style="display:flex;align-items:center;gap:12px;">
+            <div style="flex:1;color:var(--text-2);font-size:12.5px;">Keep credential refresh history for</div>
+            <select class="field" id="retention-days" style="width:auto;min-width:110px">
+              <option value="1">1 day</option>
+              <option value="3">3 days</option>
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30">30 days</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
@@ -765,13 +807,13 @@
       </div>
     </div>
 
-    <!-- ── Logs ── -->
-    <div class="panel" id="panel-logs">
-      <div id="logs-content">
+    <!-- ── History ── -->
+    <div class="panel" id="panel-history">
+      <div id="history-content">
         <div class="empty">
-          <div class="empty-icon">📋</div>
-          <div class="empty-title">No runs yet</div>
-          <div class="empty-body">Credential refresh logs will appear here after the first run.</div>
+          <div class="empty-icon">🕐</div>
+          <div class="empty-title">No history yet</div>
+          <div class="empty-body">Credential refresh runs will appear here.</div>
         </div>
       </div>
     </div>
@@ -816,7 +858,6 @@ function dur(a, b) {
 }
 
 function initials(name) { return (name||'?').slice(0,2).toUpperCase(); }
-
 function scClass(s) { return s==='success'?'s':s==='error'?'e':s==='in-progress'?'p':''; }
 
 function showNotice(id) {
@@ -879,7 +920,6 @@ function updateCredentials(state) {
     sub.textContent = '';
   }
 
-  // Accounts
   const profiles = state.profiles || [];
   const section  = document.getElementById('accounts-section');
   const title    = document.getElementById('accounts-title');
@@ -933,30 +973,43 @@ function updateEks(state) {
   el.innerHTML = html;
 }
 
-// ── Logs ─────────────────────────────────────────────────────────────────────
+// ── History ──────────────────────────────────────────────────────────────────
 
-function updateLogs(state) {
-  const run = state.lastRun;
-  const el  = document.getElementById('logs-content');
-  if (!run) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">No runs yet</div><div class="empty-body">Credential refresh logs will appear here after the first run.</div></div>`;
+function updateHistory(state) {
+  const history = state.runHistory || [];
+  const el = document.getElementById('history-content');
+
+  if (!history.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div><div class="empty-title">No history yet</div><div class="empty-body">Credential refresh runs will appear here.</div></div>`;
     return;
   }
 
+  let html = '';
+  for (const run of history) html += renderRun(run);
+  el.innerHTML = html;
+}
+
+function renderRun(run) {
   const sc = scClass(run.status);
   const d  = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
+  const isRecent = run.status === 'in-progress' || (run.endedAt && (Date.now() - new Date(run.endedAt).getTime()) < 120000);
 
-  let html = `<div class="run-banner ${sc}">
-    <div style="flex:1">
-      <div style="font-weight:600;font-size:13px">Credential Refresh</div>
-      <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">${fromNow(run.startedAt)}${d?` · ${d}`:' · in progress'}  ·  ${localTime(run.startedAt)}</div>
-    </div>
-    <span class="badge ${sc}">${run.status.replace('-',' ')}</span>
-  </div>`;
+  let steps = '';
+  for (const step of (run.steps || [])) steps += renderLogStep(step);
+  if (run.error) steps += `<div class="error-box" style="margin:8px 14px">${esc(run.error)}</div>`;
 
-  for (const step of (run.steps||[])) html += renderLogStep(step);
-  if (run.error) html += `<div class="error-box" style="margin-top:8px">${esc(run.error)}</div>`;
-  el.innerHTML = html;
+  return `<details class="run-entry"${isRecent ? ' open' : ''}>
+    <summary class="run-summary">
+      <div class="step-dot ${sc}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">Credential Refresh</div>
+        <div class="run-meta">${fromNow(run.startedAt)}${d?` · ${d}`:' · in progress'} · ${localTime(run.startedAt)}</div>
+      </div>
+      <span class="badge ${sc}">${run.status.replace('-',' ')}</span>
+      <span class="run-chevron">▶</span>
+    </summary>
+    <div class="run-detail">${steps}</div>
+  </details>`;
 }
 
 function renderLogStep(step) {
@@ -1031,7 +1084,7 @@ function renderLogStep(step) {
 
 // ── Behavior ────────────────────────────────────────────────────────────────
 
-let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R' };
+let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R', historyRetentionDays: 7 };
 let recording   = false;
 
 function fmtHotkey(a) {
@@ -1042,10 +1095,12 @@ function fmtHotkey(a) {
 
 function populateBehavior(state) {
   const cfg = state.behaviorConfig || curBehavior;
-  curBehavior = { ...cfg };
+  curBehavior = { ...curBehavior, ...cfg };
   const r = document.querySelector(`input[name=refreshMode][value="${cfg.refreshMode}"]`);
   if (r) r.checked = true;
   document.getElementById('hotkey-pill').textContent = fmtHotkey(cfg.refreshHotkey);
+  const retEl = document.getElementById('retention-days');
+  if (retEl) retEl.value = String(cfg.historyRetentionDays || 7);
 }
 
 document.getElementById('btn-record').addEventListener('click', async () => {
@@ -1092,13 +1147,11 @@ document.addEventListener('keydown', async e => {
 document.getElementById('btn-save-behavior').addEventListener('click', async () => {
   const r = document.querySelector('input[name=refreshMode]:checked');
   if (r) curBehavior.refreshMode = r.value;
+  const retEl = document.getElementById('retention-days');
+  if (retEl) curBehavior.historyRetentionDays = Number(retEl.value);
   await ipcRenderer.invoke('save-behavior', curBehavior);
   showNotice('behavior-notice');
 });
-
-// ── Header status dot update ─────────────────────────────────────────────────
-
-// (no separate header - nav shows status via credentials panel)
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -1110,7 +1163,7 @@ function apply(state) {
   populateBehavior(state);
   updateCredentials(state);
   updateEks(state);
-  updateLogs(state);
+  updateHistory(state);
 }
 
 ipcRenderer.on('state-updated', (_, s) => apply(s));

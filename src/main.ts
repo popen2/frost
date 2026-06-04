@@ -49,6 +49,15 @@ async function main() {
     log.info("[main] =================== Starting app ===================");
     config.set("isWorking", false);
 
+    // One-time migration: lastRun → runHistory
+    const oldRun = config.get("lastRun");
+    if (oldRun) {
+        const existing = config.get("runHistory") as unknown[] | undefined;
+        if (!existing?.length) {
+            config.set("runHistory", [oldRun]);
+        }
+    }
+
     updateElectronApp({
         logger: log,
     });
