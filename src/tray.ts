@@ -67,7 +67,7 @@ export function updateTrayIcon(onOpenDashboard?: () => void) {
     const menu = Menu.buildFromTemplate([
         ...refreshItems,
         {
-            label: "Open Dashboard",
+            label: "Settings",
             click() {
                 openDashboardCallback?.();
             },

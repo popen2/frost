@@ -115,10 +115,13 @@ export function openDashboard() {
     if (app.dock) app.dock.show();
 
     dashboardWindow = new BrowserWindow({
-        width: 820,
-        height: 580,
+        width: 760,
+        height: 520,
+        minWidth: 620,
+        minHeight: 420,
         title: "Frost",
-        resizable: true,
+        titleBarStyle: "hiddenInset",
+        trafficLightPosition: { x: 12, y: 12 },
         center: true,
         webPreferences: {
             nodeIntegration: true,
