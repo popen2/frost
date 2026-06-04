@@ -1,4 +1,4 @@
-import { app, globalShortcut } from "electron";
+import { app, globalShortcut, Notification } from "electron";
 import log from "electron-log/main";
 import { updateElectronApp } from "update-electron-app";
 import { updateTrayIcon } from "./tray.js";
@@ -92,6 +92,19 @@ async function main() {
         },
         onSetHotkeyRecording: (recording: boolean) => {
             isRecordingHotkey = recording;
+        },
+        onTestNotification: () => {
+            const behavior =
+                (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
+                DEFAULT_BEHAVIOR;
+            const displayKey = behavior.refreshHotkey
+                .replace("CmdOrCtrl", "⌘/Ctrl")
+                .replace("Shift", "⇧")
+                .replace("Alt", "⌥");
+            new Notification({
+                title: "Frost — Test Notification",
+                body: `Press ${displayKey} to open the AWS login browser.`,
+            }).show();
         },
     });
 

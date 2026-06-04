@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Frost</title>
   <style>
-    /* ── System-accurate colour tokens ──────────────────────────────────── */
+    /* ── Colour tokens ───────────────────────────────────────────────────── */
     :root {
       --bg:           #F2F2F7;
       --sidebar-bg:   #EBEBF0;
@@ -102,7 +102,7 @@
       border-right: 1px solid var(--sep);
       display: flex;
       flex-direction: column;
-      padding: 4px 8px 12px;
+      padding: 6px 8px 16px;
       -webkit-app-region: drag;
       overflow: hidden;
     }
@@ -111,7 +111,7 @@
       display: flex;
       align-items: center;
       gap: 7px;
-      padding: 6px 6px 10px;
+      padding: 6px 6px 14px;
       -webkit-app-region: no-drag;
     }
 
@@ -133,7 +133,8 @@
     .nav { -webkit-app-region: no-drag; flex: 1; }
 
     .nav-section { margin-bottom: 2px; }
-    .nav-section + .nav-section { margin-top: 6px; }
+
+    .nav-section + .nav-section { margin-top: 18px; }
 
     .nav-section-label {
       font-size: 10px;
@@ -141,7 +142,7 @@
       text-transform: uppercase;
       letter-spacing: 0.07em;
       color: var(--text-3);
-      padding: 0 8px 3px;
+      padding: 0 8px 5px;
       user-select: none;
       -webkit-app-region: no-drag;
     }
@@ -156,7 +157,7 @@
       color: var(--text);
       font-size: 12.5px;
       font-weight: 500;
-      margin-bottom: 1px;
+      margin-bottom: 2px;
       transition: background 0.1s;
       user-select: none;
       -webkit-app-region: no-drag;
@@ -168,9 +169,10 @@
       background: var(--nav-active);
       color: var(--accent);
       font-weight: 600;
+      padding: 7px 8px;
     }
 
-    /* ── Nav icons (monochrome, no colored box) ──────────────────────────── */
+    /* ── Nav icons (monochrome) ──────────────────────────────────────────── */
     .nav-icon {
       width: 16px;
       height: 16px;
@@ -184,7 +186,7 @@
       width: 15px;
       height: 15px;
       fill: currentColor;
-      opacity: 0.55;
+      opacity: 0.5;
     }
 
     .nav-item.active .nav-icon svg { opacity: 1; }
@@ -270,6 +272,8 @@
     }
 
     .field::placeholder { color: var(--text-3); }
+
+    select.field { cursor: pointer; }
 
     code {
       font-family: "SF Mono", "Menlo", monospace;
@@ -468,11 +472,7 @@
     summary.run-summary::-webkit-details-marker { display: none; }
     summary.run-summary:hover { background: var(--hover); }
 
-    .run-meta {
-      font-size: 11.5px;
-      color: var(--text-2);
-      margin-top: 2px;
-    }
+    .run-meta { font-size: 11.5px; color: var(--text-2); margin-top: 2px; }
 
     .run-chevron {
       font-size: 9px;
@@ -485,7 +485,6 @@
 
     .run-detail { border-top: 1px solid var(--sep); }
 
-    /* Step groups inside run detail — flat, no nested cards */
     .run-detail details.log-group {
       background: transparent;
       border-radius: 0;
@@ -494,7 +493,7 @@
     }
     .run-detail details.log-group:first-child { border-top: none; }
 
-    /* ── Log step groups (standalone or inside run-detail) ───────────────── */
+    /* ── Log step groups ─────────────────────────────────────────────────── */
     details.log-group {
       background: var(--card);
       border-radius: 10px;
@@ -627,7 +626,6 @@
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <!-- Bare asterisk from tray icon, accent-colored, no box -->
       <svg class="sidebar-app-icon" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
         <g transform="matrix(1.27745,0,0,1.44877,-0.118489,14.6876)">
           <g transform="matrix(21.8461,0,0,21.8461,1.87311,7.09554)">
@@ -641,17 +639,23 @@
     <nav class="nav">
       <div class="nav-section">
         <div class="nav-section-label">Configuration</div>
-        <div class="nav-item active" data-tab="settings">
+        <div class="nav-item active" data-tab="login">
           <span class="nav-icon">
             <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 014.472 10.015A4.003 4.003 0 0010 12a4.003 4.003 0 00-4.472 2.015A6 6 0 0110 4zm0 4a2 2 0 110 4 2 2 0 010-4zm0 6c1.28 0 2.434.51 3.29 1.337A5.98 5.98 0 0110 16a5.98 5.98 0 01-3.29-.663A4.002 4.002 0 0110 14z"/></svg>
           </span>
-          Settings
+          Login
         </div>
         <div class="nav-item" data-tab="behavior">
           <span class="nav-icon">
             <svg viewBox="0 0 20 20"><path d="M5 4a1 1 0 00-1 1v1H3a1 1 0 000 2h1v1a1 1 0 002 0V8h1a1 1 0 000-2H6V5a1 1 0 00-1-1zm10 8a1 1 0 00-1 1v1h-1a1 1 0 000 2h1v1a1 1 0 002 0v-1h1a1 1 0 000-2h-1v-1a1 1 0 00-1-1zM3 11a1 1 0 000 2h7a1 1 0 000-2H3zm7-8a1 1 0 000 2h7a1 1 0 000-2h-7z"/></svg>
           </span>
           Behavior
+        </div>
+        <div class="nav-item" data-tab="privacy">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M10 1L3 4.5v5C3 13.7 6.1 17.5 10 19c3.9-1.5 7-5.3 7-9.5v-5L10 1zm0 2.2l5 2.5V9.5c0 3.2-2.1 6.2-5 7.5-2.9-1.3-5-4.3-5-7.5V5.7l5-2.5z"/></svg>
+          </span>
+          Privacy
         </div>
       </div>
 
@@ -677,7 +681,7 @@
           <span class="nav-icon">
             <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4zm1 3v4.414l2.293 2.293-1.414 1.414L9.586 12.4A1 1 0 019 11.586V7h2z"/></svg>
           </span>
-          History
+          Runs
         </div>
       </div>
     </nav>
@@ -686,23 +690,76 @@
   <!-- Content panels -->
   <div class="panels">
 
-    <!-- ── Settings ── -->
-    <div class="panel active" id="panel-settings">
+    <!-- ── Login ── -->
+    <div class="panel active" id="panel-login">
       <div class="section">
-        <div class="section-title">SSO Configuration</div>
+        <div class="section-title">IAM Identity Center</div>
         <div class="section-body">
           <div class="section-row">
             <div class="row-label">Start URL</div>
             <input class="field" type="url" id="input-url"
               placeholder="https://d-xxxxxxxxxxxx.awsapps.com/start"
               autocomplete="off" spellcheck="false">
-            <div class="row-hint">Your organization's AWS access portal URL. Find it in the IAM Identity Center console or ask your IT team.</div>
+            <div class="row-hint">Your organization's AWS access portal URL, available in the IAM Identity Center console.</div>
           </div>
           <div class="section-row">
             <div class="row-label">AWS Region</div>
-            <input class="field" id="input-region" style="max-width:180px"
-              placeholder="us-east-1" autocomplete="off" spellcheck="false">
-            <div class="row-hint">The region where IAM Identity Center is configured, e.g. <code>us-east-1</code> or <code>eu-west-1</code>.</div>
+            <select class="field" id="input-region" style="max-width:260px">
+              <option value="">Select region…</option>
+              <optgroup label="US East">
+                <option value="us-east-1">us-east-1 — N. Virginia</option>
+                <option value="us-east-2">us-east-2 — Ohio</option>
+              </optgroup>
+              <optgroup label="US West">
+                <option value="us-west-1">us-west-1 — N. California</option>
+                <option value="us-west-2">us-west-2 — Oregon</option>
+              </optgroup>
+              <optgroup label="Canada">
+                <option value="ca-central-1">ca-central-1 — Central</option>
+                <option value="ca-west-1">ca-west-1 — Calgary</option>
+              </optgroup>
+              <optgroup label="Mexico">
+                <option value="mx-central-1">mx-central-1 — Central</option>
+              </optgroup>
+              <optgroup label="South America">
+                <option value="sa-east-1">sa-east-1 — São Paulo</option>
+              </optgroup>
+              <optgroup label="Europe">
+                <option value="eu-central-1">eu-central-1 — Frankfurt</option>
+                <option value="eu-central-2">eu-central-2 — Zurich</option>
+                <option value="eu-west-1">eu-west-1 — Ireland</option>
+                <option value="eu-west-2">eu-west-2 — London</option>
+                <option value="eu-west-3">eu-west-3 — Paris</option>
+                <option value="eu-south-1">eu-south-1 — Milan</option>
+                <option value="eu-south-2">eu-south-2 — Spain</option>
+                <option value="eu-north-1">eu-north-1 — Stockholm</option>
+              </optgroup>
+              <optgroup label="Asia Pacific">
+                <option value="ap-east-1">ap-east-1 — Hong Kong</option>
+                <option value="ap-south-1">ap-south-1 — Mumbai</option>
+                <option value="ap-south-2">ap-south-2 — Hyderabad</option>
+                <option value="ap-northeast-1">ap-northeast-1 — Tokyo</option>
+                <option value="ap-northeast-2">ap-northeast-2 — Seoul</option>
+                <option value="ap-northeast-3">ap-northeast-3 — Osaka</option>
+                <option value="ap-southeast-1">ap-southeast-1 — Singapore</option>
+                <option value="ap-southeast-2">ap-southeast-2 — Sydney</option>
+                <option value="ap-southeast-3">ap-southeast-3 — Jakarta</option>
+                <option value="ap-southeast-4">ap-southeast-4 — Melbourne</option>
+                <option value="ap-southeast-5">ap-southeast-5 — Malaysia</option>
+              </optgroup>
+              <optgroup label="Middle East">
+                <option value="me-south-1">me-south-1 — Bahrain</option>
+                <option value="me-central-1">me-central-1 — UAE</option>
+                <option value="il-central-1">il-central-1 — Tel Aviv</option>
+              </optgroup>
+              <optgroup label="Africa">
+                <option value="af-south-1">af-south-1 — Cape Town</option>
+              </optgroup>
+              <optgroup label="AWS GovCloud">
+                <option value="us-gov-east-1">us-gov-east-1</option>
+                <option value="us-gov-west-1">us-gov-west-1</option>
+              </optgroup>
+            </select>
           </div>
         </div>
       </div>
@@ -732,6 +789,10 @@
               <div class="radio-desc">A system notification appears. Press the hotkey or click the notification when you're ready to log in.</div>
             </div>
           </label>
+          <div class="section-row" style="display:flex;align-items:center;gap:12px;">
+            <div style="flex:1;font-size:12.5px;color:var(--text-2)">Send a test notification — useful for granting permission on first use.</div>
+            <button class="btn btn-secondary" id="btn-test-notif" style="white-space:nowrap;flex-shrink:0">Test</button>
+          </div>
         </div>
       </div>
 
@@ -750,12 +811,33 @@
         <div class="row-hint" style="padding-left:4px;margin-top:6px;">Click <strong>Change</strong> and press your desired combination. Press Escape to cancel.</div>
       </div>
 
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+        <button class="btn btn-primary" id="btn-save-behavior">Save</button>
+        <span class="save-notice" id="behavior-notice">✓ Saved</span>
+      </div>
+    </div>
+
+    <!-- ── Privacy ── -->
+    <div class="panel" id="panel-privacy">
       <div class="section">
-        <div class="section-title">History Retention</div>
+        <div class="section-title">Your Data</div>
+        <div class="section-body">
+          <div class="section-row">
+            <p style="font-size:13px;font-weight:500;margin-bottom:6px;">Frost stores everything locally.</p>
+            <p style="font-size:12.5px;color:var(--text-2);line-height:1.65;">Your AWS access token, discovered profiles, and run history are saved in a configuration file on this Mac — and only there. Frost has no backend, no analytics, no telemetry, and no crash-reporting service. Nothing about your identity, accounts, or usage is ever transmitted anywhere.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Run History</div>
         <div class="section-body">
           <div class="section-row" style="display:flex;align-items:center;gap:12px;">
-            <div style="flex:1;color:var(--text-2);font-size:12.5px;">Keep credential refresh history for</div>
-            <select class="field" id="retention-days" style="width:auto;min-width:110px">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:500;margin-bottom:3px;">Retention period</div>
+              <div style="font-size:12px;color:var(--text-2);">Runs older than this are automatically deleted.</div>
+            </div>
+            <select class="field" id="retention-days" style="width:auto;min-width:120px;flex-shrink:0">
               <option value="1">1 day</option>
               <option value="3">3 days</option>
               <option value="7">7 days</option>
@@ -766,9 +848,9 @@
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
-        <button class="btn btn-primary" id="btn-save-behavior">Save</button>
-        <span class="save-notice" id="behavior-notice">✓ Saved</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-primary" id="btn-save-privacy">Save</button>
+        <span class="save-notice" id="privacy-notice">✓ Saved</span>
       </div>
     </div>
 
@@ -812,7 +894,7 @@
       <div id="history-content">
         <div class="empty">
           <div class="empty-icon">🕐</div>
-          <div class="empty-title">No history yet</div>
+          <div class="empty-title">No runs yet</div>
           <div class="empty-body">Credential refresh runs will appear here.</div>
         </div>
       </div>
@@ -866,17 +948,19 @@ function showNotice(id) {
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 
-// ── Settings ────────────────────────────────────────────────────────────────
+// ── Login ────────────────────────────────────────────────────────────────────
 
-function populateSettings(state) {
+function populateLogin(state) {
   const u = state.userConfig || {};
   document.getElementById('input-url').value = u.startUrl || '';
-  document.getElementById('input-region').value = u.region || '';
+  // Set region select; if stored value not in list it leaves the select at its current state
+  const sel = document.getElementById('input-region');
+  if (u.region) sel.value = u.region;
 }
 
 document.getElementById('btn-save-settings').addEventListener('click', async () => {
   const startUrl = document.getElementById('input-url').value.trim();
-  const region   = document.getElementById('input-region').value.trim();
+  const region   = document.getElementById('input-region').value;
   if (!startUrl || !region) return;
   await ipcRenderer.invoke('save-settings', { startUrl, region });
   showNotice('settings-notice');
@@ -896,7 +980,7 @@ function updateCredentials(state) {
   if (!state.userConfig) {
     dot.classList.add('none');
     label.textContent = 'Not configured';
-    sub.textContent = 'Enter your SSO Start URL in Settings to get started.';
+    sub.textContent = 'Enter your SSO Start URL in Login to get started.';
   } else if (state.isWorking) {
     dot.classList.add('working');
     label.textContent = 'Refreshing…';
@@ -980,7 +1064,7 @@ function updateHistory(state) {
   const el = document.getElementById('history-content');
 
   if (!history.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div><div class="empty-title">No history yet</div><div class="empty-body">Credential refresh runs will appear here.</div></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div><div class="empty-title">No runs yet</div><div class="empty-body">Credential refresh runs will appear here.</div></div>`;
     return;
   }
 
@@ -1099,9 +1183,17 @@ function populateBehavior(state) {
   const r = document.querySelector(`input[name=refreshMode][value="${cfg.refreshMode}"]`);
   if (r) r.checked = true;
   document.getElementById('hotkey-pill').textContent = fmtHotkey(cfg.refreshHotkey);
+}
+
+function populatePrivacy(state) {
+  const cfg = state.behaviorConfig || curBehavior;
   const retEl = document.getElementById('retention-days');
   if (retEl) retEl.value = String(cfg.historyRetentionDays || 7);
 }
+
+document.getElementById('btn-test-notif').addEventListener('click', async () => {
+  await ipcRenderer.invoke('test-notification');
+});
 
 document.getElementById('btn-record').addEventListener('click', async () => {
   recording = true;
@@ -1147,10 +1239,15 @@ document.addEventListener('keydown', async e => {
 document.getElementById('btn-save-behavior').addEventListener('click', async () => {
   const r = document.querySelector('input[name=refreshMode]:checked');
   if (r) curBehavior.refreshMode = r.value;
+  await ipcRenderer.invoke('save-behavior', curBehavior);
+  showNotice('behavior-notice');
+});
+
+document.getElementById('btn-save-privacy').addEventListener('click', async () => {
   const retEl = document.getElementById('retention-days');
   if (retEl) curBehavior.historyRetentionDays = Number(retEl.value);
   await ipcRenderer.invoke('save-behavior', curBehavior);
-  showNotice('behavior-notice');
+  showNotice('privacy-notice');
 });
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -1159,8 +1256,9 @@ let st = null;
 
 function apply(state) {
   st = state;
-  populateSettings(state);
+  populateLogin(state);
   populateBehavior(state);
+  populatePrivacy(state);
   updateCredentials(state);
   updateEks(state);
   updateHistory(state);

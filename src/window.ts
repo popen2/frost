@@ -29,6 +29,7 @@ export interface IpcCallbacks {
     onTriggerRefresh: () => void;
     onSaveBehavior: (behavior: BehaviorConfig) => void;
     onSetHotkeyRecording: (recording: boolean) => void;
+    onTestNotification: () => void;
 }
 
 let dashboardWindow: BrowserWindow | null = null;
@@ -94,6 +95,10 @@ export function setupIpc(callbacks: IpcCallbacks) {
 
     ipcMain.handle("set-hotkey-recording", (_event, recording: boolean) => {
         callbacks.onSetHotkeyRecording(recording);
+    });
+
+    ipcMain.handle("test-notification", () => {
+        callbacks.onTestNotification();
     });
 
     config.onDidAnyChange(() => {
