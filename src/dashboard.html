@@ -6,61 +6,69 @@
   <style>
     /* ── Colour tokens ───────────────────────────────────────────────────── */
     :root {
-      --bg:           #F2F2F7;
-      --sidebar-bg:   #EBEBF0;
+      --bg:           #ECECF0;
+      --sidebar-bg:   #E4E4EA;
       --card:         #FFFFFF;
-      --card-alt:     #F9F9FB;
-      --text:         #000000;
-      --text-2:       #6C6C70;
-      --text-3:       #AEAEB2;
-      --sep:          rgba(60,60,67,0.12);
-      --sep-strong:   rgba(60,60,67,0.22);
+      --card-alt:     #F7F7FA;
+      --text:         #1A1A1C;
+      --text-2:       #6C6C72;
+      --text-3:       #A0A0A8;
+      --sep:          rgba(60,60,67,0.10);
+      --sep-strong:   rgba(60,60,67,0.20);
       --accent:       #007AFF;
+      --accent-2:     #5E5CE6;
       --accent-dim:   rgba(0,122,255,0.12);
-      --nav-active:   rgba(0,122,255,0.11);
-      --hover:        rgba(0,0,0,0.04);
+      --accent-soft:  rgba(0,122,255,0.10);
+      --nav-active:   rgba(0,122,255,0.12);
+      --hover:        rgba(0,0,0,0.035);
       --input-bg:     #FFFFFF;
-      --input-border: rgba(0,0,0,0.14);
-      --badge-bg:     rgba(120,120,128,0.14);
-      --badge-text:   #3C3C43;
-      --chip-bg:      rgba(0,122,255,0.08);
-      --chip-text:    #007AFF;
+      --input-border: rgba(0,0,0,0.12);
+      --badge-bg:     rgba(120,120,128,0.13);
+      --badge-text:   #55555C;
+      --chip-bg:      rgba(0,122,255,0.09);
+      --chip-text:    #006FE8;
       --success:      #34C759;
-      --success-bg:   rgba(52,199,89,0.1);
+      --success-bg:   rgba(52,199,89,0.12);
       --error:        #FF3B30;
-      --error-bg:     rgba(255,59,48,0.1);
+      --error-bg:     rgba(255,59,48,0.10);
       --warning:      #FF9500;
-      --warning-bg:   rgba(255,149,0,0.1);
+      --warning-bg:   rgba(255,149,0,0.12);
       --inprog:       #5E5CE6;
+      --card-shadow:  0 0 0 0.5px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+      --focus-ring:   0 0 0 3.5px var(--accent-dim);
     }
     @media (prefers-color-scheme: dark) {
       :root {
         --bg:           #1C1C1E;
-        --sidebar-bg:   #161618;
-        --card:         #2C2C2E;
-        --card-alt:     #3A3A3C;
-        --text:         #FFFFFF;
-        --text-2:       #98989E;
-        --text-3:       #636366;
-        --sep:          rgba(84,84,88,0.32);
-        --sep-strong:   rgba(84,84,88,0.55);
+        --sidebar-bg:   #141416;
+        --card:         #2A2A2D;
+        --card-alt:     #323236;
+        --text:         #F5F5F7;
+        --text-2:       #9A9AA0;
+        --text-3:       #636367;
+        --sep:          rgba(120,120,128,0.24);
+        --sep-strong:   rgba(120,120,128,0.42);
         --accent:       #0A84FF;
-        --accent-dim:   rgba(10,132,255,0.18);
-        --nav-active:   rgba(10,132,255,0.18);
+        --accent-2:     #5E5CE6;
+        --accent-dim:   rgba(10,132,255,0.22);
+        --accent-soft:  rgba(10,132,255,0.14);
+        --nav-active:   rgba(10,132,255,0.20);
         --hover:        rgba(255,255,255,0.05);
-        --input-bg:     #3A3A3C;
-        --input-border: rgba(255,255,255,0.1);
-        --badge-bg:     rgba(120,120,128,0.28);
-        --badge-text:   #EBEBF5;
-        --chip-bg:      rgba(10,132,255,0.16);
-        --chip-text:    #409CFF;
+        --input-bg:     #38383C;
+        --input-border: rgba(255,255,255,0.10);
+        --badge-bg:     rgba(120,120,128,0.30);
+        --badge-text:   #E4E4EA;
+        --chip-bg:      rgba(10,132,255,0.18);
+        --chip-text:    #5AB0FF;
         --success:      #32D74B;
-        --success-bg:   rgba(50,215,75,0.12);
+        --success-bg:   rgba(50,215,75,0.16);
         --error:        #FF453A;
-        --error-bg:     rgba(255,69,58,0.12);
+        --error-bg:     rgba(255,69,58,0.16);
         --warning:      #FF9F0A;
-        --warning-bg:   rgba(255,159,10,0.12);
+        --warning-bg:   rgba(255,159,10,0.16);
         --inprog:       #BF5AF2;
+        --card-shadow:  0 0 0 0.5px rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.3), 0 4px 14px rgba(0,0,0,0.22);
+        --focus-ring:   0 0 0 3.5px var(--accent-dim);
       }
     }
 
@@ -71,11 +79,12 @@
     body {
       display: flex;
       flex-direction: column;
-      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
       font-size: 13px;
       color: var(--text);
       background: var(--bg);
       -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
     /* ── Title-bar strip ─────────────────────────────────────────────────── */
@@ -83,7 +92,7 @@
       height: 36px;
       flex-shrink: 0;
       -webkit-app-region: drag;
-      background: linear-gradient(to right, var(--sidebar-bg) 168px, var(--bg) 168px);
+      background: linear-gradient(to right, var(--sidebar-bg) 178px, var(--bg) 178px);
     }
 
     /* ── App layout ──────────────────────────────────────────────────────── */
@@ -91,18 +100,16 @@
       flex: 1;
       display: flex;
       overflow: hidden;
-      border-top: 1px solid var(--sep);
     }
 
     /* ── Sidebar ─────────────────────────────────────────────────────────── */
     .sidebar {
-      width: 168px;
+      width: 178px;
       flex-shrink: 0;
       background: var(--sidebar-bg);
-      border-right: 1px solid var(--sep);
       display: flex;
       flex-direction: column;
-      padding: 4px 8px 16px;
+      padding: 2px 10px 16px;
       -webkit-app-region: drag;
       overflow: hidden;
     }
@@ -110,39 +117,37 @@
     .sidebar-header {
       display: flex;
       align-items: center;
-      gap: 7px;
-      padding: 8px 10px 12px;
+      gap: 8px;
+      padding: 6px 8px 14px;
       -webkit-app-region: no-drag;
     }
 
     .sidebar-app-icon {
-      width: 15px;
-      height: 15px;
+      width: 16px;
+      height: 16px;
       flex-shrink: 0;
       color: var(--accent);
     }
 
     .sidebar-app-name {
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 700;
       color: var(--text);
-      letter-spacing: -0.1px;
+      letter-spacing: -0.2px;
     }
 
     /* ── Nav sections ────────────────────────────────────────────────────── */
     .nav { -webkit-app-region: no-drag; flex: 1; }
 
-    .nav-section { margin-bottom: 0; }
-
-    .nav-section + .nav-section { margin-top: 16px; }
+    .nav-section + .nav-section { margin-top: 18px; }
 
     .nav-section-label {
-      font-size: 10px;
+      font-size: 10.5px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.07em;
+      letter-spacing: 0.06em;
       color: var(--text-3);
-      padding: 0 10px 4px;
+      padding: 0 10px 5px;
       user-select: none;
       -webkit-app-region: no-drag;
     }
@@ -150,16 +155,16 @@
     .nav-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
-      border-radius: 7px;
+      gap: 9px;
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 8px;
       cursor: pointer;
       color: var(--text);
       font-size: 13px;
       font-weight: 500;
-      line-height: 1;
       margin-bottom: 1px;
-      transition: background 0.1s;
+      transition: background 0.12s ease, color 0.12s ease;
       user-select: none;
       -webkit-app-region: no-drag;
     }
@@ -174,8 +179,8 @@
 
     /* ── Nav icons (monochrome) ──────────────────────────────────────────── */
     .nav-icon {
-      width: 16px;
-      height: 16px;
+      width: 17px;
+      height: 17px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -183,170 +188,214 @@
     }
 
     .nav-icon svg {
-      width: 15px;
-      height: 15px;
+      width: 16px;
+      height: 16px;
       fill: currentColor;
-      opacity: 0.55;
+      opacity: 0.5;
+      transition: opacity 0.12s ease;
     }
 
+    .nav-item:hover .nav-icon svg { opacity: 0.75; }
     .nav-item.active .nav-icon svg { opacity: 1; }
 
     /* ── Content panels ──────────────────────────────────────────────────── */
     .panels {
       flex: 1;
       overflow-y: auto;
-      padding: 16px 20px 20px;
+      padding: 12px 26px 28px;
       scroll-behavior: smooth;
     }
 
-    .panels::-webkit-scrollbar { width: 5px; }
+    .panels::-webkit-scrollbar { width: 7px; }
     .panels::-webkit-scrollbar-track { background: transparent; }
-    .panels::-webkit-scrollbar-thumb { background: var(--sep-strong); border-radius: 3px; }
+    .panels::-webkit-scrollbar-thumb { background: var(--sep-strong); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+    .panels::-webkit-scrollbar-thumb:hover { background: var(--text-3); background-clip: padding-box; }
 
-    .panel { display: none; }
+    .panel { display: none; animation: fade 0.2s ease; }
     .panel.active { display: block; }
 
+    @keyframes fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+    /* ── Page header ─────────────────────────────────────────────────────── */
+    .page-head { margin-bottom: 20px; }
+    .page-head h1 {
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      color: var(--text);
+    }
+    .page-head p {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-top: 3px;
+      line-height: 1.45;
+    }
+
     /* ── Section groups ──────────────────────────────────────────────────── */
-    .section { margin-bottom: 20px; }
+    .section { margin-bottom: 22px; }
 
     .section-title {
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.05em;
       color: var(--text-2);
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       padding-left: 4px;
     }
 
     .section-body {
       background: var(--card);
-      border-radius: 10px;
+      border-radius: 12px;
       overflow: hidden;
+      box-shadow: var(--card-shadow);
     }
 
     .section-row {
-      padding: 11px 14px;
+      padding: 13px 16px;
       position: relative;
     }
 
     .section-row + .section-row::before {
       content: '';
       position: absolute;
-      top: 0; left: 14px; right: 0;
+      top: 0; left: 16px; right: 0;
       height: 1px;
       background: var(--sep);
     }
 
     .row-label {
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 600;
       color: var(--text-2);
-      margin-bottom: 5px;
+      margin-bottom: 7px;
+      letter-spacing: -0.1px;
     }
 
     .row-hint {
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--text-3);
-      margin-top: 5px;
+      margin-top: 7px;
       line-height: 1.5;
     }
 
     /* ── Form controls ───────────────────────────────────────────────────── */
     .field {
       width: 100%;
-      padding: 6px 9px;
+      padding: 7px 11px;
       background: var(--input-bg);
       border: 1px solid var(--input-border);
-      border-radius: 6px;
+      border-radius: 8px;
       color: var(--text);
       font-size: 13px;
       font-family: inherit;
       outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
+
+    .field:hover { border-color: var(--sep-strong); }
 
     .field:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
+      box-shadow: var(--focus-ring);
     }
 
     .field::placeholder { color: var(--text-3); }
 
-    select.field { cursor: pointer; }
+    select.field {
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238E8E93' d='M3.2 4.6l2.8 2.8 2.8-2.8'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 9px center;
+      padding-right: 28px;
+    }
 
     code {
       font-family: "SF Mono", "Menlo", monospace;
       font-size: 11px;
       background: var(--badge-bg);
-      padding: 1px 4px;
-      border-radius: 4px;
+      padding: 1.5px 5px;
+      border-radius: 5px;
     }
 
     /* ── Buttons ─────────────────────────────────────────────────────────── */
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 6px 14px;
-      border-radius: 7px;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: 8px;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       font-family: inherit;
+      letter-spacing: -0.1px;
       cursor: pointer;
       border: none;
-      transition: filter 0.1s;
+      transition: filter 0.12s ease, background 0.12s ease, transform 0.06s ease, box-shadow 0.12s ease;
     }
 
-    .btn:active { filter: brightness(0.9); }
-    .btn-primary { background: var(--accent); color: #fff; }
+    .btn:active { transform: scale(0.975); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 1px 2px rgba(0,122,255,0.25);
+    }
+    .btn-primary:hover { filter: brightness(1.07); }
+
     .btn-secondary {
       background: var(--card);
       color: var(--text);
-      border: 1px solid var(--sep-strong);
+      box-shadow: inset 0 0 0 1px var(--sep-strong);
     }
+    .btn-secondary:hover { background: var(--hover); }
 
     .save-notice {
-      font-size: 12px;
+      font-size: 12.5px;
+      font-weight: 600;
       color: var(--success);
       display: none;
       align-items: center;
       gap: 4px;
     }
-    .save-notice.show { display: inline-flex; }
+    .save-notice.show { display: inline-flex; animation: pop 0.25s ease; }
+    @keyframes pop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
 
     /* ── Status indicators ───────────────────────────────────────────────── */
     .status-row {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
     }
 
     .status-dot {
-      width: 9px;
-      height: 9px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       flex-shrink: 0;
+      position: relative;
     }
 
-    .status-dot.active  { background: var(--success); box-shadow: 0 0 5px var(--success); }
-    .status-dot.working { background: var(--warning); animation: pulse 1.1s ease-in-out infinite; }
-    .status-dot.error   { background: var(--error); }
+    .status-dot.active  { background: var(--success); box-shadow: 0 0 0 4px var(--success-bg); }
+    .status-dot.working { background: var(--warning); box-shadow: 0 0 0 4px var(--warning-bg); animation: pulse 1.2s ease-in-out infinite; }
+    .status-dot.error   { background: var(--error); box-shadow: 0 0 0 4px var(--error-bg); }
     .status-dot.none    { background: var(--text-3); }
 
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-    .status-label-main { font-size: 13px; font-weight: 600; }
-    .status-label-sub  { font-size: 11.5px; color: var(--text-2); margin-top: 1px; }
+    .status-label-main { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; }
+    .status-label-sub  { font-size: 12px; color: var(--text-2); margin-top: 2px; }
 
     .error-box {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 11px;
       color: var(--error);
       background: var(--error-bg);
-      border-radius: 6px;
-      padding: 8px 10px;
-      margin-top: 10px;
+      border-radius: 8px;
+      padding: 9px 11px;
+      margin-top: 12px;
       word-break: break-all;
       line-height: 1.5;
     }
@@ -355,16 +404,17 @@
     .account-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
+      gap: 11px;
+      padding: 11px 16px;
       cursor: pointer;
       position: relative;
+      transition: background 0.1s ease;
     }
 
     .account-row + .account-row::before {
       content: '';
       position: absolute;
-      top: 0; left: 50px; right: 0;
+      top: 0; left: 55px; right: 0;
       height: 1px;
       background: var(--sep);
     }
@@ -372,10 +422,10 @@
     .account-row:hover { background: var(--hover); }
 
     .avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 7px;
-      background: linear-gradient(135deg, var(--accent), #5E5CE6);
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
       color: #fff;
       font-size: 11px;
       font-weight: 700;
@@ -383,35 +433,36 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     }
 
     .account-info { flex: 1; min-width: 0; }
-    .account-name { font-size: 13px; font-weight: 500; }
-    .account-id { font-size: 11px; color: var(--text-2); font-family: "SF Mono", Menlo, monospace; }
+    .account-name { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
+    .account-id { font-size: 11px; color: var(--text-2); font-family: "SF Mono", Menlo, monospace; margin-top: 1px; }
 
-    .account-roles { display: none; flex-wrap: wrap; gap: 5px; padding: 4px 14px 10px 52px; }
+    .account-roles { display: none; flex-wrap: wrap; gap: 6px; padding: 2px 16px 12px 57px; }
     .account-row.open + .account-roles { display: flex; }
 
     .chip {
       font-size: 11.5px;
-      padding: 3px 9px;
+      padding: 3.5px 10px;
       border-radius: 20px;
       background: var(--chip-bg);
       color: var(--chip-text);
-      font-weight: 500;
+      font-weight: 600;
     }
 
     .chevron {
       font-size: 10px;
       color: var(--text-3);
-      transition: transform 0.18s;
+      transition: transform 0.2s ease;
     }
     .account-row.open .chevron { transform: rotate(90deg); }
 
     .badge {
       font-size: 11px;
-      font-weight: 600;
-      padding: 2px 7px;
+      font-weight: 700;
+      padding: 2.5px 8px;
       border-radius: 20px;
       background: var(--badge-bg);
       color: var(--badge-text);
@@ -426,8 +477,8 @@
     .eks-table { width: 100%; border-collapse: collapse; }
     .eks-table th {
       text-align: left;
-      padding: 8px 14px;
-      font-size: 11px;
+      padding: 9px 16px;
+      font-size: 10.5px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -435,51 +486,53 @@
       background: var(--card-alt);
     }
     .eks-table td {
-      padding: 10px 14px;
+      padding: 11px 16px;
       font-size: 12.5px;
       position: relative;
     }
     .eks-table tr + tr td::before {
       content: '';
       position: absolute;
-      top: 0; left: 14px; right: 0;
+      top: 0; left: 16px; right: 0;
       height: 1px;
       background: var(--sep);
     }
-    .eks-table tr:hover td { background: var(--hover); }
+    .eks-table tbody tr { transition: background 0.1s ease; }
+    .eks-table tbody tr:hover td, .eks-table tr:hover td { background: var(--hover); }
     .mono { font-family: "SF Mono", Menlo, monospace; font-size: 11.5px; }
-    .region-tag { background: rgba(48,176,199,0.1); color: #30B0C7; padding: 2px 7px; border-radius: 4px; font-size: 11.5px; font-weight: 500; }
-    @media (prefers-color-scheme: dark) { .region-tag { color: #64D2E0; background: rgba(100,210,224,0.12); } }
+    .region-tag { background: rgba(48,176,199,0.12); color: #1E9CB0; padding: 2.5px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
+    @media (prefers-color-scheme: dark) { .region-tag { color: #64D2E0; background: rgba(100,210,224,0.14); } }
 
     /* ── History run entries ─────────────────────────────────────────────── */
     details.run-entry {
       background: var(--card);
-      border-radius: 10px;
-      margin-bottom: 8px;
+      border-radius: 12px;
+      margin-bottom: 10px;
       overflow: hidden;
+      box-shadow: var(--card-shadow);
     }
 
     summary.run-summary {
       display: flex;
       align-items: center;
-      gap: 9px;
-      padding: 12px 14px;
+      gap: 11px;
+      padding: 14px 16px;
       cursor: pointer;
       list-style: none;
       user-select: none;
-      transition: background 0.1s;
+      transition: background 0.1s ease;
     }
     summary.run-summary::-webkit-details-marker { display: none; }
     summary.run-summary:hover { background: var(--hover); }
 
-    .run-meta { font-size: 11.5px; color: var(--text-2); margin-top: 2px; }
+    .run-meta { font-size: 11.5px; color: var(--text-2); margin-top: 3px; }
 
     .run-chevron {
       font-size: 9px;
       color: var(--text-3);
       margin-left: auto;
       flex-shrink: 0;
-      transition: transform 0.18s;
+      transition: transform 0.2s ease;
     }
     details.run-entry[open] .run-chevron { transform: rotate(90deg); }
 
@@ -489,6 +542,7 @@
       background: transparent;
       border-radius: 0;
       margin-bottom: 0;
+      box-shadow: none;
       border-top: 1px solid var(--sep);
     }
     .run-detail details.log-group:first-child { border-top: none; }
@@ -496,7 +550,7 @@
     /* ── Log step groups ─────────────────────────────────────────────────── */
     details.log-group {
       background: var(--card);
-      border-radius: 10px;
+      border-radius: 12px;
       margin-bottom: 8px;
       overflow: hidden;
     }
@@ -504,12 +558,13 @@
     summary.log-summary {
       display: flex;
       align-items: center;
-      gap: 9px;
-      padding: 11px 14px;
+      gap: 10px;
+      padding: 12px 16px;
       cursor: pointer;
       list-style: none;
       user-select: none;
-      transition: background 0.1s;
+      font-size: 13px;
+      transition: background 0.1s ease;
     }
     summary.log-summary::-webkit-details-marker { display: none; }
     summary.log-summary:hover { background: var(--hover); }
@@ -518,44 +573,44 @@
       font-size: 9px;
       color: var(--text-3);
       margin-left: auto;
-      transition: transform 0.18s;
+      transition: transform 0.2s ease;
     }
     details[open] .log-chevron { transform: rotate(90deg); }
 
     .step-dot {
-      width: 7px; height: 7px;
+      width: 8px; height: 8px;
       border-radius: 50%;
       flex-shrink: 0;
     }
     .step-dot.s { background: var(--success); }
     .step-dot.e { background: var(--error); }
-    .step-dot.p { background: var(--inprog); animation: pulse 1.1s ease-in-out infinite; }
+    .step-dot.p { background: var(--inprog); animation: pulse 1.2s ease-in-out infinite; }
 
-    .log-body { border-top: 1px solid var(--sep); padding: 4px 0 8px; }
+    .log-body { border-top: 1px solid var(--sep); padding: 5px 0 9px; }
 
     details.log-child summary {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 14px 6px 38px;
+      gap: 9px;
+      padding: 7px 16px 7px 40px;
       cursor: pointer;
       list-style: none;
       user-select: none;
       font-size: 12.5px;
       font-weight: 500;
-      transition: background 0.1s;
+      transition: background 0.1s ease;
     }
     details.log-child summary::-webkit-details-marker { display: none; }
     details.log-child summary:hover { background: var(--hover); }
 
-    .log-child-chevron { font-size: 9px; color: var(--text-3); margin-left: auto; transition: transform 0.18s; }
+    .log-child-chevron { font-size: 9px; color: var(--text-3); margin-left: auto; transition: transform 0.2s ease; }
     details.log-child[open] .log-child-chevron { transform: rotate(90deg); }
 
     .log-leaf-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 5px 14px 5px 56px;
+      gap: 9px;
+      padding: 6px 16px 6px 58px;
       font-size: 12px;
     }
 
@@ -563,22 +618,24 @@
     .radio-row {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
-      padding: 11px 14px;
+      gap: 11px;
+      padding: 13px 16px;
       cursor: pointer;
       position: relative;
+      transition: background 0.1s ease;
     }
-    .radio-row + .radio-row::before {
+    .radio-row + .radio-row::before,
+    .radio-row + .section-row::before {
       content: '';
       position: absolute;
-      top: 0; left: 14px; right: 0;
+      top: 0; left: 16px; right: 0;
       height: 1px;
       background: var(--sep);
     }
     .radio-row:hover { background: var(--hover); }
-    .radio-row input[type=radio] { margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
-    .radio-label { font-size: 13px; font-weight: 500; }
-    .radio-desc  { font-size: 11.5px; color: var(--text-2); margin-top: 2px; line-height: 1.5; }
+    .radio-row input[type=radio] { margin-top: 1px; width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+    .radio-label { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
+    .radio-desc  { font-size: 12px; color: var(--text-2); margin-top: 3px; line-height: 1.5; }
 
     .hotkey-cell {
       display: flex;
@@ -591,30 +648,41 @@
       font-family: "SF Mono", Menlo, monospace;
       font-size: 12.5px;
       font-weight: 600;
-      padding: 5px 14px;
+      padding: 6px 16px;
       background: var(--card-alt);
-      border: 1px solid var(--sep-strong);
-      border-radius: 7px;
+      box-shadow: inset 0 0 0 1px var(--sep-strong);
+      border-radius: 8px;
       color: var(--text);
       min-width: 120px;
       text-align: center;
-      transition: all 0.15s;
+      transition: all 0.15s ease;
     }
     .hotkey-pill.recording {
-      border-color: var(--accent);
-      background: var(--accent-dim);
+      box-shadow: inset 0 0 0 1px var(--accent), var(--focus-ring);
+      background: var(--accent-soft);
       color: var(--accent);
     }
 
     /* ── Empty states ────────────────────────────────────────────────────── */
     .empty {
       text-align: center;
-      padding: 48px 24px;
+      padding: 60px 28px;
       color: var(--text-3);
     }
-    .empty-icon { font-size: 32px; margin-bottom: 8px; }
-    .empty-title { font-size: 14px; font-weight: 600; color: var(--text-2); margin-bottom: 4px; }
-    .empty-body  { font-size: 12.5px; line-height: 1.55; }
+    .empty-icon {
+      font-size: 30px;
+      margin-bottom: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      background: var(--card);
+      box-shadow: var(--card-shadow);
+    }
+    .empty-title { font-size: 15px; font-weight: 600; color: var(--text-2); margin-bottom: 5px; letter-spacing: -0.2px; }
+    .empty-body  { font-size: 12.5px; line-height: 1.55; max-width: 320px; margin: 0 auto; }
   </style>
 </head>
 <body>
@@ -692,6 +760,11 @@
 
     <!-- ── Login ── -->
     <div class="panel active" id="panel-login">
+      <div class="page-head">
+        <h1>Login</h1>
+        <p>Connect Frost to your AWS IAM Identity Center.</p>
+      </div>
+
       <div class="section">
         <div class="section-title">IAM Identity Center</div>
         <div class="section-body">
@@ -704,7 +777,7 @@
           </div>
           <div class="section-row">
             <div class="row-label">AWS Region</div>
-            <select class="field" id="input-region" style="max-width:260px">
+            <select class="field" id="input-region" style="max-width:280px">
               <option value="">Select region…</option>
               <optgroup label="US East">
                 <option value="us-east-1">us-east-1 — N. Virginia</option>
@@ -764,7 +837,7 @@
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:12px;">
         <button class="btn btn-primary" id="btn-save-settings">Save &amp; Refresh</button>
         <span class="save-notice" id="settings-notice">✓ Saved</span>
       </div>
@@ -772,6 +845,11 @@
 
     <!-- ── Behavior ── -->
     <div class="panel" id="panel-behavior">
+      <div class="page-head">
+        <h1>Behavior</h1>
+        <p>Choose how Frost refreshes your credentials.</p>
+      </div>
+
       <div class="section">
         <div class="section-title">Authentication Mode</div>
         <div class="section-body">
@@ -789,8 +867,8 @@
               <div class="radio-desc">A system notification appears. Press the hotkey or click the notification when you're ready to log in.</div>
             </div>
           </label>
-          <div class="section-row" style="display:flex;align-items:center;gap:12px;">
-            <div style="flex:1;font-size:12.5px;color:var(--text-2)">Send a test notification — useful for granting permission on first use.</div>
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
+            <div style="flex:1;font-size:12.5px;color:var(--text-2);line-height:1.45">Send a test notification — useful for granting permission on first use.</div>
             <button class="btn btn-secondary" id="btn-test-notif" style="white-space:nowrap;flex-shrink:0">Test</button>
           </div>
         </div>
@@ -799,19 +877,19 @@
       <div class="section">
         <div class="section-title">Refresh Hotkey</div>
         <div class="section-body">
-          <div class="section-row" style="display:flex;align-items:center;gap:10px;">
-            <div style="flex:1;color:var(--text-2);font-size:12.5px;">Global shortcut — triggers a refresh from anywhere, or opens the login browser when a notification is pending.</div>
-            <div class="hotkey-cell">
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
+            <div style="flex:1;color:var(--text-2);font-size:12.5px;line-height:1.45">Global shortcut — triggers a refresh from anywhere, or opens the login browser when a notification is pending.</div>
+            <div class="hotkey-cell" style="flex:0 0 auto">
               <div class="hotkey-pill" id="hotkey-pill">⌘⇧R</div>
               <button class="btn btn-secondary" id="btn-record" style="white-space:nowrap">Change</button>
               <button class="btn btn-secondary" id="btn-cancel-record" style="display:none;white-space:nowrap">Cancel</button>
             </div>
           </div>
         </div>
-        <div class="row-hint" style="padding-left:4px;margin-top:6px;">Click <strong>Change</strong> and press your desired combination. Press Escape to cancel.</div>
+        <div class="row-hint" style="padding-left:4px;margin-top:8px;">Click <strong>Change</strong> and press your desired combination. Press Escape to cancel.</div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+      <div style="display:flex;align-items:center;gap:12px;">
         <button class="btn btn-primary" id="btn-save-behavior">Save</button>
         <span class="save-notice" id="behavior-notice">✓ Saved</span>
       </div>
@@ -819,11 +897,16 @@
 
     <!-- ── Privacy ── -->
     <div class="panel" id="panel-privacy">
+      <div class="page-head">
+        <h1>Privacy</h1>
+        <p>Your data never leaves this Mac.</p>
+      </div>
+
       <div class="section">
         <div class="section-title">Your Data</div>
         <div class="section-body">
           <div class="section-row">
-            <p style="font-size:13px;font-weight:500;margin-bottom:6px;">Frost stores everything locally.</p>
+            <p style="font-size:13px;font-weight:600;margin-bottom:7px;letter-spacing:-0.1px;">Frost stores everything locally.</p>
             <p style="font-size:12.5px;color:var(--text-2);line-height:1.65;">Your AWS access token, discovered profiles, and run history are saved in a configuration file on this Mac — and only there. Frost has no backend, no analytics, no telemetry, and no crash-reporting service. Nothing about your identity, accounts, or usage is ever transmitted anywhere.</p>
           </div>
         </div>
@@ -832,12 +915,12 @@
       <div class="section">
         <div class="section-title">Run History</div>
         <div class="section-body">
-          <div class="section-row" style="display:flex;align-items:center;gap:12px;">
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
             <div style="flex:1">
-              <div style="font-size:13px;font-weight:500;margin-bottom:3px;">Retention period</div>
-              <div style="font-size:12px;color:var(--text-2);">Runs older than this are automatically deleted.</div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px;letter-spacing:-0.1px;">Retention period</div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.45">Runs older than this are automatically deleted.</div>
             </div>
-            <select class="field" id="retention-days" style="width:auto;min-width:120px;flex-shrink:0">
+            <select class="field" id="retention-days" style="width:auto;min-width:130px;flex-shrink:0">
               <option value="1">1 day</option>
               <option value="3">3 days</option>
               <option value="7">7 days</option>
@@ -848,7 +931,7 @@
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px;">
+      <div style="display:flex;align-items:center;gap:12px;">
         <button class="btn btn-primary" id="btn-save-privacy">Save</button>
         <span class="save-notice" id="privacy-notice">✓ Saved</span>
       </div>
@@ -856,6 +939,11 @@
 
     <!-- ── Credentials ── -->
     <div class="panel" id="panel-credentials">
+      <div class="page-head">
+        <h1>Credentials</h1>
+        <p>Current token status and the accounts you can access.</p>
+      </div>
+
       <div class="section">
         <div class="section-title">Token Status</div>
         <div class="section-body">
@@ -880,6 +968,10 @@
 
     <!-- ── EKS ── -->
     <div class="panel" id="panel-eks">
+      <div class="page-head">
+        <h1>EKS Clusters</h1>
+        <p>Kubernetes clusters discovered across your accounts.</p>
+      </div>
       <div id="eks-content">
         <div class="empty">
           <div class="empty-icon">⎈</div>
@@ -891,6 +983,10 @@
 
     <!-- ── History ── -->
     <div class="panel" id="panel-history">
+      <div class="page-head">
+        <h1>Runs</h1>
+        <p>A log of recent credential refreshes.</p>
+      </div>
       <div id="history-content">
         <div class="empty">
           <div class="empty-icon">🕐</div>
@@ -1051,7 +1147,7 @@ function updateEks(state) {
   const regions = new Set(clusters.map(c=>c.region)).size;
   let html = `<div class="section"><div class="section-title">${clusters.length} Cluster${clusters.length!==1?'s':''} across ${regions} Region${regions!==1?'s':''}</div><div class="section-body"><table class="eks-table"><thead><tr><th>Cluster</th><th>Profile</th><th>Region</th></tr></thead><tbody>`;
   for (const c of clusters) {
-    html += `<tr><td style="font-weight:500">${esc(c.name)}</td><td><span class="mono">${esc(c.profile)}</span></td><td><span class="region-tag">${esc(c.region)}</span></td></tr>`;
+    html += `<tr><td style="font-weight:600">${esc(c.name)}</td><td><span class="mono">${esc(c.profile)}</span></td><td><span class="region-tag">${esc(c.region)}</span></td></tr>`;
   }
   html += `</tbody></table></div></div>`;
   el.innerHTML = html;
@@ -1080,13 +1176,13 @@ function renderRun(run) {
 
   let steps = '';
   for (const step of (run.steps || [])) steps += renderLogStep(step);
-  if (run.error) steps += `<div class="error-box" style="margin:8px 14px">${esc(run.error)}</div>`;
+  if (run.error) steps += `<div class="error-box" style="margin:8px 16px">${esc(run.error)}</div>`;
 
   return `<details class="run-entry"${isRecent ? ' open' : ''}>
     <summary class="run-summary">
       <div class="step-dot ${sc}"></div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600">Credential Refresh</div>
+        <div style="font-size:13px;font-weight:600;letter-spacing:-0.1px">Credential Refresh</div>
         <div class="run-meta">${fromNow(run.startedAt)}${d?` · ${d}`:' · in progress'} · ${localTime(run.startedAt)}</div>
       </div>
       <span class="badge ${sc}">${run.status.replace('-',' ')}</span>
@@ -1115,13 +1211,13 @@ function renderLogStep(step) {
     for (const a of accts) {
       inner += `<details class="log-child">
         <summary>
-          <div class="avatar" style="width:20px;height:20px;border-radius:5px;font-size:9px">${esc(initials(a.accountName))}</div>
+          <div class="avatar" style="width:22px;height:22px;border-radius:6px;font-size:9px">${esc(initials(a.accountName))}</div>
           <span>${esc(a.accountName)}</span>
           <span style="font-size:11px;color:var(--text-3);font-family:monospace">${esc(a.accountId)}</span>
           <span class="badge" style="margin-left:4px">${a.roles.length}</span>
           <span class="log-child-chevron">▶</span>
         </summary>
-        <div style="padding:4px 14px 8px 56px;display:flex;flex-wrap:wrap;gap:5px">
+        <div style="padding:4px 16px 8px 58px;display:flex;flex-wrap:wrap;gap:6px">
           ${a.roles.map(r=>`<span class="chip" style="font-size:11px">${esc(r.roleName)}<span style="color:var(--text-3);margin-left:4px">→ ${esc(r.profileName)}</span></span>`).join('')}
         </div>
       </details>`;
@@ -1153,7 +1249,7 @@ function renderLogStep(step) {
           <span class="badge s" style="margin-left:4px">${cnt} cluster${cnt!==1?'s':''}</span>
           <span class="log-child-chevron">▶</span>
         </summary>
-        ${ents.map(e=>e.clusters.map(c=>`<div class="log-leaf-row"><span style="font-weight:500">${esc(c)}</span><span class="mono" style="color:var(--text-2)">${esc(e.profileName)}</span></div>`).join('')).join('')}
+        ${ents.map(e=>e.clusters.map(c=>`<div class="log-leaf-row"><span style="font-weight:600">${esc(c)}</span><span class="mono" style="color:var(--text-2)">${esc(e.profileName)}</span></div>`).join('')).join('')}
       </details>`;
     }
     if (!inner) inner = `<div class="log-leaf-row" style="color:var(--text-3)">No clusters found.${errors.length?` ${errors.length} regions returned access errors (normal if permissions are scoped).`:''}</div>`;
