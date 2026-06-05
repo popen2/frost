@@ -6,15 +6,15 @@
   <style>
     /* ── Colour tokens ───────────────────────────────────────────────────── */
     :root {
-      --bg:           #ECECF0;
-      --sidebar-bg:   #E4E4EA;
+      --bg:           #EDEDED;
+      --sidebar-bg:   #E4E4E4;
       --card:         #FFFFFF;
-      --card-alt:     #F7F7FA;
-      --text:         #1A1A1C;
-      --text-2:       #6C6C72;
-      --text-3:       #A0A0A8;
-      --sep:          rgba(60,60,67,0.10);
-      --sep-strong:   rgba(60,60,67,0.20);
+      --card-alt:     #F5F5F5;
+      --text:         #1A1A1A;
+      --text-2:       #6C6C6C;
+      --text-3:       #9E9E9E;
+      --sep:          rgba(0,0,0,0.09);
+      --sep-strong:   rgba(0,0,0,0.16);
       --accent:       #007AFF;
       --accent-2:     #5E5CE6;
       --accent-dim:   rgba(0,122,255,0.12);
@@ -23,8 +23,8 @@
       --hover:        rgba(0,0,0,0.035);
       --input-bg:     #FFFFFF;
       --input-border: rgba(0,0,0,0.12);
-      --badge-bg:     rgba(120,120,128,0.13);
-      --badge-text:   #55555C;
+      --badge-bg:     rgba(0,0,0,0.07);
+      --badge-text:   #555555;
       --chip-bg:      rgba(0,122,255,0.09);
       --chip-text:    #006FE8;
       --success:      #34C759;
@@ -39,15 +39,15 @@
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg:           #1C1C1E;
-        --sidebar-bg:   #141416;
-        --card:         #2A2A2D;
-        --card-alt:     #323236;
-        --text:         #F5F5F7;
-        --text-2:       #9A9AA0;
-        --text-3:       #636367;
-        --sep:          rgba(120,120,128,0.24);
-        --sep-strong:   rgba(120,120,128,0.42);
+        --bg:           #1C1C1C;
+        --sidebar-bg:   #141414;
+        --card:         #2A2A2A;
+        --card-alt:     #323232;
+        --text:         #F5F5F5;
+        --text-2:       #9A9A9A;
+        --text-3:       #636363;
+        --sep:          rgba(255,255,255,0.10);
+        --sep-strong:   rgba(255,255,255,0.18);
         --accent:       #0A84FF;
         --accent-2:     #5E5CE6;
         --accent-dim:   rgba(10,132,255,0.22);
@@ -56,8 +56,8 @@
         --hover:        rgba(255,255,255,0.05);
         --input-bg:     #38383C;
         --input-border: rgba(255,255,255,0.10);
-        --badge-bg:     rgba(120,120,128,0.30);
-        --badge-text:   #E4E4EA;
+        --badge-bg:     rgba(255,255,255,0.12);
+        --badge-text:   #E4E4E4;
         --chip-bg:      rgba(10,132,255,0.18);
         --chip-text:    #5AB0FF;
         --success:      #32D74B;
@@ -683,6 +683,53 @@
     }
     .empty-title { font-size: 15px; font-weight: 600; color: var(--text-2); margin-bottom: 5px; letter-spacing: -0.2px; }
     .empty-body  { font-size: 12.5px; line-height: 1.55; max-width: 320px; margin: 0 auto; }
+
+    /* ── Activity list ───────────────────────────────────────────────────── */
+    .activity-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 16px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.1s ease;
+    }
+    .activity-row + .activity-row::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 16px; right: 0;
+      height: 1px;
+      background: var(--sep);
+    }
+    .activity-row:hover { background: var(--hover); }
+
+    .activity-chevron {
+      font-size: 18px;
+      line-height: 1;
+      color: var(--text-3);
+      flex-shrink: 0;
+      margin-left: 2px;
+    }
+
+    /* ── Activity detail back nav ────────────────────────────────────────── */
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: -0.1px;
+      cursor: pointer;
+      padding: 0;
+      background: none;
+      border: none;
+      font-family: inherit;
+      margin-bottom: 20px;
+      transition: opacity 0.12s ease;
+    }
+    .back-btn:hover { opacity: 0.7; }
+    .back-btn:active { opacity: 0.5; }
   </style>
 </head>
 <body>
@@ -749,7 +796,7 @@
           <span class="nav-icon">
             <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4zm1 3v4.414l2.293 2.293-1.414 1.414L9.586 12.4A1 1 0 019 11.586V7h2z"/></svg>
           </span>
-          Runs
+          Activity
         </div>
       </div>
     </nav>
@@ -981,19 +1028,24 @@
       </div>
     </div>
 
-    <!-- ── History ── -->
+    <!-- ── Activity ── -->
     <div class="panel" id="panel-history">
-      <div class="page-head">
-        <h1>Runs</h1>
-        <p>A log of recent credential refreshes.</p>
-      </div>
-      <div id="history-content">
-        <div class="empty">
-          <div class="empty-icon">🕐</div>
-          <div class="empty-title">No runs yet</div>
-          <div class="empty-body">Credential refresh runs will appear here.</div>
+      <!-- List view -->
+      <div id="history-list-view">
+        <div class="page-head">
+          <h1>Activity</h1>
+          <p>Recent credential refresh runs.</p>
+        </div>
+        <div id="history-list">
+          <div class="empty">
+            <div class="empty-icon">🕐</div>
+            <div class="empty-title">No activity yet</div>
+            <div class="empty-body">Credential refresh runs will appear here.</div>
+          </div>
         </div>
       </div>
+      <!-- Detail view -->
+      <div id="history-detail-view" style="display:none"></div>
     </div>
 
   </div><!-- /panels -->
@@ -1153,43 +1205,90 @@ function updateEks(state) {
   el.innerHTML = html;
 }
 
-// ── History ──────────────────────────────────────────────────────────────────
+// ── Activity ─────────────────────────────────────────────────────────────────
 
-function updateHistory(state) {
-  const history = state.runHistory || [];
-  const el = document.getElementById('history-content');
+let runHistory = [];
+let activityDetailOpen = false;
+let activityDetailIdx = -1;
 
-  if (!history.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div><div class="empty-title">No runs yet</div><div class="empty-body">Credential refresh runs will appear here.</div></div>`;
-    return;
-  }
-
-  let html = '';
-  for (const run of history) html += renderRun(run);
-  el.innerHTML = html;
+function showHistoryList() {
+  activityDetailOpen = false;
+  activityDetailIdx = -1;
+  document.getElementById('history-list-view').style.display = '';
+  document.getElementById('history-detail-view').style.display = 'none';
 }
 
-function renderRun(run) {
+function showHistoryDetail(idx) {
+  activityDetailIdx = idx;
+  activityDetailOpen = true;
+  document.getElementById('history-list-view').style.display = 'none';
+  const view = document.getElementById('history-detail-view');
+  view.style.display = '';
+  renderActivityDetail(runHistory[idx]);
+}
+
+function renderActivityDetail(run) {
   const sc = scClass(run.status);
-  const d  = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
-  const isRecent = run.status === 'in-progress' || (run.endedAt && (Date.now() - new Date(run.endedAt).getTime()) < 120000);
+  const d = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
 
   let steps = '';
   for (const step of (run.steps || [])) steps += renderLogStep(step);
-  if (run.error) steps += `<div class="error-box" style="margin:8px 16px">${esc(run.error)}</div>`;
+  if (run.error) steps += `<div class="error-box" style="margin-bottom:8px">${esc(run.error)}</div>`;
 
-  return `<details class="run-entry"${isRecent ? ' open' : ''}>
-    <summary class="run-summary">
+  document.getElementById('history-detail-view').innerHTML = `
+    <button class="back-btn" id="btn-back-activity">‹ Activity</button>
+    <div class="page-head">
+      <h1>Credential Refresh</h1>
+      <p>${localTime(run.startedAt)}${d ? ` · ${d}` : ' · in progress'}</p>
+    </div>
+    <div style="margin-bottom:20px">
+      <span class="badge ${sc}" style="font-size:12px;padding:4px 10px">${run.status.replace('-', ' ')}</span>
+    </div>
+    ${steps}
+  `;
+  document.getElementById('btn-back-activity').addEventListener('click', showHistoryList);
+}
+
+function updateHistory(state) {
+  runHistory = state.runHistory || [];
+
+  if (activityDetailOpen) {
+    if (activityDetailIdx < runHistory.length) {
+      renderActivityDetail(runHistory[activityDetailIdx]);
+    } else {
+      showHistoryList();
+    }
+    return;
+  }
+
+  renderActivityList();
+}
+
+function renderActivityList() {
+  const el = document.getElementById('history-list');
+
+  if (!runHistory.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div><div class="empty-title">No activity yet</div><div class="empty-body">Credential refresh runs will appear here.</div></div>`;
+    return;
+  }
+
+  let html = '<div class="section-body">';
+  for (let i = 0; i < runHistory.length; i++) {
+    const run = runHistory[i];
+    const sc = scClass(run.status);
+    const d = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
+    html += `<div class="activity-row" onclick="showHistoryDetail(${i})">
       <div class="step-dot ${sc}"></div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;letter-spacing:-0.1px">Credential Refresh</div>
-        <div class="run-meta">${fromNow(run.startedAt)}${d?` · ${d}`:' · in progress'} · ${localTime(run.startedAt)}</div>
+        <div class="run-meta">${fromNow(run.startedAt)}${d ? ` · ${d}` : ' · in progress'}</div>
       </div>
-      <span class="badge ${sc}">${run.status.replace('-',' ')}</span>
-      <span class="run-chevron">▶</span>
-    </summary>
-    <div class="run-detail">${steps}</div>
-  </details>`;
+      <span class="badge ${sc}" style="flex-shrink:0">${run.status.replace('-', ' ')}</span>
+      <span class="activity-chevron">›</span>
+    </div>`;
+  }
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 function renderLogStep(step) {
