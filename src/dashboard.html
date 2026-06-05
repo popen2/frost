@@ -102,7 +102,7 @@
       border-right: 1px solid var(--sep);
       display: flex;
       flex-direction: column;
-      padding: 6px 8px 16px;
+      padding: 4px 8px 16px;
       -webkit-app-region: drag;
       overflow: hidden;
     }
@@ -111,13 +111,13 @@
       display: flex;
       align-items: center;
       gap: 7px;
-      padding: 6px 6px 14px;
+      padding: 8px 10px 12px;
       -webkit-app-region: no-drag;
     }
 
     .sidebar-app-icon {
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
       flex-shrink: 0;
       color: var(--accent);
     }
@@ -132,9 +132,9 @@
     /* ── Nav sections ────────────────────────────────────────────────────── */
     .nav { -webkit-app-region: no-drag; flex: 1; }
 
-    .nav-section { margin-bottom: 2px; }
+    .nav-section { margin-bottom: 0; }
 
-    .nav-section + .nav-section { margin-top: 18px; }
+    .nav-section + .nav-section { margin-top: 16px; }
 
     .nav-section-label {
       font-size: 10px;
@@ -142,7 +142,7 @@
       text-transform: uppercase;
       letter-spacing: 0.07em;
       color: var(--text-3);
-      padding: 0 8px 5px;
+      padding: 0 10px 4px;
       user-select: none;
       -webkit-app-region: no-drag;
     }
@@ -150,14 +150,15 @@
     .nav-item {
       display: flex;
       align-items: center;
-      gap: 7px;
-      padding: 5px 8px;
+      gap: 8px;
+      padding: 6px 10px;
       border-radius: 7px;
       cursor: pointer;
       color: var(--text);
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 500;
-      margin-bottom: 2px;
+      line-height: 1;
+      margin-bottom: 1px;
       transition: background 0.1s;
       user-select: none;
       -webkit-app-region: no-drag;
@@ -169,7 +170,6 @@
       background: var(--nav-active);
       color: var(--accent);
       font-weight: 600;
-      padding: 7px 8px;
     }
 
     /* ── Nav icons (monochrome) ──────────────────────────────────────────── */
@@ -186,7 +186,7 @@
       width: 15px;
       height: 15px;
       fill: currentColor;
-      opacity: 0.5;
+      opacity: 0.55;
     }
 
     .nav-item.active .nav-icon svg { opacity: 1; }
