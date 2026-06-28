@@ -57,9 +57,13 @@ The project is **ESM** (`"type": "module"` in package.json, `tsconfig`
   `no-unassigned-vars` core rule catches `do/while` pagination loops that never
   reassign their `nextToken` — make sure the loop body assigns
   `nextToken = res.nextToken`.
-- Removed deprecated type stubs: `@types/aws-sdk`, `@types/uuid` (the libs ship
-  their own types), and `@types/request` (the `request` lib isn't used).
-  `@types/ini` is still required (ini ships no types).
+- **js-yaml v5**: ships its own type definitions, so `@types/js-yaml` was
+  dropped. The `dump`/`load` named exports are unchanged from v4, so
+  `import * as yaml from "js-yaml"` + `yaml.dump(...)` (see `src/kubeconfig.ts`)
+  still works.
+- Removed deprecated type stubs: `@types/aws-sdk`, `@types/uuid`, and
+  `@types/js-yaml` (the libs ship their own types), and `@types/request` (the
+  `request` lib isn't used). `@types/ini` is still required (ini ships no types).
 - `axios` is listed as a dependency but is **not imported anywhere** — dead
   weight, safe to drop in a future cleanup.
 
