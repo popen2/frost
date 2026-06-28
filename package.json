@@ -51,7 +51,7 @@
     "electron-prompt": "^1.7.0",
     "electron-store": "^11.0.2",
     "ini": "^7.0.0",
-    "js-yaml": "^4.1.1",
+    "js-yaml": "^4.3.0",
     "moment": "^2.30.1",
     "slugify": "^1.6.9",
     "update-electron-app": "^3.2.0",
