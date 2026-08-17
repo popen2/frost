@@ -10,5 +10,16 @@ export default tseslint.config(
         rules: {
             "@typescript-eslint/no-non-null-assertion": "off",
         },
+    },
+    {
+        // src/login-overlay.js is injected into the login window's page rather
+        // than executed in the main process, so it sees browser globals and no
+        // Node ones. Everything else it touches hangs off `window`.
+        files: ["src/login-overlay.js"],
+        languageOptions: {
+            globals: {
+                window: "readonly",
+            },
+        },
     }
 );

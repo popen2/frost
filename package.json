@@ -13,7 +13,8 @@
   "scripts": {
     "build:icons": "copyfiles --up 1 \"./src/icons/**/TrayIcon*.png\" ./dist/",
     "build:html": "copyfiles --up 1 \"./src/dashboard.html\" ./dist/",
-    "build": "tsc && npm run build:icons && npm run build:html",
+    "build:overlay": "copyfiles --up 1 \"./src/login-overlay.js\" ./dist/",
+    "build": "tsc && npm run build:icons && npm run build:html && npm run build:overlay",
     "watch": "tsc -w",
     "lint": "eslint src",
     "start": "electron-forge start",
