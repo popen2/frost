@@ -192,11 +192,13 @@ upload: build/page-1827.html
           Frost writes a profile to <code>~/.aws/config</code> for every
           account + permission set combination. Names are deterministic —
           built from the <span data-c="a1">account</span> and the
-          <span data-c="p1">permission set</span>, joined by a hyphen.
+          <span data-c="p1">permission set</span>, joined by a hyphen. Frost
+          marks the profiles it writes and leaves the rest of the file —
+          <code>[default]</code> included — alone.
         </p>
       </div>
 
-      <pre class="config"><code><span class="c-comment"># ~/.aws/config — managed by Frost</span>
+      <pre class="config"><code><span class="c-comment"># ~/.aws/config — the profiles Frost manages</span>
 
 <span class="c-section">[profile <span data-c="a1">acme-main</span>-<span data-c="p1">administratoraccess</span>]</span>
 sso_account_id = 111111111111

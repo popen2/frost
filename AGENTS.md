@@ -48,6 +48,36 @@ The project is **ESM** (`"type": "module"` in package.json, `tsconfig`
 - `forge.config.js` and `eslint.config.js` are ESM (`export default` /
   `import`). `process` is a global; no `require`.
 
+## `~/.aws/config` ownership
+
+`src/aws-config.ts` **merges** into the user's `~/.aws/config` — it must never
+rewrite the file wholesale (it's shared with the AWS CLI and with whatever the
+user put there by hand, including `[default]`). `mergeAwsConfig()` is a pure
+`(existing, profiles) => contents` function:
+
+- Frost's profiles are tagged with a `# frost:managed` comment line right under
+  the section header. Only sections carrying that token are rewritten/removed.
+- Unmarked sections are preserved **verbatim**, including comments, blank-line
+  placement and `[sso-session ...]`/`[services ...]` sections. Comments directly
+  above a header travel with that section, so removing a profile doesn't eat the
+  user's note about the next one.
+- An unmarked `[profile x]` whose keys/values are *exactly* what Frost would
+  generate is **adopted** (rewritten with the marker). That's the upgrade path
+  from versions that wrote no marker — without it the first refresh after an
+  upgrade would duplicate every profile.
+- A same-named profile the user wrote themselves is left alone and Frost skips
+  its own (logs a warning) rather than clobbering it.
+- Writes go through a temp file + `rename`, and are skipped entirely when the
+  merged contents are unchanged.
+
+If you change the generated key set in `profiles.ts`, remember adoption compares
+the **full** key set — a new key means existing profiles stop matching, and they
+will then be skipped as "not ours" rather than adopted.
+
+There is no test runner in this repo. The merge logic is pure and importable, so
+verify changes to it with a throwaway Node script against `dist/aws-config.js`
+(stub the `electron-log/main` import) rather than trusting `tsc` alone.
+
 ## Dependency gotchas
 
 - **AWS SDK v3** (`@aws-sdk/client-*`). The app uses the modular v3 clients
