@@ -14,14 +14,18 @@ When using [AWS SSO with federation](https://docs.aws.amazon.com/singlesignon/la
 
 Frost runs on macOS, Windows and Linux.
 
-| Platform | Architectures        | Download                      |
-| -------- | -------------------- | ----------------------------- |
-| macOS    | Apple Silicon, Intel | `.zip` (signed and notarized) |
-| Windows  | x86-64, ARM64        | `.exe` installer              |
-| Linux    | x86-64, ARM64        | `.zip`                        |
+| Platform | Architectures        | Download                      | Updates            |
+| -------- | -------------------- | ----------------------------- | ------------------ |
+| macOS    | Apple Silicon, Intel | `.zip` (signed and notarized) | In place           |
+| Windows  | x86-64, ARM64        | `.exe` installer              | In place           |
+| Linux    | x86-64, ARM64        | `.zip`                        | Re-download        |
 
-Frost updates itself in place on all three. Grab a build from the
+Grab a build from the
 [downloads page](https://popen2.github.io/frost/download.html).
+
+Frost updates itself in place on macOS and Windows. Electron's `autoUpdater`
+has no Linux implementation, so **Linux builds do not self-update** — check the
+downloads page and replace the app to upgrade.
 
 Two Windows notes:
 
