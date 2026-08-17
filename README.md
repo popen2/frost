@@ -10,6 +10,29 @@ Once a user has successfully logged-in, Frost will create a `~/.aws/config` file
 
 When using [AWS SSO with federation](https://docs.aws.amazon.com/singlesignon/latest/userguide/samlfederationconcept.html), such as Google Workspace, Frost can refresh credentials without interrupting the user in most cases.
 
+## The App Window
+
+Frost runs in the menu bar (or tray). Opening it from the tray menu — or with
+the global hotkey — shows a settings window with everything in one place:
+
+-   **Login** — the AWS SSO start URL and region. This is all Frost needs to
+    get started.
+-   **Behavior** — whether Frost refreshes credentials automatically or just
+    notifies you, plus the global refresh hotkey (`⌘⇧R` by default, rebindable).
+    A **Test** button fires a sample notification, which is also how you grant
+    Frost notification permission on macOS the first time.
+-   **Privacy** — how long run history is kept (7 days by default), and a button
+    to erase it immediately.
+-   **Credentials** — current token status, the accounts and permission sets you
+    can access, and a **Refresh Now** button.
+-   **EKS** — the clusters discovered on the last scan.
+-   **Activity** — a log of recent refresh runs. Open any run to see each step
+    (token, profiles, EKS discovery), what it found, and the error if it failed.
+
+Frost has no backend. Your token, profiles, and run history are stored in a
+local configuration file and nothing is transmitted anywhere — no analytics, no
+telemetry, no crash reporting.
+
 ## Profile Name Generation
 
 Profile names are generated automatically using the AWS account name and the permission set name. For example, let's assume a user is defined with the following accounts and permission sets:
