@@ -88,6 +88,7 @@ export const config = new Store({
                 refreshMode: { type: "string" },
                 refreshHotkey: { type: "string" },
                 historyRetentionDays: { type: "number" },
+                loginMethod: { type: "string" },
             },
         },
     },
@@ -109,10 +110,16 @@ export interface BehaviorConfig {
     refreshMode: "auto" | "notify";
     refreshHotkey: string;
     historyRetentionDays: number;
+    /**
+     * Where the AWS SSO login page opens. The in-app window keeps Frost in
+     * front, but the default browser can reach passkeys and password managers.
+     */
+    loginMethod: "popup" | "default_browser";
 }
 
 export const DEFAULT_BEHAVIOR: BehaviorConfig = {
     refreshMode: "auto",
     refreshHotkey: "CmdOrCtrl+Shift+R",
     historyRetentionDays: 7,
+    loginMethod: "popup",
 };
