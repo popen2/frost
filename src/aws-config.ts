@@ -6,7 +6,8 @@ import ini from "ini";
 import log from "electron-log/main";
 import { UserConfig } from "./config.js";
 import { Profile } from "./profiles.js";
-import { writeFileAtomic, type ModePolicy } from "./atomic-write.js";
+import { writeFile } from "atomically";
+import { writeFilePreservingMode, PRIVATE_MODE } from "./atomic-write.js";
 
 /**
  * Token Frost writes into every profile it owns. Profiles carrying it are
@@ -22,16 +23,6 @@ const PROFILE_SECTION = /^profile\s+(.+)$/;
 
 function awsConfigPath(subpath: string): string {
     return join(homedir(), ".aws", subpath);
-}
-
-async function writeAwsConfigFile(
-    subpath: string,
-    contents: string,
-    policy: ModePolicy
-) {
-    const fullPath = awsConfigPath(subpath);
-    log.info("[writeAwsConfigFile] Writing %s", fullPath);
-    await writeFileAtomic(fullPath, contents, policy);
 }
 
 async function readAwsConfigFile(subpath: string): Promise<string> {
@@ -59,7 +50,9 @@ export async function writeAwsConfig(profiles: Profile[]) {
 
     // The user's own file: it carries their hand-written profiles too, so
     // whatever permissions they chose for it are theirs to keep.
-    await writeAwsConfigFile("config", contents, "preserve");
+    const fullPath = awsConfigPath("config");
+    log.info("[writeAwsConfig] Writing %s", fullPath);
+    await writeFilePreservingMode(fullPath, contents);
 }
 
 interface ConfigSection {
@@ -288,12 +281,12 @@ export async function writeSsoConfig(
     };
 
     // Holds the access token, so it is always 0600 - the mode the AWS CLI
-    // gives its own cache entries. Not "preserve": versions up to v0.2.16
-    // created this file 0644, and preserving that would leave the token
-    // readable by every other account on the machine indefinitely.
-    await writeAwsConfigFile(
-        join("sso", "cache", filename),
-        JSON.stringify(contents),
-        "private"
-    );
+    // gives its own cache entries. Deliberately not preserving what is there:
+    // versions up to v0.2.16 created this file 0644, and carrying that forward
+    // would leave the token readable by every other account on the machine.
+    const fullPath = awsConfigPath(join("sso", "cache", filename));
+    log.info("[writeSsoConfig] Writing %s", fullPath);
+    await writeFile(fullPath, JSON.stringify(contents), {
+        mode: PRIVATE_MODE,
+    });
 }

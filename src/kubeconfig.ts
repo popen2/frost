@@ -2,7 +2,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
-import { writeFileAtomic } from "./atomic-write.js";
+import { writeFilePreservingMode } from "./atomic-write.js";
 import log from "electron-log/main";
 import { ClusterInfo } from "./aws-eks.js";
 import { KubeConfig } from "@kubernetes/client-node";
@@ -86,7 +86,7 @@ export async function writeKubeconfig(clusters: ClusterInfo[]) {
     // as well as ours, so a run interrupted mid-write must not truncate it, and
     // the permissions they chose are theirs to keep. kubectl warns about a
     // group- or world-readable kubeconfig, so a new one starts at 0600.
-    await writeFileAtomic(path, contents, "preserve");
+    await writeFilePreservingMode(path, contents);
 }
 
 function mergeKubeConfigs(
