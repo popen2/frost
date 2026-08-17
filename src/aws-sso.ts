@@ -21,6 +21,7 @@ import { refreshProfiles } from "./profiles.js";
 import { writeSsoConfig } from "./aws-config.js";
 import { updateTrayIcon } from "./tray.js";
 import { updateKubeConfig } from "./aws-eks.js";
+import { attachLoginIndicator } from "./login-indicator.js";
 import {
     startRun,
     completeRun,
@@ -192,6 +193,11 @@ async function getNewToken(
                 nodeIntegration: false,
             },
         });
+
+        // Before loadURL, so the very first document gets the overlay that
+        // shows when the page is waiting for a security key or passkey. The
+        // default-browser path needs nothing: the browser has its own UI.
+        attachLoginIndicator(window);
 
         window.on("close", () => {
             log.warn("[getNewToken] Login window closed");

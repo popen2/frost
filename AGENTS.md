@@ -5,10 +5,23 @@ config, dependencies, or the release pipeline.
 
 ## What this is
 
-Frost is an Electron menu-bar/tray app (an AWS SSO credentials refresher). All
-`src/*.ts` files execute in the **main process** — there is no renderer-side
-build step or bundler. The login window (`src/aws-sso.ts`) just loads a remote
-AWS URL.
+Frost is an Electron menu-bar/tray app (an AWS SSO credentials refresher).
+Almost every `src/*.ts` file executes in the **main process** — there is no
+bundler. The login window (`src/aws-sso.ts`) just loads a remote AWS URL.
+
+Two files are exceptions, and both are worth knowing about before you touch the
+build:
+
+- `src/login-overlay.ts` runs **in the browser**, injected into the login page
+  (see "Login window credential overlay"). It has its own compile,
+  `tsconfig.overlay.json`, because the main build's ESM output is not
+  injectable and its Node types do not belong in a web page; the main
+  `tsconfig.json` excludes it so the two cannot fight over `dist/`.
+- `src/dashboard.html` is copied verbatim by `npm run build:html` and is
+  neither type-checked nor linted (see below).
+
+If you add another copied asset, remember to add its `copyfiles` step to the
+`build` script — a missing step only shows up at runtime.
 
 The one renderer is the dashboard: `src/dashboard.html`, a single self-contained
 file (markup, CSS, and inline vanilla JS, no framework) that `npm run build:html`
@@ -47,6 +60,50 @@ The project is **ESM** (`"type": "module"` in package.json, `tsconfig`
 - `tsconfig` needs an explicit `rootDir` (TypeScript 6 requirement).
 - `forge.config.js` and `eslint.config.js` are ESM (`export default` /
   `import`). `process` is a global; no `require`.
+
+## Login window credential overlay
+
+Electron services WebAuthn (`navigator.credentials`) but ships **no UI** for it:
+a page waiting for a YubiKey touch renders nothing at all, which is what made
+hardware keys look broken (issue #17). `src/login-indicator.ts` fills that gap
+for the login window and is wired up in `aws-sso.ts` *before* `loadURL` — only
+on the built-in-window path, since the default-browser login mode gets the
+browser's own prompts:
+
+- `src/login-overlay.ts` is compiled to `dist/login-overlay.js`, read off disk,
+  and injected with `executeJavaScript` on every `dom-ready` — the main frame
+  plus any sub-frame reached through `frame-created`, since `executeJavaScript`
+  on the `WebContents` only sees the top frame. It wraps `navigator.credentials.{get,create}` and draws a toast for
+  as long as a request is pending. It guards itself with a `window` flag, so
+  re-injecting into the same document is a no-op.
+- Its compile (`tsconfig.overlay.json`) differs from the main one in three ways
+  that all matter: `module: ESNext` (NodeNext would append `export {}`, a syntax
+  error in an injected classic script), `lib: DOM` + `types: []` (so `document`
+  resolves and `process`/`require` do not), and no source map (the output is
+  read as text, never loaded as a file). Because it has no imports it stays a
+  plain script — adding one would make the emitted file a module and break
+  injection, which is the reason `SIGNAL` is duplicated rather than shared.
+- The overlay runs in the **page's** JavaScript world (no preload script), so
+  its only channel back to the main process is `console.info()` with a magic
+  prefix, read via the `console-message` event. Keep `SIGNAL` in the overlay and
+  `LOGIN_OVERLAY_SIGNAL` in the indicator in sync. The remote page could forge
+  those lines, so nothing security-relevant may ever hang off them — today they
+  only pick a window title and bounce the dock icon.
+- Because the overlay lands on pages Frost does not control, it avoids
+  `innerHTML` and `<style>` elements (CSP / Trusted Types would reject them),
+  renders into a closed shadow root, pins its host styles with `!important`, and
+  keeps `pointer-events: none` so it can never swallow a click on the page.
+- `session.on("select-webauthn-account")` is also registered here. Electron
+  **cancels** the request outright when no listener is registered, so without it
+  a key holding several discoverable credentials for the same relying party can
+  never sign in. The callback must be invoked exactly once on every path.
+
+The overlay is pure browser logic with no Electron imports, so verify changes to
+it by running the built `dist/login-overlay.js` through
+`new Function("window", source)` with a stub `window` (per "Verification
+limits", the app itself cannot be launched here), or by loading it into a
+Playwright page — which is also the only way to check it against a page with a
+strict CSP or hostile `!important` CSS.
 
 ## `~/.aws/config` ownership
 
