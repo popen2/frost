@@ -26,6 +26,26 @@ If you add another copied asset, remember to add its `copyfiles` step to the
 It ships for **macOS, Windows and Linux** — see "Cross-platform gotchas" below
 before touching window chrome, tray icons, or anything path-shaped.
 
+Four small modules exist because they hold a decision that is easy to undo by
+accident. Prefer them over doing the thing inline:
+
+- **`src/atomic-write.ts`** — `writeFilePreservingMode()` for files the user
+  co-owns (`~/.aws/config`, `~/.kube/config`). Never hand-roll temp-file +
+  rename: the rename replaces the *inode*, which drops the destination's mode,
+  its owner, and its identity as a symlink — a config symlinked into a dotfiles
+  repo gets replaced by a regular file. `atomically` handles all of that plus
+  the fsync and the Windows EPERM/EBUSY retry. Anything that must be 0600
+  whatever it replaces (the SSO token cache) calls `atomically` directly.
+- **`src/logging.ts`** — transport configuration, the retention sweep, and
+  `describeError()`. Log errors through `describeError()`: `${err}` throws away
+  the AWS SDK's exception name, HTTP status and request id.
+- **`src/user-config.ts`** — `validateUserConfig()`, kept out of `config.ts`
+  because importing that constructs the electron-store and so needs a live
+  Electron app.
+- **`src/run-log.ts`** — the per-run step log the Activity panel renders. One
+  run is in flight at a time; `refresh()` guards on `isWorking` because a second
+  run would overwrite the current-run slot.
+
 The one renderer is the dashboard: `src/dashboard.html`, a single self-contained
 file (markup, CSS, and inline vanilla JS, no framework) that `npm run build:html`
 copies verbatim into `dist/`. It is **not** type-checked or linted — `tsc` and
@@ -36,7 +56,16 @@ a `state-updated` push); the handlers live in `src/window.ts`, which takes an
 cycle). It currently runs with `nodeIntegration: true` /
 `contextIsolation: false`, so **every value interpolated into `innerHTML` must
 go through the `esc()` helper** — account names, cluster names, and error
-strings all originate from AWS.
+strings all originate from AWS. For the same reason, never build a selector or
+an inline `onclick` out of a value: put it in a `data-` attribute and read it
+back (`esc()` is an HTML escaper, and an HTML attribute is decoded *before* its
+contents are parsed as JS or CSS, so escaping does not hold there).
+
+Register new IPC handlers with **`handleFromDashboard()`**, not `ipcMain.handle`
+directly. It rejects anything that is not the dashboard's own top frame. Nothing
+can reach those handlers today — the login window has no preload and runs with
+context isolation — but the check is what keeps that true once a preload bridge
+exists.
 
 ## Commands
 
@@ -127,8 +156,10 @@ user put there by hand, including `[default]`). `mergeAwsConfig()` is a pure
   upgrade would duplicate every profile.
 - A same-named profile the user wrote themselves is left alone and Frost skips
   its own (logs a warning) rather than clobbering it.
-- Writes go through a temp file + `rename`, and are skipped entirely when the
-  merged contents are unchanged.
+- Writes go through `writeFilePreservingMode()` (see `src/atomic-write.ts`), and
+  are skipped entirely when the merged contents are unchanged. The permissions
+  on this file are the user's, not ours — a plain temp-file + rename silently
+  resets them, which is exactly the bug that helper exists to prevent.
 
 If you change the generated key set in `profiles.ts`, remember adoption compares
 the **full** key set — a new key means existing profiles stop matching, and they
@@ -284,17 +315,37 @@ good idea, but the accidental copy is what older installs are running off.
 Five workflows, with the matrix build factored out as a reusable workflow:
 
 - **`.github/workflows/build.yaml`** (reusable, `workflow_call`) — the
-  five-row build matrix (darwin and linux × x64/arm64, plus win32 x64) that
-  checks out, installs, optionally stamps a version, builds, downloads the IAM
+  six-row build matrix (darwin, linux and win32 × x64/arm64) that checks out,
+  installs, optionally stamps a version, builds, downloads the IAM
   authenticator, sets up the macOS signing keychain, and runs either
   `electron-forge make` (artifact upload) or `electron-forge publish` based on
   the `publish` input. Owns `AWS_IAM_AUTHENTICATOR_VERSION` and the matrix
   definition. Callers should pass `secrets: inherit` so it can read
   `MAC_CERTS`, `APPLE_API_*`, and `GITHUB_TOKEN` without re-declaring them.
 
+  Two inputs beyond `publish`/`version` are load-bearing:
+
+  - **`sign`** decides whether the Developer ID is imported at all. `ci.yaml`
+    passes `false` for `pull_request` events, because that job has already run
+    `npm ci` and `npm run build` from the pull request and a compromised
+    dependency's postinstall must not be running alongside the certificate.
+    Pushes to `main` still sign, so the full notarized path is validated
+    before a tag. It reaches Forge as `FROST_SIGN`, which `forge.config.js`
+    keys `osxSign`/`osxNotarize` off — they have to be **absent**, not empty,
+    because `@electron/osx-sign` fails outright when told to sign with an
+    identity that is not in the keychain.
+  - **`authenticator_sha256`**, one per matrix row, pins the exact bytes of
+    the downloaded authenticator. Release assets are mutable and this binary
+    ends up in a signed app and in every user's kubeconfig as the `exec`
+    plugin. The comment above the matrix carries the one-liner to regenerate
+    the hashes when `AWS_IAM_AUTHENTICATOR_VERSION` moves; win32/arm64 shares
+    the windows_amd64 asset and therefore its hash.
+
   The matrix is written as explicit `include` rows rather than an os × arch
   product: `exclude` does not match reliably against object-valued dimensions,
-  and win32/arm64 has to be kept out. Two Windows-driven details in the steps:
+  and win32/arm64 needs a different `arch.aws` from its `arch.electron`
+  (upstream publishes no windows_arm64 authenticator). Two Windows-driven
+  details in the steps:
   the authenticator download runs under `shell: bash` (Git Bash) so one script
   covers all three runners, and Forge is invoked through `npx` because
   PowerShell can't execute the extensionless `./node_modules/.bin/electron-forge`
@@ -466,6 +517,17 @@ else covers them:
   breakage (a temporal dead zone, a typo) that would otherwise only show up as
   a blank window. Stub the timers — the script installs a 30s interval that
   keeps Node alive.
+
+  Better, where a change is about *behaviour* rather than load: load the built
+  `dist/dashboard.html` in headless Chromium (Playwright, with Chromium already
+  on most sandboxes) after injecting a `<script>` that defines `window.require`
+  to return a fake `ipcRenderer` and `window.process = { platform }`. That
+  exercises real rendering, clicks and state pushes. Seed the fake state with
+  hostile values — `<img src=x onerror=…>` in an account or cluster name, a
+  quote in an id — and assert nothing executes; it is the only mechanical check
+  on the `esc()` rule above. One caveat: the `<head>` script at the top of the
+  file reads `process.platform` before any injected stub can load, so expect one
+  harmless `ReferenceError` in the page-error log.
 - **`forge.config.js`** can be imported directly, and the maker instantiated
   the same way Forge does (`new MakerSquirrel(cfg, platforms)` then
   `await maker.prepareConfig(arch)`), to confirm the per-arch config resolves
@@ -473,6 +535,12 @@ else covers them:
 - **`docs/download.html`**'s release-parsing script runs the same way against a
   synthetic GitHub release payload, which is how you check asset-name changes
   without cutting a release.
+- **File-permission behaviour** (`src/atomic-write.ts`) is checkable directly:
+  import the built module and run it over a scratch directory. Cover an
+  existing 0600 and an existing 0640 (a preserved mode must not be narrowed by
+  the umask), a file that does not exist yet, and — the case a hand-rolled
+  implementation gets wrong — a path that is a **symlink** into another
+  directory, asserting the link survives and the target is what changed.
 
 Windows-specific behaviour — Squirrel install/update events, the tray icon and
 click handling, toast notifications, the login item — cannot be exercised
