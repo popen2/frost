@@ -29,6 +29,7 @@ import {
     startTokenStep,
     completeTokenStep,
 } from "./run-log.js";
+import { describeError } from "./logging.js";
 
 let timeoutId: NodeJS.Timeout | undefined;
 let pendingAuthResolve: (() => void) | null = null;
@@ -96,7 +97,10 @@ export async function refresh() {
         return;
     }
 
-    startRun();
+    // The run id is what ties these lines to the entry the user is looking at
+    // in the Activity panel when they send a log in.
+    const { runId } = startRun();
+    log.info("[refresh] Run %s started", runId);
 
     try {
         config.set("isWorking", true);
@@ -109,7 +113,7 @@ export async function refresh() {
             log.info("[refresh] Successfully got new token");
             completeTokenStep("success");
         } catch (tokenErr) {
-            completeTokenStep("error", `${tokenErr}`);
+            completeTokenStep("error", describeError(tokenErr));
             throw tokenErr;
         }
 
@@ -120,16 +124,18 @@ export async function refresh() {
         await updateKubeConfig(profiles);
 
         completeRun("success");
+        log.info("[refresh] Run %s completed", runId);
     } catch (err) {
-        log.error("[refresh] Error: %s", err);
+        const described = describeError(err);
+        log.error("[refresh] Run %s failed: %s", runId, described);
         if (err instanceof Error && err.name == "InvalidClientException") {
             config.delete("ssoClient");
             log.error(
                 "[refresh] Got InvalidClientException error, deleted ssoClient from config"
             );
         }
-        config.set("lastError", `${err}`);
-        completeRun("error", `${err}`);
+        config.set("lastError", described);
+        completeRun("error", described);
         setNextTokenRefresh();
     } finally {
         config.set("isWorking", false);
@@ -152,7 +158,14 @@ async function getNewToken(
         })
     );
 
-    log.debug("[getNewToken] startDeviceAuthorization: %s", startAuth);
+    // Never log the response itself: it carries `deviceCode`, `userCode` and
+    // `verificationUriComplete`, and anything holding those plus the client
+    // credentials can redeem a token of its own for as long as the code lives.
+    log.debug(
+        "[getNewToken] startDeviceAuthorization: expiresIn=%ss interval=%ss",
+        startAuth.expiresIn,
+        startAuth.interval
+    );
     const tokenExpires = moment().add(startAuth.expiresIn, "seconds");
 
     const behavior =
@@ -226,7 +239,10 @@ async function getNewToken(
                 if (isAuthorizationPendingException(err)) {
                     log.debug("[getNewToken] Authorization pending...");
                 } else {
-                    log.warn("[getNewToken] Failed getting token: %s", err);
+                    log.warn(
+                        "[getNewToken] Failed getting token: %s",
+                        describeError(err)
+                    );
                 }
             }
 

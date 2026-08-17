@@ -15,6 +15,7 @@ import {
     clearHistory,
     type RunLog,
 } from "./run-log.js";
+import { sweepOldLogs } from "./logging.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -111,8 +112,10 @@ export function setupIpc(callbacks: IpcCallbacks) {
         );
         config.set("behaviorConfig", behavior);
         // Apply the (possibly shortened) retention period immediately rather
-        // than waiting for the next refresh to prune.
+        // than waiting for the next refresh to prune. Log files are kept for
+        // the same period, so they are swept on the same setting.
         pruneHistory();
+        sweepOldLogs();
         callbacks.onSaveBehavior(behavior);
     });
 

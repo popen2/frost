@@ -21,6 +21,11 @@ import {
     setAppUserModelId,
     setOpenAtLogin,
 } from "./squirrel.js";
+import {
+    configureLogging,
+    logStartupBanner,
+    sweepOldLogs,
+} from "./logging.js";
 
 let currentHotkey: string | null = null;
 let isRecordingHotkey = false;
@@ -54,6 +59,7 @@ function registerHotkey(hotkey: string) {
 
 async function main() {
     log.info("[main] =================== Starting app ===================");
+    logStartupBanner();
 
     // Squirrel runs the app to have it install/remove its own shortcuts. Those
     // launches must do nothing else and exit, so this comes before any setup.
@@ -94,6 +100,7 @@ async function main() {
     }
 
     pruneHistory();
+    sweepOldLogs();
 
     updateElectronApp({
         logger: log,
@@ -156,6 +163,11 @@ async function main() {
 
     setOpenAtLogin(true);
 }
+
+// Before startCatching and before main(), so the very first line written -
+// including anything the crash handler reports - lands in the dated file with
+// the right permissions.
+configureLogging();
 
 log.errorHandler.startCatching({ showDialog: true });
 
