@@ -153,8 +153,17 @@ export function openDashboard() {
         minWidth: 620,
         minHeight: 500,
         title: "Frost",
-        titleBarStyle: "hiddenInset",
-        trafficLightPosition: { x: 12, y: 12 },
+        // The inset traffic lights are a macOS affordance. On Windows
+        // `hiddenInset` degrades to `hidden`, which takes the title bar away
+        // without putting the minimise/maximise/close buttons anywhere — the
+        // window ends up closable only with Alt+F4. Everywhere else keeps the
+        // native frame; dashboard.html drops its drag strip to match.
+        ...(process.platform === "darwin"
+            ? {
+                  titleBarStyle: "hiddenInset" as const,
+                  trafficLightPosition: { x: 12, y: 12 },
+              }
+            : {}),
         center: true,
         webPreferences: {
             nodeIntegration: true,

@@ -23,6 +23,37 @@ function awsConfigPath(subpath: string): string {
     return join(homedir(), ".aws", subpath);
 }
 
+/**
+ * Windows fails the rename outright — EPERM or EBUSY — while another process
+ * holds either file open, which for `~/.aws/config` means an AWS CLI command
+ * mid-read or an antivirus scanner looking at the file we just wrote. Both
+ * clear in milliseconds, so back off briefly rather than failing the refresh.
+ */
+const RENAME_RETRY_DELAYS_MS = [20, 50, 120, 300];
+
+async function renameWithRetry(from: string, to: string) {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            await rename(from, to);
+            return;
+        } catch (err) {
+            const code = (err as NodeJS.ErrnoException).code;
+            const retriable = code === "EPERM" || code === "EBUSY";
+            if (!retriable || attempt >= RENAME_RETRY_DELAYS_MS.length) {
+                throw err;
+            }
+            log.warn(
+                "[renameWithRetry] %s renaming to %s, retrying",
+                code,
+                to
+            );
+            await new Promise((done) =>
+                setTimeout(done, RENAME_RETRY_DELAYS_MS[attempt])
+            );
+        }
+    }
+}
+
 async function writeAwsConfigFile(subpath: string, contents: string) {
     const fullPath = awsConfigPath(subpath);
     const tempPath = `${fullPath}.frost-tmp`;
@@ -31,7 +62,7 @@ async function writeAwsConfigFile(subpath: string, contents: string) {
     // Write-then-rename so an interrupted run can't leave a truncated file
     // behind - this file also holds profiles Frost doesn't own.
     await writeFile(tempPath, contents);
-    await rename(tempPath, fullPath);
+    await renameWithRetry(tempPath, fullPath);
 }
 
 async function readAwsConfigFile(subpath: string): Promise<string> {

@@ -3,6 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <title>Frost</title>
+  <script>
+    // Stamped before the stylesheet is applied so the platform-specific rules
+    // below never flash the wrong chrome. Only macOS gets the frameless
+    // window (see openDashboard() in window.ts); Windows and Linux keep their
+    // native title bar, so the drag strip has to go.
+    document.documentElement.dataset.platform = process.platform;
+  </script>
   <style>
     /* ── Colour tokens ───────────────────────────────────────────────────── */
     :root {
@@ -79,7 +86,7 @@
     body {
       display: flex;
       flex-direction: column;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", sans-serif;
       font-size: 13px;
       color: var(--text);
       background: var(--bg);
@@ -88,12 +95,28 @@
     }
 
     /* ── Title-bar strip ─────────────────────────────────────────────────── */
+    /* Only macOS hides its title bar, so only macOS needs a strip to stand in
+       for it (clearing the traffic lights and giving the window a drag
+       handle). Elsewhere the native title bar is present and this would just
+       be 36px of dead space above the real one. */
     .titlebar {
       height: 36px;
       flex-shrink: 0;
       -webkit-app-region: drag;
       background: linear-gradient(to right, var(--sidebar-bg) 178px, var(--bg) 178px);
     }
+
+    html:not([data-platform="darwin"]) .titlebar { display: none; }
+
+    /* Without the strip the sidebar starts at the very top of the client
+       area, which is too tight - and dragging the window is the native title
+       bar's job again. */
+    html:not([data-platform="darwin"]) .sidebar {
+      padding-top: 14px;
+      -webkit-app-region: no-drag;
+    }
+
+    html:not([data-platform="darwin"]) .panels { padding-top: 20px; }
 
     /* ── App layout ──────────────────────────────────────────────────────── */
     .layout {
@@ -313,7 +336,7 @@
     }
 
     code {
-      font-family: "SF Mono", "Menlo", monospace;
+      font-family: "SF Mono", "Menlo", "Cascadia Mono", Consolas, monospace;
       font-size: 11px;
       background: var(--badge-bg);
       padding: 1.5px 5px;
@@ -390,7 +413,7 @@
     .status-label-sub  { font-size: 12px; color: var(--text-2); margin-top: 2px; }
 
     .error-box {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace;
       font-size: 11px;
       color: var(--error);
       background: var(--error-bg);
@@ -439,7 +462,7 @@
 
     .account-info { flex: 1; min-width: 0; }
     .account-name { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
-    .account-id { font-size: 11px; color: var(--text-2); font-family: "SF Mono", Menlo, monospace; margin-top: 1px; }
+    .account-id { font-size: 11px; color: var(--text-2); font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace; margin-top: 1px; }
 
     .account-roles { display: none; padding: 2px 16px 12px 57px; }
     .account-row.open + .account-roles { display: grid; }
@@ -458,7 +481,7 @@
     .pmap-arrow { font-size: 11px; color: var(--text-3); }
     .pmap-name {
       justify-self: start;
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace;
       font-size: 11.5px;
       font-weight: 600;
       padding: 2.5px 8px;
@@ -524,7 +547,7 @@
     }
     .eks-table tbody tr { transition: background 0.1s ease; }
     .eks-table tbody tr:hover td, .eks-table tr:hover td { background: var(--hover); }
-    .mono { font-family: "SF Mono", Menlo, monospace; font-size: 11.5px; }
+    .mono { font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace; font-size: 11.5px; }
     .region-tag { background: rgba(48,176,199,0.12); color: #1E9CB0; padding: 2.5px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
     @media (prefers-color-scheme: dark) { .region-tag { color: #64D2E0; background: rgba(100,210,224,0.14); } }
 
@@ -670,7 +693,7 @@
     }
 
     .hotkey-pill {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace;
       font-size: 12.5px;
       font-weight: 600;
       padding: 6px 16px;
@@ -1472,12 +1495,30 @@ function renderLogStep(step) {
 let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R', historyRetentionDays: 7, loginMethod:'popup' };
 let recording   = false;
 
+// Mirrors formatHotkey() in src/hotkey.ts, which the main process uses for
+// notification bodies — keep the two in step. It can't be imported: this file
+// is copied to dist/ verbatim and never goes through the bundler.
+const HOTKEY_MAC = {
+  CommandOrControl:'⌘', CmdOrCtrl:'⌘', Command:'⌘', Cmd:'⌘',
+  Control:'⌃', Ctrl:'⌃', Option:'⌥', Alt:'⌥', Shift:'⇧', Super:'⌘', Meta:'⌘',
+};
+const HOTKEY_PC = {
+  CommandOrControl:'Ctrl', CmdOrCtrl:'Ctrl', Command:'Win', Cmd:'Win',
+  Control:'Ctrl', Option:'Alt', Super:'Win', Meta:'Win',
+};
+const IS_MAC = process.platform === 'darwin';
+
 function fmtHotkey(a) {
-  return String(a || '')
-           .replace(/CommandOrControl/g,'⌘').replace(/CmdOrCtrl/g,'⌘')
-           .replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧')
-           .replace(/\+/g,'');
+  const parts = String(a || '').split('+');
+  return IS_MAC
+    ? parts.map(p => HOTKEY_MAC[p] || p).join('')
+    : parts.map(p => HOTKEY_PC[p] || p).join('+');
 }
+
+// The markup carries the macOS rendering of the default hotkey; correct it for
+// this platform now rather than letting the wrong glyphs sit there until the
+// first state push arrives.
+document.getElementById('hotkey-pill').textContent = fmtHotkey(curBehavior.refreshHotkey);
 
 function populateBehavior(state) {
   // Never overwrite a hotkey the user is in the middle of recording, or one
@@ -1539,7 +1580,11 @@ document.addEventListener('keydown', async e => {
   if (['Control','Meta','Alt','Shift','CapsLock'].includes(e.key)) return;
 
   const parts = [];
-  if (e.metaKey || e.ctrlKey) parts.push('CmdOrCtrl');
+  // CmdOrCtrl is Cmd on macOS and Ctrl elsewhere, so it is what either
+  // platform's primary modifier should record as. The Windows key is a
+  // separate modifier and only reaches metaKey off the Mac.
+  if (IS_MAC ? (e.metaKey || e.ctrlKey) : e.ctrlKey) parts.push('CmdOrCtrl');
+  if (!IS_MAC && e.metaKey) parts.push('Super');
   if (e.altKey)  parts.push('Alt');
   if (e.shiftKey) parts.push('Shift');
   const KEY_MAP = { ArrowUp:'Up', ArrowDown:'Down', ArrowLeft:'Left', ArrowRight:'Right', ' ':'Space', Enter:'Return' };

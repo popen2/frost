@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@electron-forge/cli": "8.0.0-alpha.10",
+    "@electron-forge/maker-squirrel": "8.0.0-alpha.10",
     "@electron-forge/maker-zip": "8.0.0-alpha.10",
     "@electron-forge/publisher-github": "8.0.0-alpha.10",
     "@eslint/js": "^10.0.1",

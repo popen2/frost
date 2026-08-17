@@ -29,19 +29,37 @@ jobs:
     name: 📦 Build (${{ matrix.os.name }} ${{ matrix.arch.name }})
     strategy:
       fail-fast: false
+      # Spelled out as `include` entries rather than an os × arch product,
+      # because `arch.aws` is not a pure function of `arch` on Windows (see
+      # below) and `exclude` does not match reliably against object-valued
+      # matrix dimensions anyway.
+      #
+      # In `os`: `name` is the Electron platform (and what artifacts are named
+      # after), `aws` is how the aws-iam-authenticator release spells the same
+      # OS, and `exe` is the suffix carried by that asset and ours. In `arch`:
+      # `electron` is the package we build, `aws` is the authenticator build
+      # bundled into it — normally the same architecture.
+      #
+      # Windows/arm64 is the exception: aws-iam-authenticator publishes no
+      # windows_arm64 build, so it takes the amd64 one. That costs nothing
+      # real — the authenticator is a short-lived helper process kubectl
+      # invokes, and Windows on ARM emulates x64 processes transparently —
+      # while the app itself, which is where the CPU and battery actually go,
+      # stays native.
       matrix:
-        os:
-          - name: darwin
-            runs-on: macos-latest
-          - name: linux
-            runs-on: ubuntu-latest
-        arch:
-          - name: x86_64
-            aws: amd64
-            electron: x64
-          - name: arm64
-            aws: arm64
-            electron: arm64
+        include:
+          - os: { name: darwin, runs-on: macos-latest, aws: darwin, exe: "" }
+            arch: { name: x86_64, aws: amd64, electron: x64 }
+          - os: { name: darwin, runs-on: macos-latest, aws: darwin, exe: "" }
+            arch: { name: arm64, aws: arm64, electron: arm64 }
+          - os: { name: linux, runs-on: ubuntu-latest, aws: linux, exe: "" }
+            arch: { name: x86_64, aws: amd64, electron: x64 }
+          - os: { name: linux, runs-on: ubuntu-latest, aws: linux, exe: "" }
+            arch: { name: arm64, aws: arm64, electron: arm64 }
+          - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
+            arch: { name: x86_64, aws: amd64, electron: x64 }
+          - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
+            arch: { name: arm64, aws: amd64, electron: arm64 }
     runs-on: ${{ matrix.os.runs-on }}
     steps:
       - name: 📥 Checkout code
@@ -67,10 +85,14 @@ jobs:
           npm run build
 
       - name: ⬇️ Download aws-iam-authenticator
+        # Git Bash on the Windows runner, so one script covers all three.
+        shell: bash
         run: |
-          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${{ matrix.os.name }}_${{ matrix.arch.aws }}"
-          TARGET="aws-iam-authenticator"
-          curl -L "${URL}" -o "${TARGET}"
+          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${{ matrix.os.aws }}_${{ matrix.arch.aws }}${{ matrix.os.exe }}"
+          TARGET="aws-iam-authenticator${{ matrix.os.exe }}"
+          # -f so a missing asset fails here instead of packaging GitHub's 404
+          # page as the binary.
+          curl -fL "${URL}" -o "${TARGET}"
           chmod a+x "${TARGET}"
 
       - name: 🔐 Add MacOS Certificates
@@ -92,13 +114,16 @@ jobs:
           mkdir -p ~/private_keys
           echo "${{ secrets.APPLE_API_AUTHKEY_BASE64 }}" | base64 -d > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
 
+      # npx rather than ./node_modules/.bin/electron-forge: the latter is a
+      # shell script with no extension, which PowerShell on the Windows runner
+      # cannot execute.
       - name: 🛠️ Make app (sign + notarize)
         if: ${{ !inputs.publish }}
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          ./node_modules/.bin/electron-forge make --arch ${{ matrix.arch.electron }}
+          npx --no-install electron-forge make --arch ${{ matrix.arch.electron }}
 
       - name: 🚀 Publish app
         if: ${{ inputs.publish }}
@@ -107,7 +132,7 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          ./node_modules/.bin/electron-forge publish --arch ${{ matrix.arch.electron }}
+          npx --no-install electron-forge publish --arch ${{ matrix.arch.electron }}
 
       - name: 📤 Upload distributables
         if: ${{ !inputs.publish }}
