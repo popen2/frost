@@ -177,7 +177,14 @@ async function getNewToken(
     let windowOpen = true;
     let window: BrowserWindow | undefined;
 
-    const loginUrl = requireHttpsLoginUrl(startAuth.verificationUriComplete);
+    // openExternal hands what it is given straight to the OS, and this URL
+    // comes from the OIDC endpoint the stored region picks. Passed on as the
+    // original string, not URL.toString(), so the user_code query AWS put
+    // there cannot be re-encoded.
+    const loginUrl = startAuth.verificationUriComplete;
+    if (!loginUrl || !isHttps(loginUrl)) {
+        throw new Error("Refusing to open a non-https login URL");
+    }
 
     if (behavior.loginMethod === "default_browser") {
         log.debug("[getNewToken] Opening login in default browser");
@@ -266,66 +273,33 @@ function isHttps(raw: string): boolean {
 }
 
 /**
- * The login URL comes back from the OIDC endpoint, which is chosen by the
- * stored region - so it is not a constant, and `openExternal` hands whatever
- * it is given straight to the OS. Check the scheme before either the OS or a
- * BrowserWindow acts on it.
- *
- * Returns the original string rather than `URL.toString()`, so a round trip
- * through the parser cannot re-encode the `user_code` query AWS put there.
- */
-function requireHttpsLoginUrl(raw: string | undefined): string {
-    if (!raw || !isHttps(raw)) {
-        throw new Error(`Refusing to open a non-https login URL`);
-    }
-    return raw;
-}
-
-/**
- * Keeps the login window on the sign-in journey it was opened for.
- *
- * The page redirects through the customer's own identity provider, so the
- * hosts it visits cannot be enumerated - but every leg of an AWS SSO sign-in
- * is https, and none of it needs to open a second Electron window. Popups go
- * to the real browser, where the user can at least see an address bar, and
- * anything that is not https is refused.
- *
- * An identity provider that hands off to a native app over a custom scheme
- * will be blocked here and say so in the log. That is what the default-browser
- * login option exists for.
+ * Keeps the login window on the sign-in it was opened for. The redirect chain
+ * runs through the customer's identity provider so the hosts cannot be listed,
+ * but every leg of an AWS SSO sign-in is https and none of it needs a second
+ * Electron window. A provider that hands off to a native app over a custom
+ * scheme is blocked here; that is what the default-browser option is for.
  */
 function restrictNavigation(window: BrowserWindow) {
-    window.webContents.setWindowOpenHandler(({ url }) => {
-        if (isHttps(url)) {
-            log.info("[getNewToken] Login page popup, opening in browser: %s", url);
-            shell.openExternal(url);
-        } else {
-            log.warn("[getNewToken] Blocked login page popup to %s", url);
-        }
-        return { action: "deny" };
-    });
-
-    const block = (event: Electron.Event, url: string, kind: string) => {
-        if (isHttps(url)) {
-            return;
-        }
+    const denyNonHttps = (event: Electron.Event, url: string) => {
+        if (isHttps(url)) return;
         log.warn(
-            "[getNewToken] Blocked %s to %s - if your identity provider needs " +
-                "this, switch Login to the default browser in Behavior",
-            kind,
+            "[getNewToken] Blocked %s - switch Login to the default browser if your provider needs it",
             url
         );
         event.preventDefault();
     };
 
-    // will-navigate covers what the page initiates; will-redirect covers the
-    // server-side 3xx hops it does not see.
-    window.webContents.on("will-navigate", (event, url) =>
-        block(event, url, "navigation")
-    );
-    window.webContents.on("will-redirect", (event, url) =>
-        block(event, url, "redirect")
-    );
+    // will-navigate is what the page initiates, will-redirect the server-side
+    // 3xx hops it never sees.
+    window.webContents.on("will-navigate", denyNonHttps);
+    window.webContents.on("will-redirect", denyNonHttps);
+
+    // The real browser has an address bar; a chrome-less popup does not.
+    window.webContents.setWindowOpenHandler(({ url }) => {
+        if (isHttps(url)) shell.openExternal(url);
+        else log.warn("[getNewToken] Blocked popup to %s", url);
+        return { action: "deny" };
+    });
 }
 
 async function saveToken(
