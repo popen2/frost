@@ -14,11 +14,11 @@ When using [AWS SSO with federation](https://docs.aws.amazon.com/singlesignon/la
 
 Frost runs on macOS, Windows and Linux.
 
-| Platform | Architectures            | Download                                    |
-| -------- | ------------------------ | ------------------------------------------- |
-| macOS    | Apple Silicon, Intel     | `.zip` (signed and notarized)                |
-| Windows  | x86-64                   | `.exe` installer                             |
-| Linux    | x86-64, ARM64            | `.zip`                                       |
+| Platform | Architectures        | Download                      |
+| -------- | -------------------- | ----------------------------- |
+| macOS    | Apple Silicon, Intel | `.zip` (signed and notarized) |
+| Windows  | x86-64, ARM64        | `.exe` installer              |
+| Linux    | x86-64, ARM64        | `.zip`                        |
 
 Frost updates itself in place on all three. Grab a build from the
 [downloads page](https://popen2.github.io/frost/download.html).
@@ -27,9 +27,11 @@ Two Windows notes:
 
 -   The Windows builds are **not code-signed**, so SmartScreen warns the first
     time you run the installer — choose *More info* → *Run anyway*.
--   There is no ARM64 Windows build, because the bundled
+-   The ARM64 build is a native ARM64 app, but the
     [AWS IAM Authenticator](https://github.com/kubernetes-sigs/aws-iam-authenticator)
-    publishes none. Windows on ARM runs the x86-64 build under emulation.
+    it bundles has no ARM64 Windows release, so that one helper runs emulated.
+    It is a short-lived process `kubectl` invokes when talking to EKS, so this
+    is not something you should be able to notice.
 
 ## The App Window
 

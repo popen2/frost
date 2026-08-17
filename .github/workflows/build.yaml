@@ -30,16 +30,22 @@ jobs:
     strategy:
       fail-fast: false
       # Spelled out as `include` entries rather than an os × arch product,
-      # because the product would contain win32/arm64 and `exclude` does not
-      # match reliably against object-valued matrix dimensions.
+      # because `arch.aws` is not a pure function of `arch` on Windows (see
+      # below) and `exclude` does not match reliably against object-valued
+      # matrix dimensions anyway.
       #
       # In `os`: `name` is the Electron platform (and what artifacts are named
       # after), `aws` is how the aws-iam-authenticator release spells the same
-      # OS, and `exe` is the suffix carried by that asset and ours.
+      # OS, and `exe` is the suffix carried by that asset and ours. In `arch`:
+      # `electron` is the package we build, `aws` is the authenticator build
+      # bundled into it — normally the same architecture.
       #
-      # There is no windows/arm64 row: aws-iam-authenticator publishes no
-      # windows_arm64 build and Frost bundles it. Windows on ARM runs the x64
-      # package under emulation, so nothing is lost.
+      # Windows/arm64 is the exception: aws-iam-authenticator publishes no
+      # windows_arm64 build, so it takes the amd64 one. That costs nothing
+      # real — the authenticator is a short-lived helper process kubectl
+      # invokes, and Windows on ARM emulates x64 processes transparently —
+      # while the app itself, which is where the CPU and battery actually go,
+      # stays native.
       matrix:
         include:
           - os: { name: darwin, runs-on: macos-latest, aws: darwin, exe: "" }
@@ -52,6 +58,8 @@ jobs:
             arch: { name: arm64, aws: arm64, electron: arm64 }
           - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
             arch: { name: x86_64, aws: amd64, electron: x64 }
+          - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
+            arch: { name: arm64, aws: amd64, electron: arm64 }
     runs-on: ${{ matrix.os.runs-on }}
     steps:
       - name: 📥 Checkout code

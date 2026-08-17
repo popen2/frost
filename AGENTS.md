@@ -259,10 +259,16 @@ asset naming is `aws-iam-authenticator_<version>_<os>_<arch>[.exe]` (os:
 only). At runtime the path is resolved in `src/kubeconfig.ts` (overridable via
 `AWS_IAM_AUTHENTICATOR_PATH`).
 
-**There is no `windows_arm64` asset**, which is why the build matrix has no
-windows/arm64 row — Windows on ARM runs the x64 package under emulation. If
-upstream ever publishes one, adding the row to `build.yaml` is the only change
-needed.
+**There is no `windows_arm64` asset** — upstream publishes none, as of 0.7.18.
+The windows/arm64 matrix row therefore bundles the `windows_amd64` build, which
+is why `arch.aws` is not simply a function of `arch` in `build.yaml`. That is a
+deliberate and cheap trade: the authenticator is a short-lived helper process
+kubectl spawns, and Windows on ARM emulates x64 processes transparently, so
+only that helper pays emulation while the app itself stays native. Do not
+"fix" this by dropping the arm64 row — emulating all of Chromium to keep one
+occasionally-invoked CLI native is the worse side of the trade. If upstream
+ever ships `windows_arm64`, the only change is `aws: amd64` → `aws: arm64` on
+that row.
 
 The packager option is `extraResource`, **singular** — the plural is
 electron-builder's spelling and electron-packager ignores it silently. It was
@@ -372,6 +378,26 @@ still use `maker-zip`. Things worth knowing:
   what `update-electron-app`/update.electronjs.org reads on Windows — don't
   prune them from a release, and don't let the downloads page offer them
   (`docs/download.html` filters them out by design).
+- **Two Windows architectures share one GitHub release, and Squirrel names its
+  output the same way every time.** Left alone, x64 and arm64 would both
+  upload `RELEASES` and `<id>-<version>-full.nupkg`, one would clobber the
+  other, and the survivor would feed its payload to *both* architectures on the
+  next auto-update. Two things keep them apart:
+  - `squirrelPackageName(arch)` puts the architecture in the **package id**
+    (`Frost-arm64`), so the nupkg is `Frost-arm64-<version>-full.nupkg`. It has
+    to be the id, not a suffix after the version: Squirrel parses
+    `<id>-<version>-full.nupkg` with the version in a fixed position, so
+    `Frost-<version>-arm64-full.nupkg` would not parse. x64 keeps the bare
+    `Frost`, and once it has shipped that id is fixed — changing it would
+    strand installed clients on a feed whose package no longer matches.
+  - The `postMake` hook renames arm64's `RELEASES` to `RELEASES-arm64`, which
+    is what update.electronjs.org looks for before falling back to plain
+    `RELEASES`. That fallback is why x64 needs no per-arch file and its asset
+    names are byte-identical to a single-architecture build.
+
+  Because the id feeds the AUMID, `src/squirrel.ts` derives its own from
+  `process.arch` using the same rule. A build is only ever installed by the
+  package of its own architecture, so the two always agree.
 - Windows builds are **unsigned**: there's no certificate, and SmartScreen
   warns on first run. `forge.config.js` reads `WINDOWS_CERTIFICATE_FILE` /
   `WINDOWS_CERTIFICATE_PASSWORD` from the environment and feeds them to
@@ -413,6 +439,23 @@ is what actually exercises the packaging/signing/notarization path on macOS.
 Windows packaging can't be exercised here either: `maker-squirrel` needs a
 Windows host, and even plain `electron-forge package --platform win32` shells
 out to `rcedit` to stamp the icon, which needs Wine off Windows.
+
+That matters most for the multi-architecture asset naming above, where a
+mistake corrupts auto-update for people who already installed. What *is*
+checkable without Windows: reproduce the artifact list from `MakerSquirrel`'s
+own logic (`prepareConfig(arch)` plus the three names its `make()` returns),
+run `forge.config.js`'s `postMake` hook over real temp files, flatten both
+architectures into one list, and assert the names are disjoint. That catches
+every collision; it does not tell you whether Squirrel installs an arm64
+payload correctly, which needs real hardware.
+
+**Squirrel's own binaries are all x86** — `Setup.exe`, `Squirrel.exe`,
+`StubExecutable.exe`, `SyncReleases.exe` in `electron-winstaller/vendor` are
+i386 (only the bundled 7-Zip has an arm64 variant). They run under emulation on
+Windows on ARM and then launch the native app. Squirrel.Windows historically had
+an arm64 bug (Squirrel.Windows#1616, fixed by #1617 for v2); whether the
+vendored build carries the fix has not been confirmed on hardware, so treat
+arm64 installs as needing a real-device smoke test before you trust them.
 
 A few things that *are* checkable headlessly and worth doing, since nothing
 else covers them:

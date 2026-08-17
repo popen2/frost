@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
+import { rename } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 const BUNDLE_ID = "frost";
 
@@ -59,6 +60,28 @@ const windowsSigning = WINDOWS_CERTIFICATE_FILE
       }
     : {};
 
+/**
+ * The Squirrel package id, which is what every artifact name derives from:
+ * `<id>-<version>-full.nupkg` and the entry inside `RELEASES`.
+ *
+ * A single GitHub release holds every architecture, so those names have to
+ * differ or the second upload to publish would clobber the first and hand one
+ * architecture the other's payload on the next auto-update. Squirrel parses
+ * `<id>-<version>-full.nupkg` with the version in a fixed position, so the
+ * architecture has to live in the **id** — `Frost-arm64-1.2.3-full.nupkg`
+ * parses, `Frost-1.2.3-arm64-full.nupkg` does not.
+ *
+ * x64 deliberately keeps the bare `Frost`. update.electronjs.org looks for
+ * `RELEASES-<arch>` and falls back to plain `RELEASES`, so leaving the common
+ * architecture unsuffixed means it needs no per-arch asset and its artifact
+ * names stay identical to what a single-architecture build produces. Once x64
+ * has shipped, changing its id would strand installed clients on a feed whose
+ * package no longer matches, so treat it as fixed.
+ */
+function squirrelPackageName(arch) {
+    return arch === "x64" ? "Frost" : `Frost-${arch}`;
+}
+
 export default {
     packagerConfig: {
         name: "Frost",
@@ -97,9 +120,9 @@ export default {
                 // Squirrel stamps onto the Start Menu shortcut
                 // (`com.squirrel.<name>.<exe without extension>`). Windows
                 // matches toast notifications against that ID, so
-                // src/squirrel.ts hard-codes the same value - keep the three
-                // in step.
-                name: "Frost",
+                // src/squirrel.ts derives the same value - keep the two in
+                // step.
+                name: squirrelPackageName(arch),
                 exe: "Frost.exe",
                 setupExe: `Frost-win32-${arch}-${version}.exe`,
                 setupIcon: "./src/icons/AppIcon.ico",
@@ -127,4 +150,48 @@ export default {
             },
         },
     ],
+
+    hooks: {
+        /**
+         * Squirrel always names its update manifest `RELEASES`, so every
+         * Windows architecture would upload a file by that name into the same
+         * GitHub release and the last one would win. Give the non-x64 builds
+         * the `RELEASES-<arch>` name that update.electronjs.org looks for
+         * first; x64 keeps the plain `RELEASES` it already publishes, which is
+         * also the name the service falls back to.
+         *
+         * The file's contents need no editing: it points at
+         * `<id>-<version>-full.nupkg`, and the id already carries the
+         * architecture (see squirrelPackageName).
+         *
+         * postMake is a mutating hook — the returned results are what the
+         * publisher uploads — so the renamed path has to go back into
+         * `artifacts`.
+         */
+        async postMake(_forgeConfig, makeResults) {
+            return Promise.all(
+                makeResults.map(async (result) => {
+                    if (result.platform !== "win32" || result.arch === "x64") {
+                        return result;
+                    }
+
+                    const artifacts = await Promise.all(
+                        result.artifacts.map(async (artifact) => {
+                            if (basename(artifact) !== "RELEASES") {
+                                return artifact;
+                            }
+                            const renamed = join(
+                                dirname(artifact),
+                                `RELEASES-${result.arch}`
+                            );
+                            await rename(artifact, renamed);
+                            return renamed;
+                        })
+                    );
+
+                    return { ...result, artifacts };
+                })
+            );
+        },
+    },
 };

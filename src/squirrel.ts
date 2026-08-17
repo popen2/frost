@@ -10,8 +10,17 @@ import log from "electron-log/main";
  * claims the same ID — otherwise notifications are silently dropped. The two
  * halves come from the maker-squirrel `name`/`exe` settings in
  * forge.config.js; changing either means changing this.
+ *
+ * `name` carries the architecture for everything but x64, so that a single
+ * GitHub release can hold one Squirrel package per architecture without their
+ * artifacts colliding (see `squirrelPackageName` in forge.config.js). A build
+ * is only ever installed by the package of its own architecture, so
+ * `process.arch` reproduces the name the installer used.
  */
-const APP_USER_MODEL_ID = "com.squirrel.Frost.Frost";
+const APP_USER_MODEL_ID =
+    process.arch === "x64"
+        ? "com.squirrel.Frost.Frost"
+        : `com.squirrel.Frost-${process.arch}.Frost`;
 
 /**
  * Squirrel installs to `…\Frost\app-<version>\Frost.exe` and puts its own
