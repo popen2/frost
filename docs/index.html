@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="docs.css" />
 </head>
 <body>
   <div class="backdrop" aria-hidden="true"></div>
@@ -25,6 +26,7 @@
       <a href="#app">App</a>
       <a href="#profiles">Profiles</a>
       <a href="#eks">EKS</a>
+      <a href="docs/index.html">Docs</a>
       <a href="download.html">Download</a>
       <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
@@ -107,6 +109,10 @@ upload: build/page-1827.html
 <span class="t-ok">✓ done</span></code></pre>
         </article>
       </div>
+
+      <p class="section-more">
+        <a href="docs/credential-refresh.html">How a refresh works, step by step →</a>
+      </p>
     </section>
 
     <section id="app" class="section">
@@ -183,6 +189,13 @@ upload: build/page-1827.html
           </p>
         </article>
       </div>
+
+      <p class="section-more">
+        <a href="docs/app-window.html">A tour of the app window and tray →</a>
+      </p>
+      <p class="section-more">
+        <a href="docs/settings.html">Every setting, with its default →</a>
+      </p>
     </section>
 
     <section id="profiles" class="section">
@@ -282,7 +295,8 @@ sso_role_name  = AdministratorAccess
         </p>
         <pre class="config"><code><span class="c-comment"># ~/.aws/config</span>
 <span class="c-section">[profile test-poweruser]</span>
-sso_session    = frost
+sso_start_url  = https://acme.awsapps.com/start
+sso_region     = us-east-1
 sso_account_id = 123456789012
 sso_role_name  = PowerUserAccess
 <span class="circled"><span class="c-key">region</span>         = <span class="c-val">eu-west-1</span><svg class="doodle-circle" viewBox="0 0 120 50" preserveAspectRatio="none" aria-hidden="true" style="top: -70%; left: -18%; width: 136%; height: 240%;"><path d="M60,7 C30,5 8,14 6,26 C7,40 30,47 60,47 C92,45 117,38 113,22 C108,9 80,4 56,8 C50,8 47,11 47,11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></code></pre>
@@ -306,6 +320,13 @@ sso_role_name  = PowerUserAccess
           </div>
         </div>
       </div>
+
+      <p class="section-more">
+        <a href="docs/profiles.html">The full naming rules, including per-account regions →</a>
+      </p>
+      <p class="section-more">
+        <a href="docs/aws-config.html">What Frost owns in <code>~/.aws/config</code> — and what it never touches →</a>
+      </p>
     </section>
 
     <section id="eks" class="section">
@@ -369,6 +390,66 @@ deployment.apps/api restarted</code></pre>
           <code>production:eu-west-1</code>.
         </p>
       </div>
+
+      <p class="section-more">
+        <a href="docs/eks.html">How the scan works and how contexts are named →</a>
+      </p>
+      <p class="section-more">
+        <a href="docs/authenticator.html">About the bundled AWS IAM Authenticator →</a>
+      </p>
+    </section>
+
+    <section id="docs" class="section">
+      <div class="section-header">
+        <h2>Documentation</h2>
+        <p>
+          A page for every feature, every setting, and every file Frost touches
+          on your disk — plus the fixes for the things that usually go wrong.
+        </p>
+      </div>
+
+      <div class="doc-cards">
+        <a class="doc-card" href="docs/getting-started.html">
+          <strong>Getting started</strong>
+          <span>Install Frost, connect it to your access portal, and see what the first refresh does.</span>
+        </a>
+        <a class="doc-card" href="docs/credential-refresh.html">
+          <strong>Credential refresh</strong>
+          <span>When Frost refreshes, how the token is obtained, and what each run writes.</span>
+        </a>
+        <a class="doc-card" href="docs/login.html">
+          <strong>Signing in</strong>
+          <span>The login window, the default-browser mode, security keys and passkeys.</span>
+        </a>
+        <a class="doc-card" href="docs/profiles.html">
+          <strong>Profile names</strong>
+          <span>How accounts and permission sets become profile names — and how to shorten them.</span>
+        </a>
+        <a class="doc-card" href="docs/eks.html">
+          <strong>EKS discovery</strong>
+          <span>The region scan, the kubeconfig merge, and how contexts are named.</span>
+        </a>
+        <a class="doc-card" href="docs/authenticator.html">
+          <strong>Bundled IAM authenticator</strong>
+          <span>The helper that lets <code>kubectl</code> reach EKS without the AWS CLI.</span>
+        </a>
+        <a class="doc-card" href="docs/settings.html">
+          <strong>Settings</strong>
+          <span>Every setting, its default, and what changing it does.</span>
+        </a>
+        <a class="doc-card" href="docs/security.html">
+          <strong>Security &amp; privacy</strong>
+          <span>What is stored, where, and what never leaves your machine.</span>
+        </a>
+        <a class="doc-card" href="docs/troubleshooting.html">
+          <strong>Troubleshooting</strong>
+          <span>Failed refreshes, missing notifications, kubectl auth errors.</span>
+        </a>
+      </div>
+
+      <p class="section-more">
+        <a href="docs/index.html">Browse all documentation →</a>
+      </p>
     </section>
 
     <section class="outro-section">
@@ -407,6 +488,7 @@ deployment.apps/api restarted</code></pre>
         <span>Frost</span>
       </div>
       <div class="footer-links">
+        <a href="docs/index.html">Docs</a>
         <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
         <a href="https://github.com/popen2/frost/releases" target="_blank" rel="noopener">Releases</a>
         <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>

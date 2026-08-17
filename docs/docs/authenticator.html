@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Bundled IAM Authenticator — Frost Documentation</title>
+  <meta name="description" content="Why Frost ships a copy of aws-iam-authenticator, where it lives in the app, how it is pinned and verified, and how to point kubectl at a different one." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">How Frost works</p>
+      <h1>The bundled IAM authenticator</h1>
+      <p class="doc-lead">Talking to EKS means turning AWS credentials into a Kubernetes token. Frost bundles the standard tool for that, so <code>kubectl</code> works without the AWS CLI installed.</p>
+
+      <h2 id="what">What it is</h2>
+      <p>
+        <a href="https://github.com/kubernetes-sigs/aws-iam-authenticator" target="_blank" rel="noopener">aws-iam-authenticator</a>
+        is the upstream Kubernetes SIG tool that turns AWS credentials into a
+        token an EKS API server accepts. <code>kubectl</code> runs it as an
+        <em>exec credential plugin</em>: every time it needs to authenticate, it
+        spawns the binary, reads a short-lived token from its output, and uses
+        that for the request.
+      </p>
+      <p>
+        Frost ships a copy inside the application. That is the difference between
+        "the clusters Frost discovered are ready to use" and "install the AWS CLI
+        first, then configure it" — with the bundled binary,
+        <code>kubectl</code> works immediately after a refresh.
+      </p>
+
+      <h2 id="usage">How Frost uses it</h2>
+      <p>
+        Each cluster Frost writes to <code>~/.kube/config</code> gets a user entry
+        pointing at the bundled binary:
+      </p>
+      <pre class="code"><code>exec:
+  apiVersion: client.authentication.k8s.io/v1
+  command: /Applications/Frost.app/Contents/Resources/aws-iam-authenticator
+  args: ["token", "-i", "production"]
+  env:
+    - name: AWS_PROFILE
+      value: prod-admin
+  interactiveMode: Never</code></pre>
+      <ul>
+        <li><strong><code>-i</code></strong> is the cluster name, as EKS knows it — not the context name Frost chose.</li>
+        <li><strong><code>AWS_PROFILE</code></strong> pins the profile the cluster was discovered with, so <code>kubectl</code> authenticates as that permission set no matter what your shell's environment says.</li>
+        <li><strong><code>interactiveMode: Never</code></strong> because the plugin never needs a terminal: the SSO token it builds on is already on disk, refreshed by Frost.</li>
+      </ul>
+      <p>
+        The credentials chain ends at the same place everything else does — the
+        profile in <code>~/.aws/config</code> and the token cache Frost keeps
+        current. When Frost's token expires and is refreshed, <code>kubectl</code>
+        keeps working without you touching anything.
+      </p>
+
+      <h2 id="where">Where the binary lives</h2>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Platform</th><th>Path inside the app</th></tr></thead>
+          <tbody>
+            <tr><td>macOS</td><td><code>Frost.app/Contents/Resources/aws-iam-authenticator</code></td></tr>
+            <tr><td>Windows</td><td><code>…\Frost\app-&lt;version&gt;\resources\aws-iam-authenticator.exe</code></td></tr>
+            <tr><td>Linux</td><td><code>&lt;unpacked dir&gt;/resources/aws-iam-authenticator</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Frost probes for the binary at startup rather than assuming a layout, so
+        installs from older versions — which kept it in a different place inside
+        the package — keep working. Whichever copy it finds is the path written
+        into your kubeconfig.
+      </p>
+      <div class="callout callout-warn">
+        <span class="callout-icon" aria-hidden="true">⚠️</span>
+        <p>
+          On Windows the path includes the installed version, and Squirrel
+          installs each update into a new versioned directory. Kubeconfig entries
+          are rewritten on every refresh, so they catch up on the first refresh
+          after an update — if <code>kubectl</code> complains that the executable
+          is missing right after an upgrade, run a refresh.
+        </p>
+      </div>
+
+      <h2 id="override">Using a different authenticator</h2>
+      <p>
+        Set <code>AWS_IAM_AUTHENTICATOR_PATH</code> in Frost's environment to an
+        absolute path and that path is written into the kubeconfig entries
+        instead. Useful if you already manage the binary yourself, need a
+        specific version, or want the entries to point at something on
+        <code>PATH</code> that survives app updates.
+      </p>
+      <pre class="code"><code># macOS / Linux, launching Frost from a shell
+AWS_IAM_AUTHENTICATOR_PATH=/usr/local/bin/aws-iam-authenticator open -a Frost</code></pre>
+      <p>
+        The variable is read when Frost starts, and the new path lands in your
+        kubeconfig at the next refresh.
+      </p>
+      <p>
+        You can also replace the entries by hand — nothing in the kubeconfig
+        merge cares which command a user entry names, as long as the name matches
+        the cluster. Note that a refresh will rewrite entries whose names match
+        the clusters it rediscovers.
+      </p>
+
+      <h2 id="provenance">Version and provenance</h2>
+      <p>
+        The binary is <strong>not</strong> committed to the repository. The
+        release workflow downloads it from the upstream GitHub release at build
+        time, at a version pinned in the workflow, and verifies the download
+        against a SHA-256 checksum pinned per platform and architecture. A
+        mismatch fails the build rather than shipping unverified bytes.
+      </p>
+      <p>
+        Because it is fetched during the build, the exact version travels with
+        each Frost release; the pin is visible in
+        <a href="https://github.com/popen2/frost/blob/main/.github/workflows/build.yaml" target="_blank" rel="noopener">.github/workflows/build.yaml</a>.
+      </p>
+
+      <h2 id="arm64">Windows on ARM</h2>
+      <p>
+        Upstream publishes no <code>windows_arm64</code> build of the
+        authenticator, so the ARM64 Frost installer bundles the
+        <code>windows_amd64</code> binary and Windows runs it under emulation.
+        Frost itself stays native ARM64 — only this helper is emulated, and only
+        for the fraction of a second <code>kubectl</code> spends waiting for a
+        token.
+      </p>
+      <p>
+        If you would rather have a native binary there, point Frost at one with
+        <code>AWS_IAM_AUTHENTICATOR_PATH</code>.
+      </p>
+
+      <h2 id="no-eks">If you do not use EKS</h2>
+      <p>
+        The authenticator is only ever invoked by <code>kubectl</code>, so on a
+        machine with no clusters it sits unused inside the app bundle. Frost
+        itself never runs it — it only writes its path into the kubeconfig
+        entries the <a href="eks.html">EKS scan</a> produces.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

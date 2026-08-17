@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Troubleshooting — Frost Documentation</title>
+  <meta name="description" content="Fixes for the problems that come up most with Frost — failed refreshes, missing notifications, hotkeys that don't register, kubectl auth errors and profiles that don't appear." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">Reference</p>
+      <h1>Troubleshooting</h1>
+      <p class="doc-lead">Most problems show up in one of two places: the Credentials page, which shows the last error verbatim, or the Activity page, which shows the step it happened in.</p>
+
+      <h2 id="first">Where to look first</h2>
+      <ol>
+        <li><strong>Credentials</strong> — the token's state and the last error, verbatim from AWS.</li>
+        <li><strong>Activity</strong> — which of the three steps failed, and what it had found before it did. <a href="activity.html">Activity &amp; logs →</a></li>
+        <li><strong>The log file</strong> for that day, which follows the run poll by poll. Paths are in <a href="files.html">files &amp; locations</a>.</li>
+      </ol>
+
+      <h2 id="login">Sign-in fails or never completes</h2>
+
+      <h4>"Login window closed"</h4>
+      <p>
+        The login window was closed before AWS confirmed the approval. Frost
+        treats that as "not now", aborts the run and reschedules. Trigger a
+        refresh from the tray or the Credentials page when you are ready.
+      </p>
+
+      <h4>"Login timed out"</h4>
+      <p>
+        The device code AWS issued expired before the sign-in was approved. Start
+        another refresh; if this happens repeatedly in notify mode, you may
+        simply not be getting the notification —
+        <a href="#notifications">see below</a>.
+      </p>
+
+      <h4>An AWS error naming the client or the endpoint</h4>
+      <p>
+        Almost always a region mismatch: a client registered in one region means
+        nothing in another. Check the <strong>AWS Region</strong> on the Login
+        page against the region your IAM Identity Center instance actually lives
+        in, and save again — saving re-registers everything.
+        <a href="settings-login.html#region">Login settings →</a>
+      </p>
+
+      <h4>The sign-in page loads but your key or passkey does nothing</h4>
+      <p>
+        Frost's own login window supports hardware security keys but cannot reach
+        passkeys or password managers stored in your browser. Switch
+        <strong>Login Page</strong> to <em>Default browser</em> on the Behavior
+        page. <a href="settings-behavior.html#login-page">Behavior settings →</a>
+      </p>
+
+      <h2 id="expired">Credentials expire while I work</h2>
+      <ul>
+        <li>Check Frost is actually running — the tray icon should be there, and the menu should show when the next refresh is due.</li>
+        <li>If you are in <strong>notification + hotkey</strong> mode, nothing refreshes until you act. Either respond to the notification, or switch to <em>Auto-open browser</em>. <a href="settings-behavior.html#mode">Behavior settings →</a></li>
+        <li>Check the last run on the Activity page — a failing token step leaves the old token in place until the next attempt succeeds.</li>
+        <li>Confirm your tool is reading the profile Frost wrote (<code>--profile</code> or <code>AWS_PROFILE</code>) rather than static credentials in <code>~/.aws/credentials</code>, which take precedence in the AWS credential chain.</li>
+      </ul>
+
+      <h2 id="notifications">Notifications never arrive</h2>
+      <ul>
+        <li>Press <strong>Test</strong> on the Behavior page. On macOS, the first notification triggers the permission prompt — allow it. If you dismissed it earlier, enable Frost under <em>System Settings → Notifications</em>.</li>
+        <li>On Windows, check Focus assist / Do not disturb, and that Frost is allowed to send notifications.</li>
+        <li>On Linux, notification support depends on your desktop's notification daemon.</li>
+      </ul>
+
+      <h2 id="hotkey">The hotkey does nothing</h2>
+      <ul>
+        <li>Another application may already hold that combination; a hotkey that cannot be registered silently does nothing. Try a different one on the Behavior page.</li>
+        <li>The hotkey does nothing while a refresh is already running — that is deliberate.</li>
+        <li>On macOS, some combinations are reserved by the system and cannot be claimed by an app.</li>
+      </ul>
+
+      <h2 id="profiles">A profile is missing or looks wrong</h2>
+
+      <h4>It never appeared</h4>
+      <p>
+        Open the last run on the Activity page and look at the profiles step: it
+        lists every account and permission set the token could reach. If the
+        account is not there, the access is not there — that is an Identity
+        Center assignment question, not a Frost one.
+      </p>
+
+      <h4>It is in the list but not in <code>~/.aws/config</code></h4>
+      <p>
+        Frost never overwrites a profile it does not own. If a profile of the same
+        name already exists without the <code># frost:managed</code> marker,
+        yours wins and Frost skips its own. Rename or remove yours, or check
+        whether two AWS accounts produce the same generated name.
+        <a href="aws-config.html#conflicts">The config file →</a>
+      </p>
+
+      <h4>It disappeared</h4>
+      <p>
+        Marked profiles are removed when the corresponding account or permission
+        set is no longer returned by Identity Center. To keep one anyway, delete
+        its marker line — Frost then leaves it alone permanently.
+      </p>
+
+      <h4>The name is too long, or in the wrong region</h4>
+      <p>
+        Both are controlled by the AWS account name: <code>#short-name</code>
+        shortens the account part and <code>@region</code> pins the profile
+        region. <a href="profiles.html">Profile names →</a>
+      </p>
+
+      <h2 id="kubectl">kubectl cannot reach a cluster</h2>
+
+      <h4>"executable … not found" or a path error</h4>
+      <p>
+        The kubeconfig entry points at the authenticator inside the Frost
+        application. If Frost moved — or, on Windows, was updated into a new
+        versioned directory — run a refresh; entries are rewritten with the
+        current path. <a href="authenticator.html#where">Authenticator →</a>
+      </p>
+
+      <h4>"You must be logged in to the server (Unauthorized)"</h4>
+      <p>
+        The token was produced but the cluster does not recognise the IAM
+        principal. That mapping lives in the cluster (EKS access entries or the
+        <code>aws-auth</code> ConfigMap) and has to be granted there. Check you
+        are using the context for the permission set that was actually granted
+        access — the context name usually carries it.
+      </p>
+
+      <h4>"ExpiredToken" from the authenticator</h4>
+      <p>
+        The underlying SSO session has expired and has not been refreshed. Run a
+        refresh from the tray; <code>kubectl</code> picks the new token up on its
+        next call.
+      </p>
+
+      <h2 id="eks">No EKS clusters were found</h2>
+      <ul>
+        <li>Open the EKS step of the last run: it lists what was found per region and how many regions returned access errors. Errors everywhere usually means the profiles genuinely have no EKS permissions.</li>
+        <li>The region list comes from <code>ec2:DescribeRegions</code> with the first generated profile. If that call fails, the scan has nothing to iterate over.</li>
+        <li>Clusters are only added when <code>eks:DescribeCluster</code> succeeds — listing alone is not enough.</li>
+        <li>Clusters that disappear from AWS are not removed from your kubeconfig; delete stale contexts with <code>kubectl config delete-context</code>.</li>
+      </ul>
+
+      <h2 id="windows">Windows-specific</h2>
+      <ul>
+        <li><strong>SmartScreen warns on the installer.</strong> Expected — the builds are unsigned. Choose <em>More info</em> → <em>Run anyway</em>. <a href="platforms.html#windows">Platforms →</a></li>
+        <li><strong>A refresh fails writing <code>~/.aws/config</code>.</strong> Windows refuses to replace the file while another process holds it open. Frost retries briefly; if it still fails, close whatever is reading the file (an AWS CLI command, an editor) and refresh again.</li>
+        <li><strong>Two tray icons.</strong> Should not happen — Frost only allows one instance. If it does, quit both and relaunch once.</li>
+      </ul>
+
+      <h2 id="reset">Starting over</h2>
+      <p>
+        If Frost is in a state you cannot explain: quit it, delete its
+        configuration file (<a href="files.html">paths here</a>) and start it
+        again. That clears the token, the OAuth client registration, the
+        discovered inventory and the run history, and leaves your
+        <code>~/.aws/config</code> and <code>~/.kube/config</code> as they are.
+        You will need to enter your start URL and region again.
+      </p>
+
+      <h2 id="issues">Still stuck</h2>
+      <p>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Open an issue</a>
+        with the failing step from the Activity page, the error text, the relevant
+        log lines and the version from the log banner. Account names and ids do
+        appear in logs — review what you paste.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

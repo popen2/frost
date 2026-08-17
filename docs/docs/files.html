@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Files & Locations — Frost Documentation</title>
+  <meta name="description" content="Every file Frost reads or writes, on macOS, Windows and Linux, and what each one holds." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">Reference</p>
+      <h1>Files &amp; locations</h1>
+      <p class="doc-lead">Frost touches five files. Four of them are yours, shared with the AWS CLI and kubectl; one is its own.</p>
+
+      <h2 id="yours">Files Frost writes for you</h2>
+
+      <h3><code>~/.aws/config</code></h3>
+      <p>
+        The AWS CLI and SDK configuration file, shared with everything else on
+        your machine that talks to AWS. Frost merges its generated profiles into
+        it and leaves everything else alone. Each profile it owns carries a
+        <code># frost:managed</code> comment.
+        <a href="aws-config.html">How the merge works →</a>
+      </p>
+
+      <h3><code>~/.aws/sso/cache/&lt;hash&gt;.json</code></h3>
+      <p>
+        The SSO token cache the AWS CLI and the AWS SDKs read. The filename is a
+        SHA-1 of your start URL — the same scheme the AWS CLI uses — and the file
+        holds the start URL, region, access token and expiry. This is the file
+        that makes <code>aws --profile … </code> work without a separate
+        <code>aws sso login</code>, and it is rewritten on every refresh.
+      </p>
+
+      <h3><code>~/.kube/config</code></h3>
+      <p>
+        Your kubeconfig. Frost replaces the cluster, user and context entries
+        matching the EKS clusters it discovered, and keeps everything else —
+        including your current context. The file is re-serialized as YAML, so
+        comments in it are not preserved.
+        <a href="eks.html#merge">EKS discovery →</a>
+      </p>
+
+      <h2 id="frosts">Files that belong to Frost</h2>
+
+      <h3>The configuration file</h3>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Platform</th><th>Path</th></tr></thead>
+          <tbody>
+            <tr><td>macOS</td><td><code>~/Library/Application Support/Frost/config.json</code></td></tr>
+            <tr><td>Windows</td><td><code>%AppData%\Frost\config.json</code></td></tr>
+            <tr><td>Linux</td><td><code>~/.config/Frost/config.json</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Holds everything Frost knows:</p>
+      <ul>
+        <li>your settings — start URL, region, authentication mode, login page, hotkey, retention;</li>
+        <li>the current access token and its expiry;</li>
+        <li>the registered OAuth client id and secret;</li>
+        <li>the accounts, profiles and clusters found on the last refresh;</li>
+        <li>the run history.</li>
+      </ul>
+      <p>
+        Written with owner-only permissions. Deleting it resets Frost entirely,
+        without touching the AWS or kubectl files above.
+        <a href="security.html">Security &amp; privacy →</a>
+      </p>
+
+      <h3>Log files</h3>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Platform</th><th>Directory</th></tr></thead>
+          <tbody>
+            <tr><td>macOS</td><td><code>~/Library/Logs/Frost/</code></td></tr>
+            <tr><td>Windows</td><td><code>%AppData%\Frost\logs\</code></td></tr>
+            <tr><td>Linux</td><td><code>~/.config/Frost/logs/</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        One file per local day, <code>main-YYYY-MM-DD.log</code>, at debug level,
+        with owner-only permissions. Deleted automatically once they pass the
+        retention period set on the <a href="settings-privacy.html">Privacy</a>
+        page. <a href="activity.html#logs">Activity &amp; logs →</a>
+      </p>
+
+      <h3>The application itself</h3>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Platform</th><th>Location</th></tr></thead>
+          <tbody>
+            <tr><td>macOS</td><td><code>/Applications/Frost.app</code> (wherever you put it)</td></tr>
+            <tr><td>Windows</td><td><code>%LocalAppData%\Frost\app-&lt;version&gt;\</code>, installed per user by Squirrel</td></tr>
+            <tr><td>Linux</td><td>Wherever you unpacked the zip</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The bundled <a href="authenticator.html">IAM authenticator</a> lives
+        inside this directory, under <code>resources/</code>, and its path is
+        what Frost writes into your kubeconfig.
+      </p>
+
+      <h2 id="env">Environment variables</h2>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Variable</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>AWS_IAM_AUTHENTICATOR_PATH</code></td>
+              <td>Use this authenticator binary in kubeconfig entries instead of the bundled one. <a href="authenticator.html#override">Details →</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="windows-paths">Windows paths</h2>
+      <p>
+        The AWS and kubectl files sit under your user profile:
+        <code>%UserProfile%\.aws\config</code>,
+        <code>%UserProfile%\.aws\sso\cache\</code> and
+        <code>%UserProfile%\.kube\config</code> — exactly where the AWS CLI and
+        <code>kubectl</code> look for them.
+      </p>
+
+      <h2 id="uninstall">Uninstalling</h2>
+      <ol>
+        <li>Quit Frost from the tray menu.</li>
+        <li>Remove the application — delete <code>Frost.app</code>, use <em>Add or remove programs</em> on Windows, or delete the unpacked directory on Linux.</li>
+        <li>Optionally delete the configuration file and log directory listed above.</li>
+        <li>Optionally remove the <code>[profile …]</code> sections marked <code># frost:managed</code> from <code>~/.aws/config</code>, the token cache file, and the contexts in <code>~/.kube/config</code>.</li>
+      </ol>
+      <p>
+        Nothing Frost writes is required for the AWS CLI or <code>kubectl</code>
+        to keep working; the profiles simply stop being refreshed.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

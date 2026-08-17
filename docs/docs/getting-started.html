@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Getting Started — Frost Documentation</title>
+  <meta name="description" content="Install Frost, connect it to your AWS access portal, and understand what happens on the first credential refresh." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">Start here</p>
+      <h1>Getting started</h1>
+      <p class="doc-lead">Frost needs two pieces of information — your AWS access portal URL and the region your Identity Center lives in. Everything else it works out from the AWS SSO API.</p>
+
+      <h2 id="install">1. Install Frost</h2>
+      <p>
+        Grab the build for your platform from the
+        <a href="../download.html">downloads page</a>. There is no installer to
+        configure and no account to create.
+      </p>
+      <ul>
+        <li><strong>macOS</strong> — unzip and drag <code>Frost.app</code> into <code>/Applications</code>. The app is signed and notarized by Apple.</li>
+        <li><strong>Windows</strong> — run the <code>.exe</code> installer. It is not code-signed, so SmartScreen warns on first run: choose <em>More info</em> → <em>Run anyway</em>.</li>
+        <li><strong>Linux</strong> — unzip anywhere and run the <code>Frost</code> binary inside.</li>
+      </ul>
+      <p>
+        Frost has no window of its own at startup. Once it is running you will
+        find a snowflake in the menu bar (macOS) or the notification area
+        (Windows and Linux). See <a href="platforms.html">platforms &amp; updates</a>
+        for how each build updates itself.
+      </p>
+
+      <h2 id="connect">2. Connect it to your access portal</h2>
+      <p>
+        Open the tray menu and choose <strong>Get Started</strong>. That opens
+        the settings window on the <strong>Login</strong> page, which wants two
+        things:
+      </p>
+      <ul>
+        <li>
+          <strong>SSO Start URL</strong> — your AWS access portal URL, usually
+          <code>https://d-xxxxxxxxxx.awsapps.com/start</code> or
+          <code>https://your-company.awsapps.com/start</code>. Custom access portal
+          domains work too.
+        </li>
+        <li>
+          <strong>AWS Region</strong> — the region your IAM Identity Center
+          instance lives in. This is not necessarily where your workloads run;
+          it is the region shown next to your Identity Center instance in the AWS
+          console.
+        </li>
+      </ul>
+      <p>
+        Press <strong>Save &amp; Refresh</strong>. Frost validates both values,
+        stores them, discards any existing token, and starts a refresh
+        immediately. See <a href="settings-login.html">login settings</a> for the
+        validation rules and what to do if you are not sure which region to pick.
+      </p>
+
+      <h2 id="first-refresh">3. Sign in once</h2>
+      <p>
+        Frost registers itself as an OAuth client with AWS and opens the access
+        portal sign-in page — by default in a small Frost window, and optionally
+        in your default browser instead
+        (<a href="settings-behavior.html">behavior settings</a>). Approve the
+        request the way you normally would: password, MFA, security key, passkey,
+        or your company's identity provider.
+      </p>
+      <div class="callout">
+        <span class="callout-icon" aria-hidden="true">🔑</span>
+        <p>
+          If your identity provider asks for a security key or passkey, Frost's
+          login window shows a notice while the request is pending and asks for
+          your attention if you have switched away — see
+          <a href="login.html#security-keys">signing in</a>.
+        </p>
+      </div>
+      <p>
+        AWS tells you to close the window once you have approved. Do that; Frost
+        collects the token on its next poll.
+      </p>
+
+      <h2 id="what-happens">4. What Frost does next</h2>
+      <p>
+        The rest of a refresh run is automatic, and takes a few seconds to a
+        minute depending on how many accounts you can reach:
+      </p>
+      <ol class="doc-steps">
+        <li>
+          <strong>Token</strong>
+          The SSO access token is stored, and written to the cache file the AWS
+          CLI reads — which is what makes <code>aws --profile …</code> work
+          without a separate <code>aws sso login</code>.
+        </li>
+        <li>
+          <strong>Profiles</strong>
+          Frost lists every account you can access and every permission set in
+          each, generates a profile name for each pair, and merges those
+          profiles into <code>~/.aws/config</code>. Anything else in that file is
+          left exactly as it was.
+        </li>
+        <li>
+          <strong>EKS</strong>
+          Using those profiles, Frost lists every AWS region and looks for EKS
+          clusters in each. Clusters it can describe are written to
+          <code>~/.kube/config</code> as ready-to-use <code>kubectl</code> contexts.
+        </li>
+      </ol>
+      <p>
+        Open <strong>Credentials</strong> to see the token status and the
+        accounts you can reach, <strong>EKS</strong> for the clusters that were
+        found, and <strong>Activity</strong> for the run itself, step by step.
+      </p>
+
+      <h2 id="use-it">5. Use the profiles</h2>
+      <p>
+        Profile names are generated from the account name and the permission set
+        name, so they are predictable and the same for everyone on your team:
+      </p>
+      <pre class="code"><code>$ aws --profile acme-production-administratoraccess s3 ls
+$ AWS_PROFILE=acme-testing-poweruseraccess terraform plan
+
+$ kubectl config get-contexts -o name
+production
+staging</code></pre>
+      <p>
+        The <strong>Credentials</strong> page lists every profile name Frost
+        wrote; expand an account to see the permission set → profile name
+        mapping. If those names are longer than you would like,
+        <a href="profiles.html#short-names">profile names</a> explains how to
+        shorten them by renaming your AWS accounts.
+      </p>
+
+      <h2 id="then-what">After that, nothing</h2>
+      <p>
+        Frost schedules the next refresh for the moment the current token
+        expires — typically about eight hours out — and starts with your machine,
+        so in steady state there is nothing to do. When the token does expire
+        you either see the login page appear, or a notification inviting you to
+        press the refresh hotkey, depending on which
+        <a href="settings-behavior.html">authentication mode</a> you chose.
+      </p>
+      <div class="callout">
+        <span class="callout-icon" aria-hidden="true">💡</span>
+        <p>
+          With <a href="https://docs.aws.amazon.com/singlesignon/latest/userguide/samlfederationconcept.html" target="_blank" rel="noopener">SSO federation</a>
+          — Google Workspace, Okta, Entra ID and friends — your identity provider
+          session usually satisfies the sign-in without prompting you at all, so
+          refreshes pass silently.
+        </p>
+      </div>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

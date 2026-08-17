@@ -367,8 +367,8 @@ Five workflows, with the matrix build factored out as a reusable workflow:
   release-drafter keeps a draft release up to date, and publishing that draft
   from the GitHub UI is what creates the tag and triggers this workflow.
 - **`.github/workflows/pages.yaml`** (🌐 Deploy Pages) publishes `docs/` — the
-  marketing site at the project's GitHub Pages URL — on pushes to `main` that
-  touch `docs/**`.
+  marketing site and the documentation at the project's GitHub Pages URL — on
+  pushes to `main` that touch `docs/**`. See "Documentation site" below.
 - **`.github/workflows/autolabeler.yaml`** (🏷️ Autolabel) applies
   release-drafter's changelog labels to incoming PRs from branch-name patterns.
 
@@ -388,6 +388,35 @@ TypeScript 6, Electron 43, and **Node >= 22.12** — `@electron/packager` 20 and
 `@electron/osx-sign` 2 both declare that engine floor. `NODEJS_VERSION: 22`
 resolves to the latest 22.x, which clears it; don't pin it to an exact 22.x
 below 22.12.
+
+## Documentation site
+
+`docs/` is plain static HTML with no build step — GitHub Pages serves it as it
+is committed, so anything added there has to work when opened directly.
+
+- `docs/index.html` (landing), `docs/download.html` (reads the latest GitHub
+  release at runtime) and `docs/style.css` are the marketing site.
+- `docs/docs/*.html` is the documentation: one page per feature, three settings
+  pages, and a reference section. `docs/docs.css` layers the docs shell on top
+  of `style.css`; both pages of the marketing site link it too, because the
+  landing page reuses `.doc-cards` and `.section-more`.
+- **The page list lives in one place**: `SECTIONS` in `docs/docs/docs-nav.js`,
+  which renders the sidebar (marking the current page from
+  `location.pathname`) and the prev/next pager. A new page has to be added
+  there or it will exist without being linked; it can be checked headlessly by
+  `eval`-ing that file against a stub `document`/`location`/`window`.
+- Every page carries the same shell — header, `<details class="doc-sidebar"
+  id="doc-nav">`, article, `<nav id="doc-pager">`, footer. Copy an existing page
+  when adding one rather than assembling it by hand.
+- Content is written against the behaviour in `src/`, not against the README:
+  when you change a default, a setting, a generated key set or a file path,
+  the matching page in `docs/docs/` is part of that change. The pages that go
+  stale fastest are `settings*.html`, `files.html` and `profiles.html`.
+- Worth re-running after edits: a link/anchor check across `docs/**/*.html`
+  (every `href` that is not external should resolve to a file, and every
+  fragment to an `id`), and a Playwright pass in both colour schemes at a
+  narrow and a wide viewport — `docs.css` is not otherwise exercised by
+  anything.
 
 ## Electron Forge 8 (prerelease — deliberate)
 
