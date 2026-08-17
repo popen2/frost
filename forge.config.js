@@ -13,10 +13,25 @@ const { version } = JSON.parse(
     readFileSync(new URL("./package.json", import.meta.url), "utf8")
 );
 
-const { APPLE_API_KEY, APPLE_API_ISSUER } = process.env;
-const osxNotarize =
-    process.platform === "darwin"
-        ? {
+// Signing is opt-in through the environment, the same way windowsSign is below.
+// Pull request validation builds deliberately run without the Developer ID in
+// the keychain (see `sign` in .github/workflows/build.yaml), and
+// @electron/osx-sign fails the build outright rather than skipping when asked
+// to sign with an identity that is not there - so the options have to be left
+// off entirely, not left half-configured.
+const { APPLE_API_KEY, APPLE_API_ISSUER, FROST_SIGN } = process.env;
+const signMac = process.platform === "darwin" && FROST_SIGN === "true";
+
+const macSigning = signMac
+    ? {
+          osxSign: {
+              optionsForFile: () => ({
+                  entitlements: "entitlements.plist",
+                  hardenedRuntime: true,
+                  signatureFlags: "library",
+              }),
+          },
+          osxNotarize: {
               appleApiKey: join(
                   homedir(),
                   "private_keys",
@@ -24,8 +39,9 @@ const osxNotarize =
               ),
               appleApiKeyId: APPLE_API_KEY,
               appleApiIssuer: APPLE_API_ISSUER,
-          }
-        : undefined;
+          },
+      }
+    : {};
 
 // The build workflow downloads this next to forge.config.js right before
 // packaging; on Windows the release asset carries an .exe suffix.
@@ -91,14 +107,7 @@ export default {
         appBundleId: BUNDLE_ID,
         extraResource,
         out: "./out",
-        osxSign: {
-            optionsForFile: () => ({
-                entitlements: "entitlements.plist",
-                hardenedRuntime: true,
-                signatureFlags: "library",
-            }),
-        },
-        osxNotarize,
+        ...macSigning,
         extendInfo: {
             LSUIElement: true,
         },

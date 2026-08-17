@@ -51,9 +51,18 @@ jobs:
   build:
     needs: lint
     uses: ./.github/workflows/build.yaml
+    # Read-only for pull request validation. The publish path declares its own
+    # contents: write in release.yaml.
+    permissions:
+      contents: read
     secrets: inherit
     with:
       publish: false
+      # Pull request jobs run `npm ci` and `npm run build` from the pull
+      # request, so the Developer ID must not be in the keychain while they do.
+      # Pushes to main are the same code that is about to be released, so those
+      # still validate the full signed and notarized build.
+      sign: ${{ github.event_name != 'pull_request' }}
 
   draft:
     name: 📝 Update draft release

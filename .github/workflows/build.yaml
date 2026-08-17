@@ -13,6 +13,14 @@ on:
           `electron-forge make` and upload the distributables as artifacts.
         type: boolean
         default: false
+      sign:
+        description: >-
+          If true, import the Developer ID into the runner keychain and let
+          Forge sign and notarize. Callers set this false for pull request
+          validation, which runs code from the pull request in the same job -
+          see the "Add MacOS Certificates" step.
+        type: boolean
+        default: true
       version:
         description: >-
           If set, run `npm version --no-git-tag-version <version>` before
@@ -95,31 +103,45 @@ jobs:
           curl -fL "${URL}" -o "${TARGET}"
           chmod a+x "${TARGET}"
 
+      # Deliberately after `npm ci` and `npm run build` in the file, but gated
+      # so it never runs in the same job as pull request code. A postinstall
+      # script from a compromised dependency would otherwise be running
+      # alongside the Developer ID certificate and the notarization key.
+      #
+      # Every secret goes through `env:` rather than inline `${{ }}`, so the
+      # values are never substituted into the script text itself.
       - name: 🔐 Add MacOS Certificates
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && inputs.sign
         env:
           MAC_CERTS: ${{ secrets.MAC_CERTS }}
           MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_API_AUTHKEY_BASE64: ${{ secrets.APPLE_API_AUTHKEY_BASE64 }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: |
           KEY_CHAIN=build.keychain
           MACOS_CERT_P12_FILE=certificate.p12
-          echo $MAC_CERTS | base64 --decode > $MACOS_CERT_P12_FILE
-          security create-keychain -p actions $KEY_CHAIN
-          security default-keychain -s $KEY_CHAIN
-          security unlock-keychain -p actions $KEY_CHAIN
-          security import $MACOS_CERT_P12_FILE -k $KEY_CHAIN -P $MAC_CERTS_PASSWORD -T /usr/bin/codesign;
-          security set-key-partition-list -S apple-tool:,apple: -s -k actions $KEY_CHAIN
-          rm -rf *.p12
+          echo "$MAC_CERTS" | base64 --decode > "$MACOS_CERT_P12_FILE"
+          security create-keychain -p actions "$KEY_CHAIN"
+          security default-keychain -s "$KEY_CHAIN"
+          security unlock-keychain -p actions "$KEY_CHAIN"
+          security import "$MACOS_CERT_P12_FILE" -k "$KEY_CHAIN" -P "$MAC_CERTS_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions "$KEY_CHAIN"
+          rm -rf ./*.p12
 
           mkdir -p ~/private_keys
-          echo "${{ secrets.APPLE_API_AUTHKEY_BASE64 }}" | base64 -d > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          echo "$APPLE_API_AUTHKEY_BASE64" | base64 -d > ~/private_keys/"AuthKey_${APPLE_API_KEY}.p8"
 
       # npx rather than ./node_modules/.bin/electron-forge: the latter is a
       # shell script with no extension, which PowerShell on the Windows runner
       # cannot execute.
+      # FROST_SIGN is what forge.config.js keys osxSign/osxNotarize off. With it
+      # unset the package is left unsigned rather than half-configured, because
+      # @electron/osx-sign fails outright when asked to sign with an identity
+      # that is not in the keychain.
       - name: 🛠️ Make app (sign + notarize)
         if: ${{ !inputs.publish }}
         env:
+          FROST_SIGN: ${{ inputs.sign }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
@@ -128,6 +150,7 @@ jobs:
       - name: 🚀 Publish app
         if: ${{ inputs.publish }}
         env:
+          FROST_SIGN: ${{ inputs.sign }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}

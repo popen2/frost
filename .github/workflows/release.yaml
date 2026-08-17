@@ -37,7 +37,11 @@ jobs:
     needs:
       - prep
     uses: ./.github/workflows/build.yaml
+    # The publisher creates the GitHub release and uploads to it.
+    permissions:
+      contents: write
     secrets: inherit
     with:
       publish: true
+      sign: true
       version: ${{ needs.prep.outputs.version }}
