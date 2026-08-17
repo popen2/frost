@@ -788,10 +788,6 @@
           </span>
           EKS
         </div>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-section-label">History</div>
         <div class="nav-item" data-tab="history">
           <span class="nav-icon">
             <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4zm1 3v4.414l2.293 2.293-1.414 1.414L9.586 12.4A1 1 0 019 11.586V7h2z"/></svg>
@@ -978,6 +974,19 @@
         </div>
       </div>
 
+      <div class="section">
+        <div class="section-title">Delete Now</div>
+        <div class="section-body">
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px;letter-spacing:-0.1px;">Erase run history</div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.45">Immediately delete every stored run, regardless of retention period.</div>
+            </div>
+            <button class="btn btn-secondary" id="btn-clear-history" style="flex-shrink:0;white-space:nowrap">Delete History</button>
+          </div>
+        </div>
+      </div>
+
       <div style="display:flex;align-items:center;gap:12px;">
         <button class="btn btn-primary" id="btn-save-privacy">Save</button>
         <span class="save-notice" id="privacy-notice">✓ Saved</span>
@@ -1003,6 +1012,9 @@
               </div>
             </div>
             <div class="error-box" id="cred-error" style="display:none;"></div>
+            <div style="margin-top:14px">
+              <button class="btn btn-secondary" id="btn-refresh-now">Refresh Now</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1068,7 +1080,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 function fromNow(iso) {
   if (!iso) return '';
@@ -1089,6 +1101,9 @@ function dur(a, b) {
 
 function initials(name) { return (name||'?').slice(0,2).toUpperCase(); }
 function scClass(s) { return s==='success'?'s':s==='error'?'e':s==='in-progress'?'p':''; }
+// Run status is round-tripped through the on-disk config, so escape it and
+// tolerate entries written by an older schema.
+function statusLabel(s) { return esc(String(s || 'unknown').replace('-', ' ')); }
 
 function showNotice(id) {
   const el = document.getElementById(id);
@@ -1096,14 +1111,38 @@ function showNotice(id) {
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 
+// ── Unsaved-edit protection ─────────────────────────────────────────────────
+// State pushes arrive continuously during a refresh (every run-log step writes
+// to config, and config.onDidAnyChange re-pushes). Repopulating a form mid-edit
+// would silently revert whatever the user was typing, so each editable panel
+// tracks unsaved changes and is left alone until it is saved.
+
+const dirty = { login: false, behavior: false, privacy: false };
+const markDirty = panel => () => { dirty[panel] = true; };
+
+document.getElementById('input-url').addEventListener('input', markDirty('login'));
+document.getElementById('input-region').addEventListener('change', markDirty('login'));
+document.getElementById('retention-days').addEventListener('change', markDirty('privacy'));
+document.querySelectorAll('input[name=refreshMode]')
+  .forEach(r => r.addEventListener('change', markDirty('behavior')));
+
 // ── Login ────────────────────────────────────────────────────────────────────
 
 function populateLogin(state) {
+  if (dirty.login) return;
   const u = state.userConfig || {};
   document.getElementById('input-url').value = u.startUrl || '';
-  // Set region select; if stored value not in list it leaves the select at its current state
   const sel = document.getElementById('input-region');
-  if (u.region) sel.value = u.region;
+  if (!u.region) return;
+  // Assigning an unlisted value blanks the select (selectedIndex = -1) and then
+  // Save refuses to submit, so surface the stored region as an option instead.
+  if (!Array.from(sel.options).some(o => o.value === u.region)) {
+    const opt = document.createElement('option');
+    opt.value = u.region;
+    opt.textContent = u.region;
+    sel.appendChild(opt);
+  }
+  sel.value = u.region;
 }
 
 document.getElementById('btn-save-settings').addEventListener('click', async () => {
@@ -1111,6 +1150,7 @@ document.getElementById('btn-save-settings').addEventListener('click', async () 
   const region   = document.getElementById('input-region').value;
   if (!startUrl || !region) return;
   await ipcRenderer.invoke('save-settings', { startUrl, region });
+  dirty.login = false;
   showNotice('settings-notice');
 });
 
@@ -1152,6 +1192,10 @@ function updateCredentials(state) {
     sub.textContent = '';
   }
 
+  const refreshBtn = document.getElementById('btn-refresh-now');
+  refreshBtn.disabled = !state.userConfig || !!state.isWorking;
+  refreshBtn.textContent = state.isWorking ? 'Refreshing…' : 'Refresh Now';
+
   const profiles = state.profiles || [];
   const section  = document.getElementById('accounts-section');
   const title    = document.getElementById('accounts-title');
@@ -1182,7 +1226,13 @@ function updateCredentials(state) {
     </div>
     <div class="account-roles" style="display:none">${a.roles.map(r=>`<span class="chip">${esc(r)}</span>`).join('')}</div>`;
   }
-  body.innerHTML = html;
+  // Expand/collapse state lives only in the DOM, so re-rendering identical
+  // markup (the 30s clock tick, or any state push during a run) would snap
+  // every open account shut. Only rebuild when the accounts actually change.
+  if (body.dataset.sig !== html) {
+    body.innerHTML = html;
+    body.dataset.sig = html;
+  }
 }
 
 // ── EKS ─────────────────────────────────────────────────────────────────────
@@ -1208,23 +1258,24 @@ function updateEks(state) {
 // ── Activity ─────────────────────────────────────────────────────────────────
 
 let runHistory = [];
-let activityDetailOpen = false;
-let activityDetailIdx = -1;
+// Keyed by runId, not index: new runs are prepended, so an index would silently
+// slide onto a different run while its detail page is open.
+let activityDetailId = null;
 
 function showHistoryList() {
-  activityDetailOpen = false;
-  activityDetailIdx = -1;
+  activityDetailId = null;
   document.getElementById('history-list-view').style.display = '';
   document.getElementById('history-detail-view').style.display = 'none';
 }
 
-function showHistoryDetail(idx) {
-  activityDetailIdx = idx;
-  activityDetailOpen = true;
+function showHistoryDetail(runId) {
+  const run = runHistory.find(r => r.runId === runId);
+  if (!run) return;
+  activityDetailId = runId;
   document.getElementById('history-list-view').style.display = 'none';
   const view = document.getElementById('history-detail-view');
   view.style.display = '';
-  renderActivityDetail(runHistory[idx]);
+  renderActivityDetail(run);
 }
 
 function renderActivityDetail(run) {
@@ -1235,29 +1286,33 @@ function renderActivityDetail(run) {
   for (const step of (run.steps || [])) steps += renderLogStep(step);
   if (run.error) steps += `<div class="error-box" style="margin-bottom:8px">${esc(run.error)}</div>`;
 
-  document.getElementById('history-detail-view').innerHTML = `
+  const view = document.getElementById('history-detail-view');
+  const html = `
     <button class="back-btn" id="btn-back-activity">‹ Activity</button>
     <div class="page-head">
       <h1>Credential Refresh</h1>
       <p>${localTime(run.startedAt)}${d ? ` · ${d}` : ' · in progress'}</p>
     </div>
     <div style="margin-bottom:20px">
-      <span class="badge ${sc}" style="font-size:12px;padding:4px 10px">${run.status.replace('-', ' ')}</span>
+      <span class="badge ${sc}" style="font-size:12px;padding:4px 10px">${statusLabel(run.status)}</span>
     </div>
     ${steps}
   `;
+  // A live run pushes state on every step; re-rendering unchanged markup would
+  // collapse the <details> groups and reset scroll while the user is reading.
+  if (view.dataset.sig === html) return;
+  view.innerHTML = html;
+  view.dataset.sig = html;
   document.getElementById('btn-back-activity').addEventListener('click', showHistoryList);
 }
 
 function updateHistory(state) {
   runHistory = state.runHistory || [];
 
-  if (activityDetailOpen) {
-    if (activityDetailIdx < runHistory.length) {
-      renderActivityDetail(runHistory[activityDetailIdx]);
-    } else {
-      showHistoryList();
-    }
+  if (activityDetailId !== null) {
+    const run = runHistory.find(r => r.runId === activityDetailId);
+    if (run) renderActivityDetail(run);
+    else showHistoryList();
     return;
   }
 
@@ -1273,22 +1328,23 @@ function renderActivityList() {
   }
 
   let html = '<div class="section-body">';
-  for (let i = 0; i < runHistory.length; i++) {
-    const run = runHistory[i];
+  for (const run of runHistory) {
     const sc = scClass(run.status);
     const d = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
-    html += `<div class="activity-row" onclick="showHistoryDetail(${i})">
+    html += `<div class="activity-row" onclick="showHistoryDetail('${esc(run.runId)}')">
       <div class="step-dot ${sc}"></div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;letter-spacing:-0.1px">Credential Refresh</div>
         <div class="run-meta">${fromNow(run.startedAt)}${d ? ` · ${d}` : ' · in progress'}</div>
       </div>
-      <span class="badge ${sc}" style="flex-shrink:0">${run.status.replace('-', ' ')}</span>
+      <span class="badge ${sc}" style="flex-shrink:0">${statusLabel(run.status)}</span>
       <span class="activity-chevron">›</span>
     </div>`;
   }
   html += '</div>';
+  if (el.dataset.sig === html) return;
   el.innerHTML = html;
+  el.dataset.sig = html;
 }
 
 function renderLogStep(step) {
@@ -1367,12 +1423,16 @@ let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R', histo
 let recording   = false;
 
 function fmtHotkey(a) {
-  return a.replace('CmdOrCtrl','⌘').replace('CommandOrControl','⌘')
-           .replace('Ctrl','⌃').replace('Alt','⌥').replace('Shift','⇧')
+  return String(a || '')
+           .replace(/CommandOrControl/g,'⌘').replace(/CmdOrCtrl/g,'⌘')
+           .replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧')
            .replace(/\+/g,'');
 }
 
 function populateBehavior(state) {
+  // Never overwrite a hotkey the user is in the middle of recording, or one
+  // they have recorded but not yet saved.
+  if (recording || dirty.behavior) return;
   const cfg = state.behaviorConfig || curBehavior;
   curBehavior = { ...curBehavior, ...cfg };
   const r = document.querySelector(`input[name=refreshMode][value="${cfg.refreshMode}"]`);
@@ -1381,6 +1441,7 @@ function populateBehavior(state) {
 }
 
 function populatePrivacy(state) {
+  if (dirty.privacy) return;
   const cfg = state.behaviorConfig || curBehavior;
   const retEl = document.getElementById('retention-days');
   if (retEl) retEl.value = String(cfg.historyRetentionDays || 7);
@@ -1388,6 +1449,17 @@ function populatePrivacy(state) {
 
 document.getElementById('btn-test-notif').addEventListener('click', async () => {
   await ipcRenderer.invoke('test-notification');
+});
+
+document.getElementById('btn-refresh-now').addEventListener('click', async () => {
+  await ipcRenderer.invoke('trigger-refresh');
+});
+
+document.getElementById('btn-clear-history').addEventListener('click', async () => {
+  if (!confirm('Delete all stored run history? This cannot be undone.')) return;
+  await ipcRenderer.invoke('clear-history');
+  showHistoryList();
+  showNotice('privacy-notice');
 });
 
 document.getElementById('btn-record').addEventListener('click', async () => {
@@ -1423,6 +1495,7 @@ document.addEventListener('keydown', async e => {
 
   const acc = parts.join('+');
   curBehavior.refreshHotkey = acc;
+  dirty.behavior = true;
   recording = false;
   await ipcRenderer.invoke('set-hotkey-recording', false);
   document.getElementById('hotkey-pill').classList.remove('recording');
@@ -1435,6 +1508,7 @@ document.getElementById('btn-save-behavior').addEventListener('click', async () 
   const r = document.querySelector('input[name=refreshMode]:checked');
   if (r) curBehavior.refreshMode = r.value;
   await ipcRenderer.invoke('save-behavior', curBehavior);
+  dirty.behavior = false;
   showNotice('behavior-notice');
 });
 
@@ -1442,6 +1516,7 @@ document.getElementById('btn-save-privacy').addEventListener('click', async () =
   const retEl = document.getElementById('retention-days');
   if (retEl) curBehavior.historyRetentionDays = Number(retEl.value);
   await ipcRenderer.invoke('save-behavior', curBehavior);
+  dirty.privacy = false;
   showNotice('privacy-notice');
 });
 

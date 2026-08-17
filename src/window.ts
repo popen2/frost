@@ -9,7 +9,12 @@ import {
     type BehaviorConfig,
     DEFAULT_BEHAVIOR,
 } from "./config.js";
-import { runLogEmitter, type RunLog } from "./run-log.js";
+import {
+    runLogEmitter,
+    pruneHistory,
+    clearHistory,
+    type RunLog,
+} from "./run-log.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,6 +28,14 @@ export interface DashboardState {
     runHistory: RunLog[];
     behaviorConfig: BehaviorConfig;
 }
+
+/**
+ * A single refresh writes to the store many times (one per run-log step, plus
+ * one per discovered EKS cluster), and each write would otherwise push a full
+ * state update to the renderer. Coalesce them so the dashboard re-renders at
+ * most once per tick.
+ */
+const STATE_PUSH_DEBOUNCE_MS = 100;
 
 export interface IpcCallbacks {
     onSaveSettings: (settings: UserConfig) => void;
@@ -54,10 +67,16 @@ function getState(): DashboardState {
     };
 }
 
+let pushTimer: NodeJS.Timeout | null = null;
+
 function pushStateUpdate() {
-    if (dashboardWindow && !dashboardWindow.isDestroyed()) {
-        dashboardWindow.webContents.send("state-updated", getState());
-    }
+    if (pushTimer) return;
+    pushTimer = setTimeout(() => {
+        pushTimer = null;
+        if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+            dashboardWindow.webContents.send("state-updated", getState());
+        }
+    }, STATE_PUSH_DEBOUNCE_MS);
 }
 
 export function setupIpc(callbacks: IpcCallbacks) {
@@ -90,7 +109,15 @@ export function setupIpc(callbacks: IpcCallbacks) {
             behavior.refreshHotkey
         );
         config.set("behaviorConfig", behavior);
+        // Apply the (possibly shortened) retention period immediately rather
+        // than waiting for the next refresh to prune.
+        pruneHistory();
         callbacks.onSaveBehavior(behavior);
+    });
+
+    ipcMain.handle("clear-history", () => {
+        log.info("[clear-history] Deleting all run history");
+        clearHistory();
     });
 
     ipcMain.handle("set-hotkey-recording", (_event, recording: boolean) => {

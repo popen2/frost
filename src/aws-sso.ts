@@ -86,6 +86,14 @@ export async function refresh() {
         return;
     }
 
+    // A second refresh would overwrite the single current-run slot in run-log,
+    // stranding the first run as "in-progress" forever and writing its
+    // remaining steps onto the wrong run.
+    if (config.get("isWorking")) {
+        log.warn("[refresh] A refresh is already in progress, skipping");
+        return;
+    }
+
     startRun();
 
     try {

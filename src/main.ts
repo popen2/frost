@@ -13,6 +13,7 @@ import {
     DEFAULT_BEHAVIOR,
     type BehaviorConfig,
 } from "./config.js";
+import { pruneHistory } from "./run-log.js";
 import { openDashboard, setupIpc } from "./window.js";
 
 let currentHotkey: string | null = null;
@@ -49,14 +50,22 @@ async function main() {
     log.info("[main] =================== Starting app ===================");
     config.set("isWorking", false);
 
-    // One-time migration: lastRun → runHistory
+    // One-time migration: lastRun → runHistory. The key is deleted afterwards so
+    // the old run cannot reappear once retention has pruned runHistory empty.
     const oldRun = config.get("lastRun");
     if (oldRun) {
         const existing = config.get("runHistory") as unknown[] | undefined;
         if (!existing?.length) {
             config.set("runHistory", [oldRun]);
         }
+        // `lastRun` is no longer part of the schema, so the typed key union
+        // rejects it — drop it through an untyped view of the store.
+        (config as unknown as { delete: (key: string) => void }).delete(
+            "lastRun"
+        );
     }
+
+    pruneHistory();
 
     updateElectronApp({
         logger: log,

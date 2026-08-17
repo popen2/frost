@@ -51,17 +51,41 @@ export const runLogEmitter = new EventEmitter();
 
 let currentRun: RunLog | null = null;
 
-function saveRun() {
-    if (!currentRun) return;
-
+function retentionCutoff(): string {
     const behavior =
         (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
         DEFAULT_BEHAVIOR;
-    const retentionDays = behavior.historyRetentionDays ?? 7;
-    const cutoff = new Date(
+    const retentionDays =
+        behavior.historyRetentionDays ?? DEFAULT_BEHAVIOR.historyRetentionDays;
+    return new Date(
         Date.now() - retentionDays * 24 * 60 * 60 * 1000
     ).toISOString();
+}
 
+/**
+ * Drop runs older than the configured retention period. Called at startup and
+ * whenever the retention setting is saved — pruning only inside saveRun() would
+ * mean a shortened retention period had no effect until the next refresh.
+ */
+export function pruneHistory() {
+    const cutoff = retentionCutoff();
+    const stored = (config.get("runHistory") as RunLog[]) || [];
+    const kept = stored.filter((r) => r.startedAt >= cutoff);
+    if (kept.length !== stored.length) {
+        config.set("runHistory", kept as object[]);
+        runLogEmitter.emit("updated");
+    }
+}
+
+export function clearHistory() {
+    config.set("runHistory", []);
+    runLogEmitter.emit("updated");
+}
+
+function saveRun() {
+    if (!currentRun) return;
+
+    const cutoff = retentionCutoff();
     const stored = (config.get("runHistory") as RunLog[]) || [];
     const idx = stored.findIndex((r) => r.runId === currentRun!.runId);
 
