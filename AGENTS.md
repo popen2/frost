@@ -8,7 +8,11 @@ config, dependencies, or the release pipeline.
 Frost is an Electron menu-bar/tray app (an AWS SSO credentials refresher). All
 `src/*.ts` files execute in the **main process** — there is no renderer-side
 build step or bundler. The login window (`src/aws-sso.ts`) just loads a remote
-AWS URL.
+AWS URL. `userConfig.loginMethod` picks between that window (`popup`, the
+default) and handing the URL to the system browser (`default_browser`) via
+`shell.openExternal`; with the latter there is no window to watch, so the
+device-code poll runs to its timeout instead of aborting early on a closed
+window.
 
 The one renderer is the dashboard: `src/dashboard.html`, a single self-contained
 file (markup, CSS, and inline vanilla JS, no framework) that `npm run build:html`

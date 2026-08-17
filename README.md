@@ -16,7 +16,10 @@ Frost runs in the menu bar (or tray). Opening it from the tray menu — or with
 the global hotkey — shows a settings window with everything in one place:
 
 -   **Login** — the AWS SSO start URL and region. This is all Frost needs to
-    get started.
+    get started. It's also where you choose whether the AWS sign-in page opens
+    in a Frost window (the default) or in your default browser — the latter is
+    useful when your sign-in relies on a password manager, a passkey, or a
+    browser session you're already logged into.
 -   **Behavior** — whether Frost refreshes credentials automatically or just
     notifies you, plus the global refresh hotkey (`⌘⇧R` by default, rebindable).
     A **Test** button fires a sample notification, which is also how you grant
