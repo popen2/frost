@@ -7,16 +7,16 @@ import log from "electron-log/main";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * The overlay is plain browser code, so it is not part of the TypeScript
- * build — `npm run build:overlay` copies it next to the compiled main-process
- * files and we read it back as a string to inject.
+ * The overlay is browser code with its own compile (`tsconfig.overlay.json`),
+ * which emits a plain script next to the compiled main-process files. We read
+ * it back as a string to inject.
  */
 const OVERLAY_SCRIPT = path.join(__dirname, "login-overlay.js");
 
-/** Must match SIGNAL in src/login-overlay.js. */
+/** Must match SIGNAL in src/login-overlay.ts. */
 const LOGIN_OVERLAY_SIGNAL = "__frost-login-overlay__:";
 
-/** Echoes the toast in src/login-overlay.js, for the window title. */
+/** Echoes the toast in src/login-overlay.ts, for the window title. */
 const WAITING_TITLES: Record<string, string> = {
     "security-key": "Touch your security key",
     "register-key": "Register your security key",
@@ -75,7 +75,7 @@ function describeAccount(
  * they are pending, so a page waiting on a YubiKey touch looks like a page
  * that has hung (issue #17). This wires up two things for the login window:
  *
- *  - `src/login-overlay.js`, injected into every document the window loads,
+ *  - `src/login-overlay.ts`, injected into every document the window loads,
  *    which draws a toast while a credential request is in flight and reports
  *    the wait back over the console; the main process turns that into the
  *    window title, a dock bounce, and a log line, so the prompt is noticeable

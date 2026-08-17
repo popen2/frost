@@ -37,10 +37,11 @@ telemetry, no crash reporting.
 
 ## Security Keys and Passkeys
 
-Frost signs you in through its own login window, and identity providers often
-ask for a hardware key (YubiKey and friends), a passkey, or a saved password at
-that point. Those requests used to be invisible: the page simply sat there,
-with nothing to say it was waiting for you to touch anything.
+When you sign in through Frost's own login window (the default — see
+**Behavior** above for the default-browser alternative), identity providers
+often ask for a hardware key (YubiKey and friends), a passkey, or a saved
+password. Those requests used to be invisible: the page simply sat there, with
+nothing to say it was waiting for you to touch anything.
 
 Frost now shows a small notice at the bottom of the login window for as long as
 a request is pending — "Touch your security key", "Confirm with your passkey" —
