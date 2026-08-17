@@ -1348,6 +1348,13 @@ function showHistoryDetail(runId) {
   renderActivityDetail(run);
 }
 
+// Delegated, so it survives renderActivityList() replacing the list's innerHTML
+// and only has to be attached once.
+document.getElementById('history-list').addEventListener('click', e => {
+  const row = e.target.closest('.activity-row');
+  if (row && row.dataset.runId) showHistoryDetail(row.dataset.runId);
+});
+
 function renderActivityDetail(run) {
   const sc = scClass(run.status);
   const d = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
@@ -1404,7 +1411,12 @@ function renderActivityList() {
   for (const run of runHistory) {
     const sc = scClass(run.status);
     const d = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
-    html += `<div class="activity-row" onclick="showHistoryDetail('${esc(run.runId)}')">
+    // The run id rides in a data attribute rather than an inline onclick.
+    // esc() is an HTML escaper, and an HTML attribute is decoded before its
+    // contents are parsed as JS - so `&#39;` would turn back into a quote and
+    // break out of that string argument. Harmless while runId is a local
+    // uuidv4, wrong the moment it isn't.
+    html += `<div class="activity-row" data-run-id="${esc(run.runId)}">
       <div class="step-dot ${sc}"></div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;letter-spacing:-0.1px">Credential Refresh</div>
