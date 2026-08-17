@@ -177,9 +177,11 @@ async function getNewToken(
     let windowOpen = true;
     let window: BrowserWindow | undefined;
 
+    const loginUrl = requireHttpsLoginUrl(startAuth.verificationUriComplete);
+
     if (behavior.loginMethod === "default_browser") {
         log.debug("[getNewToken] Opening login in default browser");
-        await shell.openExternal(startAuth.verificationUriComplete!);
+        await shell.openExternal(loginUrl);
     } else {
         log.debug("[getNewToken] Opening login window");
         if (app.dock) await app.dock.show();
@@ -198,12 +200,16 @@ async function getNewToken(
         // default-browser path needs nothing: the browser has its own UI.
         attachLoginIndicator(window);
 
+        // Also before loadURL, so the policy is in place for the first
+        // redirect and not just for whatever follows it.
+        restrictNavigation(window);
+
         window.on("close", () => {
             log.warn("[getNewToken] Login window closed");
             windowOpen = false;
         });
 
-        window.loadURL(startAuth.verificationUriComplete!);
+        window.loadURL(loginUrl);
     }
 
     try {
@@ -249,6 +255,77 @@ async function getNewToken(
 
 function isAuthorizationPendingException(err: unknown): boolean {
     return err instanceof AuthorizationPendingException;
+}
+
+function isHttps(raw: string): boolean {
+    try {
+        return new URL(raw).protocol === "https:";
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * The login URL comes back from the OIDC endpoint, which is chosen by the
+ * stored region - so it is not a constant, and `openExternal` hands whatever
+ * it is given straight to the OS. Check the scheme before either the OS or a
+ * BrowserWindow acts on it.
+ *
+ * Returns the original string rather than `URL.toString()`, so a round trip
+ * through the parser cannot re-encode the `user_code` query AWS put there.
+ */
+function requireHttpsLoginUrl(raw: string | undefined): string {
+    if (!raw || !isHttps(raw)) {
+        throw new Error(`Refusing to open a non-https login URL`);
+    }
+    return raw;
+}
+
+/**
+ * Keeps the login window on the sign-in journey it was opened for.
+ *
+ * The page redirects through the customer's own identity provider, so the
+ * hosts it visits cannot be enumerated - but every leg of an AWS SSO sign-in
+ * is https, and none of it needs to open a second Electron window. Popups go
+ * to the real browser, where the user can at least see an address bar, and
+ * anything that is not https is refused.
+ *
+ * An identity provider that hands off to a native app over a custom scheme
+ * will be blocked here and say so in the log. That is what the default-browser
+ * login option exists for.
+ */
+function restrictNavigation(window: BrowserWindow) {
+    window.webContents.setWindowOpenHandler(({ url }) => {
+        if (isHttps(url)) {
+            log.info("[getNewToken] Login page popup, opening in browser: %s", url);
+            shell.openExternal(url);
+        } else {
+            log.warn("[getNewToken] Blocked login page popup to %s", url);
+        }
+        return { action: "deny" };
+    });
+
+    const block = (event: Electron.Event, url: string, kind: string) => {
+        if (isHttps(url)) {
+            return;
+        }
+        log.warn(
+            "[getNewToken] Blocked %s to %s - if your identity provider needs " +
+                "this, switch Login to the default browser in Behavior",
+            kind,
+            url
+        );
+        event.preventDefault();
+    };
+
+    // will-navigate covers what the page initiates; will-redirect covers the
+    // server-side 3xx hops it does not see.
+    window.webContents.on("will-navigate", (event, url) =>
+        block(event, url, "navigation")
+    );
+    window.webContents.on("will-redirect", (event, url) =>
+        block(event, url, "redirect")
+    );
 }
 
 async function saveToken(
