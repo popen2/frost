@@ -1324,6 +1324,9 @@ function renderActivityList() {
 
   if (!runHistory.length) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div><div class="empty-title">No activity yet</div><div class="empty-body">Credential refresh runs will appear here.</div></div>`;
+    // Keep the signature in step with what is actually on screen, so the guard
+    // below cannot mistake a stale value for the current markup.
+    el.dataset.sig = '';
     return;
   }
 
