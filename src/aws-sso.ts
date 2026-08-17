@@ -205,6 +205,16 @@ async function getNewToken(
         while (moment().isBefore(tokenExpires)) {
             log.debug("[getNewToken] Sleeping for %ss", startAuth.interval!);
             await delay(startAuth.interval! * 1000);
+
+            // Closing the window means "I'm not logging in now". Give up here
+            // rather than waiting for a non-pending token error, which may
+            // never come — the run would then hold `isWorking` (and block every
+            // new refresh) until the device code expires.
+            if (!windowOpen) {
+                log.warn("[getNewToken] User closed login window, aborting");
+                throw new Error("Login window closed");
+            }
+
             try {
                 log.debug("[getNewToken] Trying to get token");
                 return await ssooidc.send(
@@ -221,10 +231,6 @@ async function getNewToken(
                     log.debug("[getNewToken] Authorization pending...");
                 } else {
                     log.warn("[getNewToken] Failed getting token: %s", err);
-                    if (!windowOpen) {
-                        log.warn("[getNewToken] User closed window");
-                        throw err;
-                    }
                 }
             }
         }
