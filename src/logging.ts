@@ -4,30 +4,18 @@ import { app } from "electron";
 import log from "electron-log/main";
 import { config, DEFAULT_BEHAVIOR, type BehaviorConfig } from "./config.js";
 
-/**
- * Log files are named `main-YYYY-MM-DD.log`, one per local day.
- *
- * electron-log's own rotation is size-based and keeps exactly one archive
- * (`main.log` plus `main.old.log`, 1MB each), so a user who hits a bug can
- * easily find the relevant lines already overwritten by the time they come to
- * report it. `resolvePathFn` is consulted per message, so switching to a dated
- * name makes the file roll over on its own at midnight.
- */
+/** One log file per local day: `main-2026-08-17.log`. */
 const DATED_LOG = /^main-(\d{4}-\d{2}-\d{2})\.log$/;
 
 /** What electron-log wrote before the move to dated files. */
 const LEGACY_LOGS = ["main.log", "main.old.log"];
 
-/**
- * Captured the first time electron-log resolves a path, because that is the
- * only place it tells us where `libraryDefaultDir` actually is.
- */
+/** Only `resolvePathFn` is told where `libraryDefaultDir` is, so catch it there. */
 let logDirectory: string | null = null;
 
 /**
- * The local date, not `toISOString()`. A UTC date would roll the file over in
- * the middle of the working day for anyone far enough from Greenwich, which
- * defeats the point of being able to say "send me today's log".
+ * Local, not `toISOString()`: a UTC date rolls the file over mid-afternoon far
+ * enough from Greenwich, which defeats asking a user for "today's log".
  */
 function localDate(when: Date = new Date()): string {
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -37,20 +25,16 @@ function localDate(when: Date = new Date()): string {
 export function configureLogging() {
     const file = log.transports.file;
 
-    // `silly` is electron-log's default and it is more than support needs;
-    // `debug` keeps the poll-by-poll detail that makes a failed login
-    // diagnosable. Nothing secret is logged at either level - see the
-    // redaction in aws-sso.ts.
+    // Below electron-log's `silly` default, but keeping the poll-by-poll
+    // detail that makes a failed login diagnosable. Nothing secret is logged
+    // at either level - see the redaction in aws-sso.ts.
     file.level = "debug";
 
-    // Dated files replace size rotation. Leaving maxSize set would give us
-    // both, and a `main-2026-08-17.old.log` nobody is looking for.
+    // Otherwise we get size rotation too, and a `main-<date>.old.log`.
     file.maxSize = 0;
 
-    // The log carries the account and role inventory, so it gets the same
-    // treatment as the config file rather than the default world-readable
-    // 0o666. Only applies to files we create; the sweep below retires the
-    // ones earlier versions left at 0644.
+    // Carries the account and role inventory, so same treatment as the config
+    // file rather than electron-log's world-readable 0o666 default.
     file.writeOptions = { flag: "a", mode: 0o600, encoding: "utf8" };
 
     file.resolvePathFn = (variables) => {
@@ -82,16 +66,12 @@ function retentionDays(): number {
 }
 
 /**
- * Deletes log files past the retention period the user chose in Privacy.
+ * Deletes log files past the retention period chosen in Privacy - the same
+ * setting as the run history, so the log and the history describing it age out
+ * together. Call it wherever `pruneHistory()` is called.
  *
- * Reusing `historyRetentionDays` rather than adding a second setting means the
- * log carrying the account inventory ages out on the same schedule as the run
- * history describing it. Called wherever `pruneHistory()` is, so shortening
- * the period takes effect immediately rather than at the next refresh.
- *
- * Legacy `main.log`/`main.old.log` are swept by mtime. Those predate the fix
- * that stopped writing device codes to the log, so retiring them matters more
- * than the dated files do.
+ * Legacy `main.log`/`main.old.log` go by mtime, and matter most: they predate
+ * the fix that stopped writing device codes to the log.
  */
 export async function sweepOldLogs(): Promise<void> {
     if (!logDirectory) {
