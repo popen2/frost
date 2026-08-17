@@ -91,9 +91,15 @@ verify changes to it with a throwaway Node script against `dist/aws-config.js`
 - **electron-log v5**: import `electron-log/main` in the main process.
   `log.catchErrors(...)` was removed → `log.errorHandler.startCatching(...)`.
 - **update-electron-app v3**: named export — `import { updateElectronApp }`.
-- **@kubernetes/client-node v1**, **electron-store v11**, **delay v7**,
+- **@kubernetes/client-node v2**, **electron-store v11**, **delay v7**,
   **uuid v14**: all pure ESM. Use named imports for the k8s client
-  (`import { KubeConfig }` — there is no default export).
+  (`import { KubeConfig }` — there is no default export). The v1 → v2 bump
+  didn't touch the surface `src/kubeconfig.ts` uses (`loadFromString`,
+  `addCluster`/`addUser`/`addContext`, the `clusters`/`users`/`contexts`
+  arrays, `exportConfig`) — verified by round-tripping a merge against a
+  hand-written kubeconfig. v2 does **not** declare `@types/ws`, but its `.d.ts`
+  files reach into `isomorphic-ws` → `ws`, so `@types/ws` must stay a devDep or
+  `tsc` fails with TS7016.
 - **ESLint 10**: flat config only. Config lives in `eslint.config.js` using the
   `typescript-eslint` umbrella package + `@eslint/js` (the old `.eslintrc` and
   `@typescript-eslint/{parser,eslint-plugin}` split are gone). The
@@ -106,9 +112,21 @@ verify changes to it with a throwaway Node script against `dist/aws-config.js`
   still works.
 - Removed deprecated type stubs: `@types/aws-sdk`, `@types/uuid`, and
   `@types/js-yaml` (the libs ship their own types), and `@types/request` (the
-  `request` lib isn't used). `@types/ini` is still required (ini ships no types).
-- `axios` is listed as a dependency but is **not imported anywhere** — dead
-  weight, safe to drop in a future cleanup.
+  `request` lib isn't used). `@types/ini` is still required (ini ships no types),
+  and so is `@types/ws` (see the k8s note above).
+- `axios` was a dependency that nothing imported — it has been dropped. Don't
+  reintroduce it; the app makes no direct HTTP calls of its own.
+- **TypeScript stays on 6.x.** TypeScript 7 is out, but `typescript-eslint` 8
+  (including its `canary` tag) still declares
+  `peerDependencies.typescript: ">=4.8.4 <6.1.0"`, so installing TS 7 fails
+  `npm install` with `ERESOLVE` and would take `npm run lint` — a CI gate —
+  down with it. Revisit once typescript-eslint ships TS 7 support.
+- **No `overrides` block.** package.json used to carry `overrides` for `tar`,
+  `tmp`, `form-data` and `undici` to pull vulnerable transitives forward. After
+  the Forge 8 upgrade the whole block is gone: `tmp` left the tree entirely and
+  the rest now resolve to patched versions on their own. Prefer upgrading the
+  parent over adding an override, and re-check `npm audit` with the block empty
+  before adding one back.
 
 ## AWS IAM Authenticator
 
@@ -161,15 +179,41 @@ The app version in `package.json` is overwritten in CI from the tag
 (`npm version --no-git-tag-version`), so **don't bump it manually**. The build
 runner Node version is `NODEJS_VERSION` (declared in both `ci.yaml` and
 `build.yaml` — keep them in sync). It must satisfy the toolchain: ESLint 10,
-TypeScript 6, Electron 42.
+TypeScript 6, Electron 43, and **Node >= 22.12** — `@electron/packager` 20 and
+`@electron/osx-sign` 2 both declare that engine floor. `NODEJS_VERSION: 22`
+resolves to the latest 22.x, which clears it; don't pin it to an exact 22.x
+below 22.12.
 
-## macOS signing/notarization (Forge 7)
+## Electron Forge 8 (prerelease — deliberate)
 
-Forge 7 uses `@electron/osx-sign` v1 and `@electron/notarize` v2. In
-`forge.config.js`:
+The three `@electron-forge/*` devDeps are pinned to the **exact** version
+`8.0.0-alpha.10` (no `^` — a floating range on a prerelease line moves you
+across alphas silently). This is not an accident, and downgrading to the 7.x
+stable line reintroduces a high-severity advisory:
+
+- Forge 7.11.2 pins `@electron/packager` 18, whose `extract-zip` dependency has
+  an unfixable symlink path-traversal advisory (GHSA-jmr9-qjv8-65gv — *every*
+  published version is affected). `@electron/packager` 20 replaced it with
+  `@electron-internal/extract-zip`, which clears it.
+- Pulling packager 20 under Forge 7 via an override **does not work** — it was
+  tried and fails at the end of packaging with `TypeError: done is not a
+  function`, because packager 20 made its hooks promise-based while Forge 7's
+  `sequentialHooks` still passes a callback. Forge 8 is the version that adapted
+  to it.
+- `electron-forge package` and `electron-forge make` were both run under
+  8.0.0-alpha.10 on linux/x64 and succeed; `forge.config.js` needed no changes.
+
+When Forge 8 goes stable, move to `^8.x` and drop this section down to a note.
+
+## macOS signing/notarization (Forge 8)
+
+Forge 8 (via `@electron/packager` 20) uses `@electron/osx-sign` v2 and
+`@electron/notarize` v3. Both majors were ESM/Node-floor bumps and left the
+option shapes below untouched, so `forge.config.js` reads the same as it did
+under Forge 7. In `forge.config.js`:
 - `osxSign` uses `optionsForFile: () => ({ entitlements, hardenedRuntime,
   signatureFlags })` — the old kebab-case keys (`hardened-runtime`,
-  `entitlements-inherit`, `signature-flags`) are silently ignored by v1.
+  `entitlements-inherit`, `signature-flags`) are silently ignored.
 - `osxNotarize` uses notarytool API-key auth: `appleApiKey` is the **path** to
   the `.p8` file, plus `appleApiKeyId` and `appleApiIssuer`. The workflow writes
   the key to `~/private_keys/AuthKey_<APPLE_API_KEY>.p8` (so `APPLE_API_KEY` is
@@ -181,9 +225,10 @@ it cannot be validated locally.
 ## Verification limits
 
 This is a GUI Electron app. In headless/sandboxed environments you can run
-`npm run build`, `npm run lint`, and isolated Node runtime checks of individual
-libraries, but you **cannot** launch the app, run `electron-forge
-package/make`, or validate macOS signing/notarization. Treat those as
-"verify in CI / on a real desktop" and say so explicitly rather than claiming
-the app works. The PR Build workflow (above) is what actually exercises the
-packaging/signing/notarization path.
+`npm run build`, `npm run lint`, isolated Node runtime checks of individual
+libraries, and — given network access to the Electron release downloads —
+`electron-forge package`/`make` **for linux** (packaging never opens a window).
+You **cannot** launch the app, and you cannot validate macOS
+signing/notarization. Treat those as "verify in CI / on a real desktop" and say
+so explicitly rather than claiming the app works. The PR Build workflow (above)
+is what actually exercises the packaging/signing/notarization path on macOS.
