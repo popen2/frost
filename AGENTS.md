@@ -5,17 +5,30 @@ config, dependencies, or the release pipeline.
 
 ## What this is
 
-Frost is an Electron menu-bar/tray app (an AWS SSO credentials refresher). It
-runs **entirely in the Electron main process** — there is no renderer-side
-JavaScript bundle. The login window (`src/aws-sso.ts`) just loads a remote AWS
-URL. All `src/*.ts` files execute in the main process.
+Frost is an Electron menu-bar/tray app (an AWS SSO credentials refresher). All
+`src/*.ts` files execute in the **main process** — there is no renderer-side
+build step or bundler. The login window (`src/aws-sso.ts`) just loads a remote
+AWS URL.
+
+The one renderer is the dashboard: `src/dashboard.html`, a single self-contained
+file (markup, CSS, and inline vanilla JS, no framework) that `npm run build:html`
+copies verbatim into `dist/`. It is **not** type-checked or linted — `tsc` and
+ESLint only see `src/*.ts` — so changes there are verified by eye and at runtime.
+It talks to the main process purely over IPC (`ipcRenderer.invoke` +
+a `state-updated` push); the handlers live in `src/window.ts`, which takes an
+`IpcCallbacks` object so it never has to import `aws-sso.ts` (that would be a
+cycle). It currently runs with `nodeIntegration: true` /
+`contextIsolation: false`, so **every value interpolated into `innerHTML` must
+go through the `esc()` helper** — account names, cluster names, and error
+strings all originate from AWS.
 
 ## Commands
 
 This project uses **npm** (`package-lock.json`; CI runs `npm ci`). Do not add a
 `yarn.lock`.
 
-- `npm run build` — `tsc` (type-check + emit to `dist/`) then copies tray icons.
+- `npm run build` — `tsc` (type-check + emit to `dist/`) then copies the tray
+  icons and `src/dashboard.html` into `dist/`.
 - `npm run lint` — ESLint (flat config, see below).
 - `npm start` / `npm run package` / `npm run make` — Electron Forge.
 
@@ -79,7 +92,7 @@ asset naming is `aws-iam-authenticator_<version>_<os>_<arch>` (os: `darwin` |
 
 ## CI / release pipeline
 
-Three workflows, with the matrix build factored out as a reusable workflow:
+Five workflows, with the matrix build factored out as a reusable workflow:
 
 - **`.github/workflows/build.yaml`** (reusable, `workflow_call`) — the
   darwin/linux × x64/arm64 matrix that checks out, installs, optionally stamps
@@ -89,21 +102,35 @@ Three workflows, with the matrix build factored out as a reusable workflow:
   `AWS_IAM_AUTHENTICATOR_VERSION` and the matrix definition. Callers should
   pass `secrets: inherit` so it can read `MAC_CERTS`, `APPLE_API_*`, and
   `GITHUB_TOKEN` without re-declaring them.
-- **`.github/workflows/ci.yaml`** (🔍 PR Build) runs on **pull requests to
-  `main`**. Lints, then calls `build.yaml` with `publish: false` — packages,
-  **signs and notarizes** the macOS app, and uploads the distributable zips
-  as PR artifacts. Never tags or publishes. Notarization needs the Apple
-  secrets, which are only available on same-repo PRs (not forks).
-- **`.github/workflows/release.yaml`** (🚀 Release Version) runs on **push to
-  `main`**. Lints, auto-bumps a **patch** git tag
-  (`anothrNick/github-tag-action`), calls `build.yaml` with `publish: true`
-  and the tag as the `version` input, then flips the GitHub release from
-  draft to published.
+- **`.github/workflows/ci.yaml`** (🔍 Build) runs on **pull requests to `main`
+  and pushes to `main`**. Lints, then calls `build.yaml` with `publish: false`
+  — packages, **signs and notarizes** the macOS app, and uploads the
+  distributable zips as artifacts. Never tags or publishes. Notarization needs
+  the Apple secrets, which are only available on same-repo PRs (not forks). On
+  pushes to `main` it also refreshes the release-drafter draft.
+- **`.github/workflows/release.yaml`** (🚀 Release Version) runs on **pushed
+  `v*` tags** (plus a `workflow_dispatch` fallback). It strips the leading `v`
+  and calls `build.yaml` with `publish: true`. It does **not** create the tag:
+  release-drafter keeps a draft release up to date, and publishing that draft
+  from the GitHub UI is what creates the tag and triggers this workflow.
+- **`.github/workflows/pages.yaml`** (🌐 Deploy Pages) publishes `docs/` — the
+  marketing site at the project's GitHub Pages URL — on pushes to `main` that
+  touch `docs/**`.
+- **`.github/workflows/autolabeler.yaml`** (🏷️ Autolabel) applies
+  release-drafter's changelog labels to incoming PRs from branch-name patterns.
+
+**Version numbers come from PR labels, not from `package.json`.**
+`.github/release-drafter.yml` has a `version-resolver` that reads the labels on
+the merged PRs: `major` / `minor` / `patch`, defaulting to **patch**. To cut a
+minor release, put the `minor` label on the PR. `autolabeler.yaml` only assigns
+the changelog-category labels (`feature` / `fix` / `chore`) and only from
+branch-name patterns (`feat/…`, `fix/…`, `chore/…`), so a branch named anything
+else — e.g. `claude/…` — needs its labels set by hand.
 
 The app version in `package.json` is overwritten in CI from the tag
 (`npm version --no-git-tag-version`), so **don't bump it manually**. The build
-runner Node version is `NODEJS_VERSION` (declared in each of the three
-workflow files — keep them in sync). It must satisfy the toolchain: ESLint 10,
+runner Node version is `NODEJS_VERSION` (declared in both `ci.yaml` and
+`build.yaml` — keep them in sync). It must satisfy the toolchain: ESLint 10,
 TypeScript 6, Electron 42.
 
 ## macOS signing/notarization (Forge 7)

@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Frost</title>
+  <style>
+    /* ── Colour tokens ───────────────────────────────────────────────────── */
+    :root {
+      --bg:           #EDEDED;
+      --sidebar-bg:   #E4E4E4;
+      --card:         #FFFFFF;
+      --card-alt:     #F5F5F5;
+      --text:         #1A1A1A;
+      --text-2:       #6C6C6C;
+      --text-3:       #9E9E9E;
+      --sep:          rgba(0,0,0,0.09);
+      --sep-strong:   rgba(0,0,0,0.16);
+      --accent:       #007AFF;
+      --accent-2:     #5E5CE6;
+      --accent-dim:   rgba(0,122,255,0.12);
+      --accent-soft:  rgba(0,122,255,0.10);
+      --nav-active:   rgba(0,122,255,0.12);
+      --hover:        rgba(0,0,0,0.035);
+      --input-bg:     #FFFFFF;
+      --input-border: rgba(0,0,0,0.12);
+      --badge-bg:     rgba(0,0,0,0.07);
+      --badge-text:   #555555;
+      --chip-bg:      rgba(0,122,255,0.09);
+      --chip-text:    #006FE8;
+      --success:      #34C759;
+      --success-bg:   rgba(52,199,89,0.12);
+      --error:        #FF3B30;
+      --error-bg:     rgba(255,59,48,0.10);
+      --warning:      #FF9500;
+      --warning-bg:   rgba(255,149,0,0.12);
+      --inprog:       #5E5CE6;
+      --card-shadow:  0 0 0 0.5px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+      --focus-ring:   0 0 0 3.5px var(--accent-dim);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:           #1C1C1C;
+        --sidebar-bg:   #141414;
+        --card:         #2A2A2A;
+        --card-alt:     #323232;
+        --text:         #F5F5F5;
+        --text-2:       #9A9A9A;
+        --text-3:       #636363;
+        --sep:          rgba(255,255,255,0.10);
+        --sep-strong:   rgba(255,255,255,0.18);
+        --accent:       #0A84FF;
+        --accent-2:     #5E5CE6;
+        --accent-dim:   rgba(10,132,255,0.22);
+        --accent-soft:  rgba(10,132,255,0.14);
+        --nav-active:   rgba(10,132,255,0.20);
+        --hover:        rgba(255,255,255,0.05);
+        --input-bg:     #38383C;
+        --input-border: rgba(255,255,255,0.10);
+        --badge-bg:     rgba(255,255,255,0.12);
+        --badge-text:   #E4E4E4;
+        --chip-bg:      rgba(10,132,255,0.18);
+        --chip-text:    #5AB0FF;
+        --success:      #32D74B;
+        --success-bg:   rgba(50,215,75,0.16);
+        --error:        #FF453A;
+        --error-bg:     rgba(255,69,58,0.16);
+        --warning:      #FF9F0A;
+        --warning-bg:   rgba(255,159,10,0.16);
+        --inprog:       #BF5AF2;
+        --card-shadow:  0 0 0 0.5px rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.3), 0 4px 14px rgba(0,0,0,0.22);
+        --focus-ring:   0 0 0 3.5px var(--accent-dim);
+      }
+    }
+
+    /* ── Reset ───────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    /* ── Title-bar strip ─────────────────────────────────────────────────── */
+    .titlebar {
+      height: 36px;
+      flex-shrink: 0;
+      -webkit-app-region: drag;
+      background: linear-gradient(to right, var(--sidebar-bg) 178px, var(--bg) 178px);
+    }
+
+    /* ── App layout ──────────────────────────────────────────────────────── */
+    .layout {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────── */
+    .sidebar {
+      width: 178px;
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      display: flex;
+      flex-direction: column;
+      padding: 2px 10px 16px;
+      -webkit-app-region: drag;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px 14px;
+      -webkit-app-region: no-drag;
+    }
+
+    .sidebar-app-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+
+    .sidebar-app-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.2px;
+    }
+
+    /* ── Nav sections ────────────────────────────────────────────────────── */
+    .nav { -webkit-app-region: no-drag; flex: 1; }
+
+    .nav-section + .nav-section { margin-top: 18px; }
+
+    .nav-section-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-3);
+      padding: 0 10px 5px;
+      user-select: none;
+      -webkit-app-region: no-drag;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 1px;
+      transition: background 0.12s ease, color 0.12s ease;
+      user-select: none;
+      -webkit-app-region: no-drag;
+    }
+
+    .nav-item:hover { background: var(--hover); }
+
+    .nav-item.active {
+      background: var(--nav-active);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* ── Nav icons (monochrome) ──────────────────────────────────────────── */
+    .nav-icon {
+      width: 17px;
+      height: 17px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .nav-icon svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      opacity: 0.5;
+      transition: opacity 0.12s ease;
+    }
+
+    .nav-item:hover .nav-icon svg { opacity: 0.75; }
+    .nav-item.active .nav-icon svg { opacity: 1; }
+
+    /* ── Content panels ──────────────────────────────────────────────────── */
+    .panels {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 26px 28px;
+      scroll-behavior: smooth;
+    }
+
+    .panels::-webkit-scrollbar { width: 7px; }
+    .panels::-webkit-scrollbar-track { background: transparent; }
+    .panels::-webkit-scrollbar-thumb { background: var(--sep-strong); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+    .panels::-webkit-scrollbar-thumb:hover { background: var(--text-3); background-clip: padding-box; }
+
+    .panel { display: none; animation: fade 0.2s ease; }
+    .panel.active { display: block; }
+
+    @keyframes fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+    /* ── Page header ─────────────────────────────────────────────────────── */
+    .page-head { margin-bottom: 20px; }
+    .page-head h1 {
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      color: var(--text);
+    }
+    .page-head p {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-top: 3px;
+      line-height: 1.45;
+    }
+
+    /* ── Section groups ──────────────────────────────────────────────────── */
+    .section { margin-bottom: 22px; }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-2);
+      margin-bottom: 8px;
+      padding-left: 4px;
+    }
+
+    .section-body {
+      background: var(--card);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+    }
+
+    .section-row {
+      padding: 13px 16px;
+      position: relative;
+    }
+
+    .section-row + .section-row::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 16px; right: 0;
+      height: 1px;
+      background: var(--sep);
+    }
+
+    .row-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-2);
+      margin-bottom: 7px;
+      letter-spacing: -0.1px;
+    }
+
+    .row-hint {
+      font-size: 11.5px;
+      color: var(--text-3);
+      margin-top: 7px;
+      line-height: 1.5;
+    }
+
+    /* ── Form controls ───────────────────────────────────────────────────── */
+    .field {
+      width: 100%;
+      padding: 7px 11px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .field:hover { border-color: var(--sep-strong); }
+
+    .field:focus {
+      border-color: var(--accent);
+      box-shadow: var(--focus-ring);
+    }
+
+    .field::placeholder { color: var(--text-3); }
+
+    select.field {
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238E8E93' d='M3.2 4.6l2.8 2.8 2.8-2.8'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 9px center;
+      padding-right: 28px;
+    }
+
+    code {
+      font-family: "SF Mono", "Menlo", monospace;
+      font-size: 11px;
+      background: var(--badge-bg);
+      padding: 1.5px 5px;
+      border-radius: 5px;
+      white-space: nowrap;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      letter-spacing: -0.1px;
+      cursor: pointer;
+      border: none;
+      transition: filter 0.12s ease, background 0.12s ease, transform 0.06s ease, box-shadow 0.12s ease;
+    }
+
+    .btn:active { transform: scale(0.975); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 1px 2px rgba(0,122,255,0.25);
+    }
+    .btn-primary:hover { filter: brightness(1.07); }
+
+    .btn-secondary {
+      background: var(--card);
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px var(--sep-strong);
+    }
+    .btn-secondary:hover { background: var(--hover); }
+
+    .save-notice {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--success);
+      display: none;
+      align-items: center;
+      gap: 4px;
+    }
+    .save-notice.show { display: inline-flex; animation: pop 0.25s ease; }
+    @keyframes pop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
+
+    /* ── Status indicators ───────────────────────────────────────────────── */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .status-dot.active  { background: var(--success); box-shadow: 0 0 0 4px var(--success-bg); }
+    .status-dot.working { background: var(--warning); box-shadow: 0 0 0 4px var(--warning-bg); animation: pulse 1.2s ease-in-out infinite; }
+    .status-dot.error   { background: var(--error); box-shadow: 0 0 0 4px var(--error-bg); }
+    .status-dot.none    { background: var(--text-3); }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    .status-label-main { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; }
+    .status-label-sub  { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+
+    .error-box {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 11px;
+      color: var(--error);
+      background: var(--error-bg);
+      border-radius: 8px;
+      padding: 9px 11px;
+      margin-top: 12px;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+
+    /* ── Account list ────────────────────────────────────────────────────── */
+    .account-row {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 11px 16px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.1s ease;
+    }
+
+    .account-row + .account-row::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 55px; right: 0;
+      height: 1px;
+      background: var(--sep);
+    }
+
+    .account-row:hover { background: var(--hover); }
+
+    .avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+
+    .account-info { flex: 1; min-width: 0; }
+    .account-name { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
+    .account-id { font-size: 11px; color: var(--text-2); font-family: "SF Mono", Menlo, monospace; margin-top: 1px; }
+
+    .account-roles { display: none; padding: 2px 16px 12px 57px; }
+    .account-row.open + .account-roles { display: grid; }
+
+    /* Permission set → the profile name Frost writes to ~/.aws/config.
+       A grid (rather than a row of flex items) keeps the arrows and profile
+       names aligned in columns, so the mapping is scannable down the list. */
+    .pmap, .account-roles {
+      grid-template-columns: max-content max-content minmax(0, 1fr);
+      gap: 5px 9px;
+      align-items: baseline;
+    }
+    .pmap { display: grid; }
+    .pmap-row { display: contents; }
+    .pmap-role { font-size: 12px; color: var(--text-2); font-weight: 600; }
+    .pmap-arrow { font-size: 11px; color: var(--text-3); }
+    .pmap-name {
+      justify-self: start;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 2.5px 8px;
+      border-radius: 6px;
+      background: var(--chip-bg);
+      color: var(--chip-text);
+      overflow-wrap: anywhere;
+    }
+
+    .chip {
+      font-size: 11.5px;
+      padding: 3.5px 10px;
+      border-radius: 20px;
+      background: var(--chip-bg);
+      color: var(--chip-text);
+      font-weight: 600;
+    }
+
+    .chevron {
+      font-size: 10px;
+      color: var(--text-3);
+      transition: transform 0.2s ease;
+    }
+    .account-row.open .chevron { transform: rotate(90deg); }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2.5px 8px;
+      border-radius: 20px;
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      white-space: nowrap;
+    }
+    .badge.s { background: var(--success-bg); color: var(--success); }
+    .badge.e { background: var(--error-bg);   color: var(--error);   }
+    .badge.w { background: var(--warning-bg); color: var(--warning); }
+    .badge.p { background: var(--accent-dim); color: var(--accent);  }
+
+    /* ── EKS table ───────────────────────────────────────────────────────── */
+    .eks-table { width: 100%; border-collapse: collapse; }
+    .eks-table th {
+      text-align: left;
+      padding: 9px 16px;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-2);
+      background: var(--card-alt);
+    }
+    .eks-table td {
+      padding: 11px 16px;
+      font-size: 12.5px;
+      position: relative;
+    }
+    .eks-table tr + tr td::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 16px; right: 0;
+      height: 1px;
+      background: var(--sep);
+    }
+    .eks-table tbody tr { transition: background 0.1s ease; }
+    .eks-table tbody tr:hover td, .eks-table tr:hover td { background: var(--hover); }
+    .mono { font-family: "SF Mono", Menlo, monospace; font-size: 11.5px; }
+    .region-tag { background: rgba(48,176,199,0.12); color: #1E9CB0; padding: 2.5px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
+    @media (prefers-color-scheme: dark) { .region-tag { color: #64D2E0; background: rgba(100,210,224,0.14); } }
+
+    /* ── History run entries ─────────────────────────────────────────────── */
+    details.run-entry {
+      background: var(--card);
+      border-radius: 12px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+    }
+
+    summary.run-summary {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 14px 16px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      transition: background 0.1s ease;
+    }
+    summary.run-summary::-webkit-details-marker { display: none; }
+    summary.run-summary:hover { background: var(--hover); }
+
+    .run-meta { font-size: 11.5px; color: var(--text-2); margin-top: 3px; }
+
+    .run-chevron {
+      font-size: 9px;
+      color: var(--text-3);
+      margin-left: auto;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+    details.run-entry[open] .run-chevron { transform: rotate(90deg); }
+
+    .run-detail { border-top: 1px solid var(--sep); }
+
+    .run-detail details.log-group {
+      background: transparent;
+      border-radius: 0;
+      margin-bottom: 0;
+      box-shadow: none;
+      border-top: 1px solid var(--sep);
+    }
+    .run-detail details.log-group:first-child { border-top: none; }
+
+    /* ── Log step groups ─────────────────────────────────────────────────── */
+    details.log-group {
+      background: var(--card);
+      border-radius: 12px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    summary.log-summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      font-size: 13px;
+      transition: background 0.1s ease;
+    }
+    summary.log-summary::-webkit-details-marker { display: none; }
+    summary.log-summary:hover { background: var(--hover); }
+
+    .log-chevron {
+      font-size: 9px;
+      color: var(--text-3);
+      margin-left: auto;
+      transition: transform 0.2s ease;
+    }
+    details[open] .log-chevron { transform: rotate(90deg); }
+
+    .step-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .step-dot.s { background: var(--success); }
+    .step-dot.e { background: var(--error); }
+    .step-dot.p { background: var(--inprog); animation: pulse 1.2s ease-in-out infinite; }
+
+    .log-body { border-top: 1px solid var(--sep); padding: 5px 0 9px; }
+
+    details.log-child summary {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 16px 7px 40px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      font-size: 12.5px;
+      font-weight: 500;
+      transition: background 0.1s ease;
+    }
+    details.log-child summary::-webkit-details-marker { display: none; }
+    details.log-child summary:hover { background: var(--hover); }
+
+    .log-child-chevron { font-size: 9px; color: var(--text-3); margin-left: auto; transition: transform 0.2s ease; }
+    details.log-child[open] .log-child-chevron { transform: rotate(90deg); }
+
+    .log-leaf-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 6px 16px 6px 58px;
+      font-size: 12px;
+    }
+
+    /* ── Behavior tab ────────────────────────────────────────────────────── */
+    .radio-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      padding: 13px 16px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.1s ease;
+    }
+    .radio-row + .radio-row::before,
+    .radio-row + .section-row::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 16px; right: 0;
+      height: 1px;
+      background: var(--sep);
+    }
+    .radio-row:hover { background: var(--hover); }
+    .radio-row input[type=radio] { margin-top: 1px; width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+    .radio-label { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
+    .radio-desc  { font-size: 12px; color: var(--text-2); margin-top: 3px; line-height: 1.5; }
+
+    .hotkey-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .hotkey-pill {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 6px 16px;
+      background: var(--card-alt);
+      box-shadow: inset 0 0 0 1px var(--sep-strong);
+      border-radius: 8px;
+      color: var(--text);
+      min-width: 120px;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+    .hotkey-pill.recording {
+      box-shadow: inset 0 0 0 1px var(--accent), var(--focus-ring);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    /* ── Empty states ────────────────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 60px 28px;
+      color: var(--text-3);
+    }
+    .empty-icon {
+      font-size: 30px;
+      margin-bottom: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      background: var(--card);
+      box-shadow: var(--card-shadow);
+    }
+    .empty-title { font-size: 15px; font-weight: 600; color: var(--text-2); margin-bottom: 5px; letter-spacing: -0.2px; }
+    .empty-body  { font-size: 12.5px; line-height: 1.55; max-width: 320px; margin: 0 auto; }
+
+    /* ── Activity list ───────────────────────────────────────────────────── */
+    .activity-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 16px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.1s ease;
+    }
+    .activity-row + .activity-row::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 16px; right: 0;
+      height: 1px;
+      background: var(--sep);
+    }
+    .activity-row:hover { background: var(--hover); }
+
+    .activity-chevron {
+      font-size: 18px;
+      line-height: 1;
+      color: var(--text-3);
+      flex-shrink: 0;
+      margin-left: 2px;
+    }
+
+    /* ── Activity detail back nav ────────────────────────────────────────── */
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: -0.1px;
+      cursor: pointer;
+      padding: 0;
+      background: none;
+      border: none;
+      font-family: inherit;
+      margin-bottom: 20px;
+      transition: opacity 0.12s ease;
+    }
+    .back-btn:hover { opacity: 0.7; }
+    .back-btn:active { opacity: 0.5; }
+  </style>
+</head>
+<body>
+
+<div class="titlebar"></div>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <svg class="sidebar-app-icon" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+        <g transform="matrix(1.27745,0,0,1.44877,-0.118489,14.6876)">
+          <g transform="matrix(21.8461,0,0,21.8461,1.87311,7.09554)">
+            <path d="M0.293,-0.57L0.424,-0.613L0.454,-0.518L0.323,-0.476L0.406,-0.362L0.323,-0.301L0.239,-0.416L0.158,-0.306L0.077,-0.367L0.161,-0.476L0.028,-0.522L0.06,-0.617L0.191,-0.57L0.191,-0.708L0.293,-0.708L0.293,-0.57Z" fill="currentColor"/>
+          </g>
+        </g>
+      </svg>
+      <span class="sidebar-app-name">Frost</span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-section-label">Configuration</div>
+        <div class="nav-item active" data-tab="login">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 014.472 10.015A4.003 4.003 0 0010 12a4.003 4.003 0 00-4.472 2.015A6 6 0 0110 4zm0 4a2 2 0 110 4 2 2 0 010-4zm0 6c1.28 0 2.434.51 3.29 1.337A5.98 5.98 0 0110 16a5.98 5.98 0 01-3.29-.663A4.002 4.002 0 0110 14z"/></svg>
+          </span>
+          Login
+        </div>
+        <div class="nav-item" data-tab="behavior">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M5 4a1 1 0 00-1 1v1H3a1 1 0 000 2h1v1a1 1 0 002 0V8h1a1 1 0 000-2H6V5a1 1 0 00-1-1zm10 8a1 1 0 00-1 1v1h-1a1 1 0 000 2h1v1a1 1 0 002 0v-1h1a1 1 0 000-2h-1v-1a1 1 0 00-1-1zM3 11a1 1 0 000 2h7a1 1 0 000-2H3zm7-8a1 1 0 000 2h7a1 1 0 000-2h-7z"/></svg>
+          </span>
+          Behavior
+        </div>
+        <div class="nav-item" data-tab="privacy">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M10 1L3 4.5v5C3 13.7 6.1 17.5 10 19c3.9-1.5 7-5.3 7-9.5v-5L10 1zm0 2.2l5 2.5V9.5c0 3.2-2.1 6.2-5 7.5-2.9-1.3-5-4.3-5-7.5V5.7l5-2.5z"/></svg>
+          </span>
+          Privacy
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Status</div>
+        <div class="nav-item" data-tab="credentials">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4zm-2 3a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1z"/></svg>
+          </span>
+          Credentials
+        </div>
+        <div class="nav-item" data-tab="eks">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.5"/><path d="M10 1a9 9 0 100 18A9 9 0 0010 1zm0 2a7 7 0 110 14A7 7 0 0110 3zm0 2a5 5 0 100 10A5 5 0 0010 5zm0 2a3 3 0 110 6 3 3 0 010-6z"/></svg>
+          </span>
+          EKS
+        </div>
+        <div class="nav-item" data-tab="history">
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4zm1 3v4.414l2.293 2.293-1.414 1.414L9.586 12.4A1 1 0 019 11.586V7h2z"/></svg>
+          </span>
+          Activity
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Content panels -->
+  <div class="panels">
+
+    <!-- ── Login ── -->
+    <div class="panel active" id="panel-login">
+      <div class="page-head">
+        <h1>Login</h1>
+        <p>Connect Frost to your AWS IAM Identity Center.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">IAM Identity Center</div>
+        <div class="section-body">
+          <div class="section-row">
+            <div class="row-label">Start URL</div>
+            <input class="field" type="url" id="input-url"
+              placeholder="https://d-xxxxxxxxxxxx.awsapps.com/start"
+              autocomplete="off" spellcheck="false">
+            <div class="row-hint">Your organization's AWS access portal URL, available in the IAM Identity Center console.</div>
+          </div>
+          <div class="section-row">
+            <div class="row-label">AWS Region</div>
+            <select class="field" id="input-region" style="max-width:280px">
+              <option value="">Select region…</option>
+              <optgroup label="US East">
+                <option value="us-east-1">us-east-1 — N. Virginia</option>
+                <option value="us-east-2">us-east-2 — Ohio</option>
+              </optgroup>
+              <optgroup label="US West">
+                <option value="us-west-1">us-west-1 — N. California</option>
+                <option value="us-west-2">us-west-2 — Oregon</option>
+              </optgroup>
+              <optgroup label="Canada">
+                <option value="ca-central-1">ca-central-1 — Central</option>
+                <option value="ca-west-1">ca-west-1 — Calgary</option>
+              </optgroup>
+              <optgroup label="Mexico">
+                <option value="mx-central-1">mx-central-1 — Central</option>
+              </optgroup>
+              <optgroup label="South America">
+                <option value="sa-east-1">sa-east-1 — São Paulo</option>
+              </optgroup>
+              <optgroup label="Europe">
+                <option value="eu-central-1">eu-central-1 — Frankfurt</option>
+                <option value="eu-central-2">eu-central-2 — Zurich</option>
+                <option value="eu-west-1">eu-west-1 — Ireland</option>
+                <option value="eu-west-2">eu-west-2 — London</option>
+                <option value="eu-west-3">eu-west-3 — Paris</option>
+                <option value="eu-south-1">eu-south-1 — Milan</option>
+                <option value="eu-south-2">eu-south-2 — Spain</option>
+                <option value="eu-north-1">eu-north-1 — Stockholm</option>
+              </optgroup>
+              <optgroup label="Asia Pacific">
+                <option value="ap-east-1">ap-east-1 — Hong Kong</option>
+                <option value="ap-south-1">ap-south-1 — Mumbai</option>
+                <option value="ap-south-2">ap-south-2 — Hyderabad</option>
+                <option value="ap-northeast-1">ap-northeast-1 — Tokyo</option>
+                <option value="ap-northeast-2">ap-northeast-2 — Seoul</option>
+                <option value="ap-northeast-3">ap-northeast-3 — Osaka</option>
+                <option value="ap-southeast-1">ap-southeast-1 — Singapore</option>
+                <option value="ap-southeast-2">ap-southeast-2 — Sydney</option>
+                <option value="ap-southeast-3">ap-southeast-3 — Jakarta</option>
+                <option value="ap-southeast-4">ap-southeast-4 — Melbourne</option>
+                <option value="ap-southeast-5">ap-southeast-5 — Malaysia</option>
+              </optgroup>
+              <optgroup label="Middle East">
+                <option value="me-south-1">me-south-1 — Bahrain</option>
+                <option value="me-central-1">me-central-1 — UAE</option>
+                <option value="il-central-1">il-central-1 — Tel Aviv</option>
+              </optgroup>
+              <optgroup label="Africa">
+                <option value="af-south-1">af-south-1 — Cape Town</option>
+              </optgroup>
+              <optgroup label="AWS GovCloud">
+                <option value="us-gov-east-1">us-gov-east-1</option>
+                <option value="us-gov-west-1">us-gov-west-1</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="btn btn-primary" id="btn-save-settings">Save &amp; Refresh</button>
+        <span class="save-notice" id="settings-notice">✓ Saved</span>
+      </div>
+    </div>
+
+    <!-- ── Behavior ── -->
+    <div class="panel" id="panel-behavior">
+      <div class="page-head">
+        <h1>Behavior</h1>
+        <p>Choose how Frost refreshes your credentials.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Authentication Mode</div>
+        <div class="section-body">
+          <label class="radio-row">
+            <input type="radio" name="refreshMode" value="auto">
+            <div>
+              <div class="radio-label">Auto-open browser</div>
+              <div class="radio-desc">When credentials expire the AWS login window opens automatically.</div>
+            </div>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="refreshMode" value="notify">
+            <div>
+              <div class="radio-label">Notification + hotkey</div>
+              <div class="radio-desc">A system notification appears. Press the hotkey or click the notification when you're ready to log in.</div>
+            </div>
+          </label>
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
+            <div style="flex:1;font-size:12.5px;color:var(--text-2);line-height:1.45">Send a test notification — useful for granting permission on first use.</div>
+            <button class="btn btn-secondary" id="btn-test-notif" style="white-space:nowrap;flex-shrink:0">Test</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Refresh Hotkey</div>
+        <div class="section-body">
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
+            <div style="flex:1;color:var(--text-2);font-size:12.5px;line-height:1.45">Global shortcut — triggers a refresh from anywhere, or opens the login browser when a notification is pending.</div>
+            <div class="hotkey-cell" style="flex:0 0 auto">
+              <div class="hotkey-pill" id="hotkey-pill">⌘⇧R</div>
+              <button class="btn btn-secondary" id="btn-record" style="white-space:nowrap">Change</button>
+              <button class="btn btn-secondary" id="btn-cancel-record" style="display:none;white-space:nowrap">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="row-hint" style="padding-left:4px;margin-top:8px;">Click <strong>Change</strong> and press your desired combination. Press Escape to cancel.</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="btn btn-primary" id="btn-save-behavior">Save</button>
+        <span class="save-notice" id="behavior-notice">✓ Saved</span>
+      </div>
+    </div>
+
+    <!-- ── Privacy ── -->
+    <div class="panel" id="panel-privacy">
+      <div class="page-head">
+        <h1>Privacy</h1>
+        <p>Your data never leaves this Mac.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Your Data</div>
+        <div class="section-body">
+          <div class="section-row">
+            <p style="font-size:13px;font-weight:600;margin-bottom:7px;letter-spacing:-0.1px;">Frost stores everything locally.</p>
+            <p style="font-size:12.5px;color:var(--text-2);line-height:1.65;">Your AWS access token, discovered profiles, and run history are saved in a configuration file on this Mac — and only there. Frost has no backend, no analytics, no telemetry, and no crash-reporting service. Nothing about your identity, accounts, or usage is ever transmitted anywhere.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Run History</div>
+        <div class="section-body">
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px;letter-spacing:-0.1px;">Retention period</div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.45">Runs older than this are automatically deleted.</div>
+            </div>
+            <select class="field" id="retention-days" style="width:auto;min-width:130px;flex-shrink:0">
+              <option value="1">1 day</option>
+              <option value="3">3 days</option>
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30">30 days</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Delete Now</div>
+        <div class="section-body">
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px;letter-spacing:-0.1px;">Erase run history</div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.45">Immediately delete every stored run, regardless of retention period.</div>
+            </div>
+            <button class="btn btn-secondary" id="btn-clear-history" style="flex-shrink:0;white-space:nowrap">Delete History</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="btn btn-primary" id="btn-save-privacy">Save</button>
+        <span class="save-notice" id="privacy-notice">✓ Saved</span>
+      </div>
+    </div>
+
+    <!-- ── Credentials ── -->
+    <div class="panel" id="panel-credentials">
+      <div class="page-head">
+        <h1>Credentials</h1>
+        <p>Current token status and the accounts you can access.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Token Status</div>
+        <div class="section-body">
+          <div class="section-row">
+            <div class="status-row">
+              <div class="status-dot none" id="cred-dot"></div>
+              <div>
+                <div class="status-label-main" id="cred-label">Not configured</div>
+                <div class="status-label-sub" id="cred-sub"></div>
+              </div>
+            </div>
+            <div class="error-box" id="cred-error" style="display:none;"></div>
+            <div style="margin-top:14px">
+              <button class="btn btn-secondary" id="btn-refresh-now">Refresh Now</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="accounts-section" style="display:none;">
+        <div class="section-title" id="accounts-title"></div>
+        <div class="section-body" id="accounts-body"></div>
+        <div class="row-hint" style="padding-left:4px;margin-top:8px;">Select an account to see its permission sets and the profile names Frost writes to <code>~/.aws/config</code>. Use them with <code>--profile</code> or <code>AWS_PROFILE</code>.</div>
+      </div>
+    </div>
+
+    <!-- ── EKS ── -->
+    <div class="panel" id="panel-eks">
+      <div class="page-head">
+        <h1>EKS Clusters</h1>
+        <p>Kubernetes clusters discovered across your accounts.</p>
+      </div>
+      <div id="eks-content">
+        <div class="empty">
+          <div class="empty-icon">⎈</div>
+          <div class="empty-title">No clusters discovered</div>
+          <div class="empty-body">Run a credential refresh to scan all regions for EKS clusters.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Activity ── -->
+    <div class="panel" id="panel-history">
+      <!-- List view -->
+      <div id="history-list-view">
+        <div class="page-head">
+          <h1>Activity</h1>
+          <p>Recent credential refresh runs.</p>
+        </div>
+        <div id="history-list">
+          <div class="empty">
+            <div class="empty-icon">🕐</div>
+            <div class="empty-title">No activity yet</div>
+            <div class="empty-body">Credential refresh runs will appear here.</div>
+          </div>
+        </div>
+      </div>
+      <!-- Detail view -->
+      <div id="history-detail-view" style="display:none"></div>
+    </div>
+
+  </div><!-- /panels -->
+</div><!-- /layout -->
+
+<script>
+'use strict';
+const { ipcRenderer } = require('electron');
+
+// ── Navigation ──────────────────────────────────────────────────────────────
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('panel-' + item.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+function fromNow(iso) {
+  if (!iso) return '';
+  const d = new Date(iso).getTime() - Date.now(), a = Math.abs(d), f = d > 0;
+  if (a < 60000) return f ? 'in a moment' : 'just now';
+  if (a < 3600000) { const m=Math.round(a/60000); return f?`in ${m}m`:`${m}m ago`; }
+  const h=Math.floor(a/3600000), m=Math.round((a%3600000)/60000);
+  return f ? `in ${h}h${m?` ${m}m`:''}` : `${h}h${m?` ${m}m`:''} ago`;
+}
+
+function localTime(iso) { return iso ? new Date(iso).toLocaleString() : ''; }
+
+function dur(a, b) {
+  if (!a||!b) return '';
+  const ms = new Date(b)-new Date(a);
+  return ms<1000 ? `${ms}ms` : ms<60000 ? `${(ms/1000).toFixed(1)}s` : `${Math.floor(ms/60000)}m ${Math.round((ms%60000)/1000)}s`;
+}
+
+function initials(name) { return (name||'?').slice(0,2).toUpperCase(); }
+function scClass(s) { return s==='success'?'s':s==='error'?'e':s==='in-progress'?'p':''; }
+// Run status is round-tripped through the on-disk config, so escape it and
+// tolerate entries written by an older schema.
+function statusLabel(s) { return esc(String(s || 'unknown').replace('-', ' ')); }
+
+function showNotice(id) {
+  const el = document.getElementById(id);
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── Unsaved-edit protection ─────────────────────────────────────────────────
+// State pushes arrive continuously during a refresh (every run-log step writes
+// to config, and config.onDidAnyChange re-pushes). Repopulating a form mid-edit
+// would silently revert whatever the user was typing, so each editable panel
+// tracks unsaved changes and is left alone until it is saved.
+
+const dirty = { login: false, behavior: false, privacy: false };
+const markDirty = panel => () => { dirty[panel] = true; };
+
+document.getElementById('input-url').addEventListener('input', markDirty('login'));
+document.getElementById('input-region').addEventListener('change', markDirty('login'));
+document.getElementById('retention-days').addEventListener('change', markDirty('privacy'));
+document.querySelectorAll('input[name=refreshMode]')
+  .forEach(r => r.addEventListener('change', markDirty('behavior')));
+
+// ── Login ────────────────────────────────────────────────────────────────────
+
+function populateLogin(state) {
+  if (dirty.login) return;
+  const u = state.userConfig || {};
+  document.getElementById('input-url').value = u.startUrl || '';
+  const sel = document.getElementById('input-region');
+  if (!u.region) return;
+  // Assigning an unlisted value blanks the select (selectedIndex = -1) and then
+  // Save refuses to submit, so surface the stored region as an option instead.
+  if (!Array.from(sel.options).some(o => o.value === u.region)) {
+    const opt = document.createElement('option');
+    opt.value = u.region;
+    opt.textContent = u.region;
+    sel.appendChild(opt);
+  }
+  sel.value = u.region;
+}
+
+document.getElementById('btn-save-settings').addEventListener('click', async () => {
+  const startUrl = document.getElementById('input-url').value.trim();
+  const region   = document.getElementById('input-region').value;
+  if (!startUrl || !region) return;
+  await ipcRenderer.invoke('save-settings', { startUrl, region });
+  dirty.login = false;
+  showNotice('settings-notice');
+});
+
+// ── Credentials ─────────────────────────────────────────────────────────────
+
+function updateCredentials(state) {
+  const dot   = document.getElementById('cred-dot');
+  const label = document.getElementById('cred-label');
+  const sub   = document.getElementById('cred-sub');
+  const errEl = document.getElementById('cred-error');
+
+  dot.className = 'status-dot';
+  errEl.style.display = 'none';
+
+  if (!state.userConfig) {
+    dot.classList.add('none');
+    label.textContent = 'Not configured';
+    sub.textContent = 'Enter your SSO Start URL in Login to get started.';
+  } else if (state.isWorking) {
+    dot.classList.add('working');
+    label.textContent = 'Refreshing…';
+    sub.textContent = 'Authenticating with AWS SSO';
+  } else if (state.lastError) {
+    dot.classList.add('error');
+    label.textContent = 'Last refresh failed';
+    sub.textContent = state.expiresAt ? `Token last valid: ${localTime(state.expiresAt)}` : '';
+    errEl.textContent = state.lastError;
+    errEl.style.display = 'block';
+  } else if (state.expiresAt) {
+    const future = new Date(state.expiresAt) > new Date();
+    dot.classList.add(future ? 'active' : 'none');
+    label.textContent = future ? 'Active' : 'Expired';
+    sub.textContent = future
+      ? `Expires ${fromNow(state.expiresAt)}  ·  ${localTime(state.expiresAt)}`
+      : `Expired ${fromNow(state.expiresAt)}`;
+  } else {
+    dot.classList.add('none');
+    label.textContent = 'No token';
+    sub.textContent = '';
+  }
+
+  const refreshBtn = document.getElementById('btn-refresh-now');
+  refreshBtn.disabled = !state.userConfig || !!state.isWorking;
+  refreshBtn.textContent = state.isWorking ? 'Refreshing…' : 'Refresh Now';
+
+  const profiles = state.profiles || [];
+  const section  = document.getElementById('accounts-section');
+  const title    = document.getElementById('accounts-title');
+  const body     = document.getElementById('accounts-body');
+
+  if (!profiles.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  const byId = new Map();
+  for (const p of profiles) {
+    if (!byId.has(p.accountId)) byId.set(p.accountId, { name: p.accountName, id: p.accountId, roles: [] });
+    // p.name is the profile name Frost writes to ~/.aws/config.
+    byId.get(p.accountId).roles.push({ role: p.roleName, profile: p.name });
+  }
+
+  title.textContent = `${byId.size} Account${byId.size!==1?'s':''} · ${profiles.length} Permission Set${profiles.length!==1?'s':''}`;
+
+  let html = '';
+  for (const [,a] of byId) {
+    html += `
+    <div class="account-row" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'grid':'none'">
+      <div class="avatar">${esc(initials(a.name))}</div>
+      <div class="account-info">
+        <div class="account-name">${esc(a.name)}</div>
+        <div class="account-id">${esc(a.id)}</div>
+      </div>
+      <span class="badge">${a.roles.length}</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="account-roles" style="display:none">${a.roles.map(r=>`<div class="pmap-row"><span class="pmap-role">${esc(r.role)}</span><span class="pmap-arrow">→</span><span class="pmap-name">${esc(r.profile)}</span></div>`).join('')}</div>`;
+  }
+  // Expand/collapse state lives only in the DOM, so re-rendering identical
+  // markup (the 30s clock tick, or any state push during a run) would snap
+  // every open account shut. Only rebuild when the accounts actually change.
+  if (body.dataset.sig !== html) {
+    body.innerHTML = html;
+    body.dataset.sig = html;
+  }
+}
+
+// ── EKS ─────────────────────────────────────────────────────────────────────
+
+function updateEks(state) {
+  const clusters = state.clusters || [];
+  const el = document.getElementById('eks-content');
+
+  if (!clusters.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⎈</div><div class="empty-title">No clusters discovered</div><div class="empty-body">Run a credential refresh to scan all regions for EKS clusters.</div></div>`;
+    return;
+  }
+
+  const regions = new Set(clusters.map(c=>c.region)).size;
+  let html = `<div class="section"><div class="section-title">${clusters.length} Cluster${clusters.length!==1?'s':''} across ${regions} Region${regions!==1?'s':''}</div><div class="section-body"><table class="eks-table"><thead><tr><th>Cluster</th><th>Profile</th><th>Region</th></tr></thead><tbody>`;
+  for (const c of clusters) {
+    html += `<tr><td style="font-weight:600">${esc(c.name)}</td><td><span class="pmap-name">${esc(c.profile)}</span></td><td><span class="region-tag">${esc(c.region)}</span></td></tr>`;
+  }
+  html += `</tbody></table></div></div>`;
+  el.innerHTML = html;
+}
+
+// ── Activity ─────────────────────────────────────────────────────────────────
+
+let runHistory = [];
+// Keyed by runId, not index: new runs are prepended, so an index would silently
+// slide onto a different run while its detail page is open.
+let activityDetailId = null;
+
+function showHistoryList() {
+  activityDetailId = null;
+  document.getElementById('history-list-view').style.display = '';
+  document.getElementById('history-detail-view').style.display = 'none';
+}
+
+function showHistoryDetail(runId) {
+  const run = runHistory.find(r => r.runId === runId);
+  if (!run) return;
+  activityDetailId = runId;
+  document.getElementById('history-list-view').style.display = 'none';
+  const view = document.getElementById('history-detail-view');
+  view.style.display = '';
+  renderActivityDetail(run);
+}
+
+function renderActivityDetail(run) {
+  const sc = scClass(run.status);
+  const d = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
+
+  let steps = '';
+  for (const step of (run.steps || [])) steps += renderLogStep(step);
+  if (run.error) steps += `<div class="error-box" style="margin-bottom:8px">${esc(run.error)}</div>`;
+
+  const view = document.getElementById('history-detail-view');
+  const html = `
+    <button class="back-btn" id="btn-back-activity">‹ Activity</button>
+    <div class="page-head">
+      <h1>Credential Refresh</h1>
+      <p>${localTime(run.startedAt)}${d ? ` · ${d}` : ' · in progress'}</p>
+    </div>
+    <div style="margin-bottom:20px">
+      <span class="badge ${sc}" style="font-size:12px;padding:4px 10px">${statusLabel(run.status)}</span>
+    </div>
+    ${steps}
+  `;
+  // A live run pushes state on every step; re-rendering unchanged markup would
+  // collapse the <details> groups and reset scroll while the user is reading.
+  if (view.dataset.sig === html) return;
+  view.innerHTML = html;
+  view.dataset.sig = html;
+  document.getElementById('btn-back-activity').addEventListener('click', showHistoryList);
+}
+
+function updateHistory(state) {
+  runHistory = state.runHistory || [];
+
+  if (activityDetailId !== null) {
+    const run = runHistory.find(r => r.runId === activityDetailId);
+    if (run) renderActivityDetail(run);
+    else showHistoryList();
+    return;
+  }
+
+  renderActivityList();
+}
+
+function renderActivityList() {
+  const el = document.getElementById('history-list');
+
+  if (!runHistory.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div><div class="empty-title">No activity yet</div><div class="empty-body">Credential refresh runs will appear here.</div></div>`;
+    // Keep the signature in step with what is actually on screen, so the guard
+    // below cannot mistake a stale value for the current markup.
+    el.dataset.sig = '';
+    return;
+  }
+
+  let html = '<div class="section-body">';
+  for (const run of runHistory) {
+    const sc = scClass(run.status);
+    const d = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
+    html += `<div class="activity-row" onclick="showHistoryDetail('${esc(run.runId)}')">
+      <div class="step-dot ${sc}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;letter-spacing:-0.1px">Credential Refresh</div>
+        <div class="run-meta">${fromNow(run.startedAt)}${d ? ` · ${d}` : ' · in progress'}</div>
+      </div>
+      <span class="badge ${sc}" style="flex-shrink:0">${statusLabel(run.status)}</span>
+      <span class="activity-chevron">›</span>
+    </div>`;
+  }
+  html += '</div>';
+  if (el.dataset.sig === html) return;
+  el.innerHTML = html;
+  el.dataset.sig = html;
+}
+
+function renderLogStep(step) {
+  const sc = scClass(step.status);
+  const names = { token:'Token Refresh', profiles:'Profile Refresh', eks:'EKS Discovery' };
+
+  if (step.type === 'token') {
+    const msg = step.status==='success' ? 'Device authorization flow completed.' : step.status==='in-progress' ? 'Waiting for browser authorization…' : (step.error||'Authorization failed.');
+    return `<details class="log-group" open>
+      <summary class="log-summary"><div class="step-dot ${sc}"></div><strong>${names.token}</strong><span class="log-chevron">▶</span></summary>
+      <div class="log-body"><div class="log-leaf-row" style="color:var(--text-2)">${esc(msg)}</div></div>
+    </details>`;
+  }
+
+  if (step.type === 'profiles') {
+    const accts = step.accounts||[];
+    const total = accts.reduce((s,a)=>s+a.roles.length,0);
+    let inner = '';
+    for (const a of accts) {
+      inner += `<details class="log-child">
+        <summary>
+          <div class="avatar" style="width:22px;height:22px;border-radius:6px;font-size:9px">${esc(initials(a.accountName))}</div>
+          <span>${esc(a.accountName)}</span>
+          <span style="font-size:11px;color:var(--text-3);font-family:monospace">${esc(a.accountId)}</span>
+          <span class="badge" style="margin-left:4px">${a.roles.length}</span>
+          <span class="log-child-chevron">▶</span>
+        </summary>
+        <div class="pmap" style="padding:4px 16px 8px 58px">
+          ${a.roles.map(r=>`<div class="pmap-row"><span class="pmap-role">${esc(r.roleName)}</span><span class="pmap-arrow">→</span><span class="pmap-name">${esc(r.profileName)}</span></div>`).join('')}
+        </div>
+      </details>`;
+    }
+    return `<details class="log-group" ${accts.length?'open':''}>
+      <summary class="log-summary"><div class="step-dot ${sc}"></div><strong>${names.profiles}</strong><span style="font-size:12px;color:var(--text-2);margin-left:4px">${accts.length} accounts · ${total} permission sets</span><span class="log-chevron">▶</span></summary>
+      <div class="log-body">${inner||'<div class="log-leaf-row" style="color:var(--text-3)">No accounts found.</div>'}</div>
+    </details>`;
+  }
+
+  if (step.type === 'eks') {
+    const entries = step.entries||[];
+    const found   = entries.filter(e=>e.clusters.length>0);
+    const errors  = entries.filter(e=>e.status==='error');
+    const total   = found.reduce((s,e)=>s+e.clusters.length,0);
+
+    const byRegion = new Map();
+    for (const e of found) {
+      if (!byRegion.has(e.regionName)) byRegion.set(e.regionName,[]);
+      byRegion.get(e.regionName).push(e);
+    }
+
+    let inner = '';
+    for (const [region, ents] of byRegion) {
+      const cnt = ents.reduce((s,e)=>s+e.clusters.length,0);
+      inner += `<details class="log-child" open>
+        <summary>
+          <span class="region-tag">${esc(region)}</span>
+          <span class="badge s" style="margin-left:4px">${cnt} cluster${cnt!==1?'s':''}</span>
+          <span class="log-child-chevron">▶</span>
+        </summary>
+        ${ents.map(e=>e.clusters.map(c=>`<div class="log-leaf-row"><span style="font-weight:600">${esc(c)}</span><span class="pmap-name">${esc(e.profileName)}</span></div>`).join('')).join('')}
+      </details>`;
+    }
+    if (!inner) inner = `<div class="log-leaf-row" style="color:var(--text-3)">No clusters found.${errors.length?` ${errors.length} regions returned access errors (normal if permissions are scoped).`:''}</div>`;
+
+    return `<details class="log-group" ${total>0?'open':''}>
+      <summary class="log-summary"><div class="step-dot ${sc}"></div><strong>${names.eks}</strong><span style="font-size:12px;color:var(--text-2);margin-left:4px">${total} cluster${total!==1?'s':''} found${errors.length?` · ${errors.length} access error${errors.length!==1?'s':''}`:''}</span><span class="log-chevron">▶</span></summary>
+      <div class="log-body">${inner}</div>
+    </details>`;
+  }
+  return '';
+}
+
+// ── Behavior ────────────────────────────────────────────────────────────────
+
+let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R', historyRetentionDays: 7 };
+let recording   = false;
+
+function fmtHotkey(a) {
+  return String(a || '')
+           .replace(/CommandOrControl/g,'⌘').replace(/CmdOrCtrl/g,'⌘')
+           .replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧')
+           .replace(/\+/g,'');
+}
+
+function populateBehavior(state) {
+  // Never overwrite a hotkey the user is in the middle of recording, or one
+  // they have recorded but not yet saved.
+  if (recording || dirty.behavior) return;
+  const cfg = state.behaviorConfig || curBehavior;
+  curBehavior = { ...curBehavior, ...cfg };
+  const r = document.querySelector(`input[name=refreshMode][value="${cfg.refreshMode}"]`);
+  if (r) r.checked = true;
+  document.getElementById('hotkey-pill').textContent = fmtHotkey(cfg.refreshHotkey);
+}
+
+function populatePrivacy(state) {
+  if (dirty.privacy) return;
+  const cfg = state.behaviorConfig || curBehavior;
+  const retEl = document.getElementById('retention-days');
+  if (retEl) retEl.value = String(cfg.historyRetentionDays || 7);
+}
+
+document.getElementById('btn-test-notif').addEventListener('click', async () => {
+  await ipcRenderer.invoke('test-notification');
+});
+
+document.getElementById('btn-refresh-now').addEventListener('click', async () => {
+  await ipcRenderer.invoke('trigger-refresh');
+});
+
+document.getElementById('btn-clear-history').addEventListener('click', async () => {
+  if (!confirm('Delete all stored run history? This cannot be undone.')) return;
+  await ipcRenderer.invoke('clear-history');
+  showHistoryList();
+  showNotice('privacy-notice');
+});
+
+document.getElementById('btn-record').addEventListener('click', async () => {
+  recording = true;
+  await ipcRenderer.invoke('set-hotkey-recording', true);
+  document.getElementById('hotkey-pill').textContent = 'Press keys…';
+  document.getElementById('hotkey-pill').classList.add('recording');
+  document.getElementById('btn-record').style.display = 'none';
+  document.getElementById('btn-cancel-record').style.display = '';
+});
+
+document.getElementById('btn-cancel-record').addEventListener('click', async () => {
+  recording = false;
+  await ipcRenderer.invoke('set-hotkey-recording', false);
+  document.getElementById('hotkey-pill').classList.remove('recording');
+  document.getElementById('btn-record').style.display = '';
+  document.getElementById('btn-cancel-record').style.display = 'none';
+  document.getElementById('hotkey-pill').textContent = fmtHotkey(curBehavior.refreshHotkey);
+});
+
+document.addEventListener('keydown', async e => {
+  if (!recording) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  if (e.key === 'Escape') { document.getElementById('btn-cancel-record').click(); return; }
+  if (['Control','Meta','Alt','Shift','CapsLock'].includes(e.key)) return;
+
+  const parts = [];
+  if (e.metaKey || e.ctrlKey) parts.push('CmdOrCtrl');
+  if (e.altKey)  parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  const KEY_MAP = { ArrowUp:'Up', ArrowDown:'Down', ArrowLeft:'Left', ArrowRight:'Right', ' ':'Space', Enter:'Return' };
+  parts.push(KEY_MAP[e.key] || (e.key.length===1 ? e.key.toUpperCase() : e.key));
+
+  const acc = parts.join('+');
+  curBehavior.refreshHotkey = acc;
+  dirty.behavior = true;
+  recording = false;
+  await ipcRenderer.invoke('set-hotkey-recording', false);
+  document.getElementById('hotkey-pill').classList.remove('recording');
+  document.getElementById('btn-record').style.display = '';
+  document.getElementById('btn-cancel-record').style.display = 'none';
+  document.getElementById('hotkey-pill').textContent = fmtHotkey(acc);
+}, true);
+
+document.getElementById('btn-save-behavior').addEventListener('click', async () => {
+  const r = document.querySelector('input[name=refreshMode]:checked');
+  if (r) curBehavior.refreshMode = r.value;
+  await ipcRenderer.invoke('save-behavior', curBehavior);
+  dirty.behavior = false;
+  showNotice('behavior-notice');
+});
+
+document.getElementById('btn-save-privacy').addEventListener('click', async () => {
+  const retEl = document.getElementById('retention-days');
+  if (retEl) curBehavior.historyRetentionDays = Number(retEl.value);
+  await ipcRenderer.invoke('save-behavior', curBehavior);
+  dirty.privacy = false;
+  showNotice('privacy-notice');
+});
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+let st = null;
+
+function apply(state) {
+  st = state;
+  populateLogin(state);
+  populateBehavior(state);
+  populatePrivacy(state);
+  updateCredentials(state);
+  updateEks(state);
+  updateHistory(state);
+}
+
+ipcRenderer.on('state-updated', (_, s) => apply(s));
+ipcRenderer.invoke('get-state').then(apply);
+
+setInterval(() => { if (st) updateCredentials(st); }, 30000);
+</script>
+</body>
+</html>

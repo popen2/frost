@@ -1,7 +1,4 @@
-import log from "electron-log/main";
-import prompt from "electron-prompt";
 import Store from "electron-store";
-import { setNextTokenRefresh } from "./aws-sso.js";
 
 export const config = new Store({
     schema: {
@@ -67,6 +64,32 @@ export const config = new Store({
                 },
             },
         },
+        profiles: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    name: { type: "string" },
+                    accountName: { type: "string" },
+                    roleName: { type: "string" },
+                    accountId: { type: "string" },
+                },
+            },
+        },
+        runHistory: {
+            type: "array",
+            items: {
+                type: "object",
+            },
+        },
+        behaviorConfig: {
+            type: "object",
+            properties: {
+                refreshMode: { type: "string" },
+                refreshHotkey: { type: "string" },
+                historyRetentionDays: { type: "number" },
+            },
+        },
     },
 });
 
@@ -75,46 +98,21 @@ export interface UserConfig {
     region: string;
 }
 
-export async function configure(): Promise<void> {
-    try {
-        const startUrl = await prompt({
-            title: "Configure AWS SSO",
-            label: "Please enter AWS SSO URL:",
-            inputAttrs: {
-                type: "url",
-                required: "true",
-            },
-            type: "input",
-            value: (config.get("startUrl") as string) || "",
-        });
-
-        if (!startUrl) {
-            log.warn("[configure] User cancelled");
-            return;
-        }
-
-        const region = await prompt({
-            title: "Configure AWS SSO",
-            label: "Please enter AWS SSO region:",
-            inputAttrs: {
-                type: "string",
-                required: "true",
-            },
-            type: "input",
-            value: (config.get("region") as string) || "us-east-1",
-        });
-
-        if (!region) {
-            log.warn("[configure] User cancelled");
-            return;
-        }
-
-        config.set("userConfig", { startUrl, region });
-        config.delete("accessToken");
-        config.delete("expiresAt");
-
-        setNextTokenRefresh();
-    } catch (err) {
-        log.error(`[configure] Error getting AWS SSO URL: ${err}`);
-    }
+export interface StoredProfile {
+    name: string;
+    accountName: string;
+    roleName: string;
+    accountId: string;
 }
+
+export interface BehaviorConfig {
+    refreshMode: "auto" | "notify";
+    refreshHotkey: string;
+    historyRetentionDays: number;
+}
+
+export const DEFAULT_BEHAVIOR: BehaviorConfig = {
+    refreshMode: "auto",
+    refreshHotkey: "CmdOrCtrl+Shift+R",
+    historyRetentionDays: 7,
+};

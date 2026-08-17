@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="light dark" />
   <title>Frost — AWS Identity Center Credentials, Automated</title>
-  <meta name="description" content="Frost is a free, open-source desktop app that automates AWS Identity Center logins, manages profiles, and discovers EKS clusters." />
+  <meta name="description" content="Frost is a free, open-source desktop app that automates AWS Identity Center logins, manages profiles, and discovers EKS clusters — with a native settings window, a global refresh hotkey, and a full history of every run." />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -22,6 +22,7 @@
     </a>
     <nav class="site-nav">
       <a href="#refresh">Refresh</a>
+      <a href="#app">App</a>
       <a href="#profiles">Profiles</a>
       <a href="#eks">EKS</a>
       <a href="download.html">Download</a>
@@ -104,6 +105,82 @@ upload: build/page-942.html
 <span class="t-dim">... credentials refresh silently ...</span>
 upload: build/page-1827.html
 <span class="t-ok">✓ done</span></code></pre>
+        </article>
+      </div>
+    </section>
+
+    <section id="app" class="section">
+      <div class="section-header">
+        <h2>Everything in one window</h2>
+        <p>
+          Frost lives in your menu bar, but it isn't a black box. A native
+          settings window lets you set things up once, then see exactly what
+          happened on every refresh.
+        </p>
+      </div>
+
+      <div class="app-shot-wrap">
+        <div class="app-shot" role="img" aria-label="Screenshot of the Frost settings window showing the Login page with SSO start URL and region fields">
+          <div class="app-titlebar">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          </div>
+          <div class="app-body">
+            <aside class="app-sidebar">
+              <div class="app-brand"><span class="app-brand-mark">✳</span> Frost</div>
+              <div class="app-navlabel">Configuration</div>
+              <div class="app-nav is-active">Login</div>
+              <div class="app-nav">Behavior</div>
+              <div class="app-nav">Privacy</div>
+              <div class="app-navlabel">Status</div>
+              <div class="app-nav">Credentials</div>
+              <div class="app-nav">EKS</div>
+              <div class="app-nav">Activity</div>
+            </aside>
+            <div class="app-main">
+              <h4>Login</h4>
+              <p class="app-sub">Connect Frost to your AWS IAM Identity Center.</p>
+              <div class="app-label">SSO Start URL</div>
+              <div class="app-field">https://acme.awsapps.com/start</div>
+              <div class="app-label">AWS Region</div>
+              <div class="app-field app-field-select">eu-west-1</div>
+              <div class="app-save">Save</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-pair">
+        <article class="card">
+          <h3>Set it up once</h3>
+          <p>
+            Paste your start URL, pick a region from the list, and you're done.
+            No prompts interrupting you later, no config files to hand-edit.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Refresh from anywhere</h3>
+          <p>
+            A global hotkey — <code>⌘⇧R</code> by default, and rebindable —
+            triggers a refresh or opens the login browser without leaving what
+            you're doing. Prefer a nudge instead? Frost can notify you rather
+            than refreshing on its own.
+          </p>
+        </article>
+        <article class="card">
+          <h3>See every run</h3>
+          <p>
+            The Activity page keeps a log of recent refreshes. Open any run to
+            see each step — token, profiles, EKS discovery — with the accounts
+            and clusters it found, and the exact error if something failed.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Private by design</h3>
+          <p>
+            Everything stays on your machine. No backend, no analytics, no
+            telemetry, no crash reporting. You choose how long run history is
+            kept, and you can erase it at any time.
+          </p>
         </article>
       </div>
     </section>

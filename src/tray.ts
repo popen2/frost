@@ -3,7 +3,7 @@ import { fileURLToPath } from "url";
 import { app, shell, Menu, Tray } from "electron";
 import log from "electron-log/main";
 import moment from "moment";
-import { config, configure } from "./config.js";
+import { config } from "./config.js";
 import { refresh } from "./aws-sso.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -21,8 +21,13 @@ const TRAY_ICON_EMPTY = path.join(
 const TRAY_UPDATE_INTERVAL_SEC = 30;
 
 let tray: Tray;
+let openDashboardCallback: (() => void) | undefined;
 
-export function updateTrayIcon() {
+export function updateTrayIcon(onOpenDashboard?: () => void) {
+    if (onOpenDashboard) {
+        openDashboardCallback = onOpenDashboard;
+    }
+
     if (!tray) {
         log.info("[updateTrayIcon] Creating tray icon");
         tray = new Tray(TRAY_ICON_FULL);
@@ -30,7 +35,7 @@ export function updateTrayIcon() {
     }
 
     log.debug("[updateTrayIcon] Updating tray icon");
-    const refreshItema = [] as Electron.MenuItemConstructorOptions[];
+    const refreshItems = [] as Electron.MenuItemConstructorOptions[];
 
     const expiresAt = config.get("expiresAt");
     if (expiresAt) {
@@ -38,14 +43,14 @@ export function updateTrayIcon() {
             expiresAt as string,
             moment.ISO_8601
         ).fromNow();
-        refreshItema.push({
+        refreshItems.push({
             label: `Next refresh ${timeUntil}`,
             enabled: false,
         });
     }
 
     if (config.get("userConfig")) {
-        refreshItema.push({
+        refreshItems.push({
             label: "Refresh now",
             click() {
                 refresh();
@@ -53,17 +58,22 @@ export function updateTrayIcon() {
         });
     }
 
-    if (refreshItema.length > 0) {
-        refreshItema.push({
+    if (refreshItems.length > 0) {
+        refreshItems.push({
             type: "separator",
         });
     }
 
     const menu = Menu.buildFromTemplate([
-        ...refreshItema,
+        ...refreshItems,
         {
-            label: "Settings...",
-            click: configure,
+            // Trailing ellipsis per platform convention: the item opens a
+            // window rather than acting immediately. Before Frost is
+            // configured there is nothing to change yet, so it invites setup.
+            label: config.get("userConfig") ? "Settings…" : "Get Started",
+            click() {
+                openDashboardCallback?.();
+            },
         },
         {
             type: "separator",

@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { app, BrowserWindow, Notification } from "electron";
 import log from "electron-log/main";
 import delay from "delay";
 import moment from "moment";
@@ -11,13 +11,49 @@ import {
     type CreateTokenCommandOutput,
 } from "@aws-sdk/client-sso-oidc";
 import { v4 as uuidv4 } from "uuid";
-import { config, UserConfig } from "./config.js";
+import {
+    config,
+    UserConfig,
+    BehaviorConfig,
+    DEFAULT_BEHAVIOR,
+} from "./config.js";
 import { refreshProfiles } from "./profiles.js";
 import { writeSsoConfig } from "./aws-config.js";
 import { updateTrayIcon } from "./tray.js";
 import { updateKubeConfig } from "./aws-eks.js";
+import {
+    startRun,
+    completeRun,
+    startTokenStep,
+    completeTokenStep,
+} from "./run-log.js";
 
 let timeoutId: NodeJS.Timeout | undefined;
+let pendingAuthResolve: (() => void) | null = null;
+
+export function hasPendingAuth(): boolean {
+    return pendingAuthResolve !== null;
+}
+
+export function triggerPendingAuth() {
+    if (pendingAuthResolve) {
+        pendingAuthResolve();
+        pendingAuthResolve = null;
+    }
+}
+
+function waitForUserTrigger(timeoutMs: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const tid = setTimeout(() => {
+            pendingAuthResolve = null;
+            reject(new Error("Timed out waiting for user to trigger auth"));
+        }, timeoutMs);
+        pendingAuthResolve = () => {
+            clearTimeout(tid);
+            resolve();
+        };
+    });
+}
 
 export function setNextTokenRefresh() {
     log.info("[setNextTokenRefresh] Setting new timeout");
@@ -33,10 +69,7 @@ export function setNextTokenRefresh() {
     const expiresAt = expiresAtConfig
         ? moment(expiresAtConfig, moment.ISO_8601)
         : now;
-    const timeoutMs = Math.max(
-        expiresAt.diff(now),
-        500
-    );
+    const timeoutMs = Math.max(expiresAt.diff(now), 500);
 
     timeoutId = setTimeout(refresh, timeoutMs);
     log.info("[setNextTokenRefresh] New timeout set to %sms", timeoutMs);
@@ -53,17 +86,38 @@ export async function refresh() {
         return;
     }
 
+    // A second refresh would overwrite the single current-run slot in run-log,
+    // stranding the first run as "in-progress" forever and writing its
+    // remaining steps onto the wrong run.
+    if (config.get("isWorking")) {
+        log.warn("[refresh] A refresh is already in progress, skipping");
+        return;
+    }
+
+    startRun();
+
     try {
         config.set("isWorking", true);
         updateTrayIcon();
 
-        const newToken = await getNewToken(userConfig);
-        log.info("[refresh] Successfully got new token");
+        startTokenStep();
+        let newToken: CreateTokenCommandOutput;
+        try {
+            newToken = await getNewToken(userConfig);
+            log.info("[refresh] Successfully got new token");
+            completeTokenStep("success");
+        } catch (tokenErr) {
+            completeTokenStep("error", `${tokenErr}`);
+            throw tokenErr;
+        }
+
         await saveToken(userConfig, newToken);
         setNextTokenRefresh();
 
         const profiles = await refreshProfiles();
         await updateKubeConfig(profiles);
+
+        completeRun("success");
     } catch (err) {
         log.error("[refresh] Error: %s", err);
         if (err instanceof Error && err.name == "InvalidClientException") {
@@ -73,6 +127,7 @@ export async function refresh() {
             );
         }
         config.set("lastError", `${err}`);
+        completeRun("error", `${err}`);
         setNextTokenRefresh();
     } finally {
         config.set("isWorking", false);
@@ -95,16 +150,36 @@ async function getNewToken(
         })
     );
 
-    log.debug("[getNewtoken] startDeviceAuthorization: %s", startAuth);
+    log.debug("[getNewToken] startDeviceAuthorization: %s", startAuth);
     const tokenExpires = moment().add(startAuth.expiresIn, "seconds");
 
+    const behavior =
+        (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
+        DEFAULT_BEHAVIOR;
+
+    if (behavior.refreshMode === "notify") {
+        const displayKey = behavior.refreshHotkey
+            .replace("CmdOrCtrl", "⌘/Ctrl")
+            .replace("Shift", "⇧")
+            .replace("Alt", "⌥");
+        log.info("[getNewToken] Notify mode: showing notification");
+        const note = new Notification({
+            title: "Frost — AWS Credentials Renewal",
+            body: `Press ${displayKey} to open the AWS login browser.`,
+        });
+        note.on("click", () => triggerPendingAuth());
+        note.show();
+        await waitForUserTrigger(startAuth.expiresIn! * 1000);
+    }
+
     log.debug("[getNewToken] Opening login window");
+    if (app.dock) await app.dock.show();
+
     let windowOpen = true;
     const window = new BrowserWindow({
         width: 550,
         height: 700,
         center: true,
-        alwaysOnTop: true,
         webPreferences: {
             nodeIntegration: false,
         },

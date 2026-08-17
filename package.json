@@ -12,7 +12,8 @@
   "main": "./dist/main.js",
   "scripts": {
     "build:icons": "copyfiles --up 1 \"./src/icons/**/TrayIcon*.png\" ./dist/",
-    "build": "tsc && npm run build:icons",
+    "build:html": "copyfiles --up 1 \"./src/dashboard.html\" ./dist/",
+    "build": "tsc && npm run build:icons && npm run build:html",
     "watch": "tsc -w",
     "lint": "eslint src",
     "start": "electron-forge start",

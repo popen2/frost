@@ -377,6 +377,17 @@ main {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+/* Always two-up on desktop — auto-fit would leave a 4-card grid as 3 + 1. */
+.grid-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .grid-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
 .card {
   background: var(--bg-elev);
   border: 1px solid var(--border);
@@ -1068,4 +1079,166 @@ main {
 .footer-meta {
   color: var(--text-faint);
   font-size: 0.9rem;
+}
+
+/* ── App window mockup (#app) ─────────────────────────────────────────────── */
+
+.app-shot-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 2.5rem;
+}
+
+.app-shot {
+  width: 100%;
+  max-width: 720px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.app-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+
+.app-titlebar .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.app-body {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  min-height: 340px;
+}
+
+.app-sidebar {
+  padding: 0.9rem 0.7rem;
+  border-right: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: var(--text);
+  padding: 0 0.5rem 0.9rem;
+}
+
+.app-brand-mark {
+  color: var(--brand-soft);
+}
+
+.app-navlabel {
+  padding: 0 0.5rem;
+  margin: 1rem 0 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.app-navlabel:first-of-type {
+  margin-top: 0;
+}
+
+.app-nav {
+  padding: 0.32rem 0.5rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.app-nav.is-active {
+  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
+  color: #fff;
+  font-weight: 600;
+}
+
+.app-main {
+  padding: 1.4rem 1.6rem;
+}
+
+.app-main h4 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.app-sub {
+  margin: 0.2rem 0 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.app-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 0.35rem;
+}
+
+.app-field {
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 1.1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.app-field-select {
+  position: relative;
+}
+
+.app-field-select::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  width: 7px;
+  height: 7px;
+  margin-top: -5px;
+  border-right: 2px solid var(--text-faint);
+  border-bottom: 2px solid var(--text-faint);
+  transform: rotate(45deg);
+}
+
+.app-save {
+  display: inline-block;
+  padding: 0.4rem 1.1rem;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .app-body {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .app-sidebar {
+    display: none;
+  }
 }

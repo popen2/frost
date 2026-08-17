@@ -9,6 +9,11 @@ import log from "electron-log/main";
 import slugify from "slugify";
 import { config, UserConfig } from "./config.js";
 import { writeAwsConfig } from "./aws-config.js";
+import {
+    startProfilesStep,
+    completeProfilesStep,
+    type ProfileEntry,
+} from "./run-log.js";
 
 const PREDEFINED_SHORT_NAMES: Record<string, string> = {
     AdministratorAccess: "admin",
@@ -25,6 +30,7 @@ const PREDEFINED_SHORT_NAMES: Record<string, string> = {
 
 export async function refreshProfiles(): Promise<Profile[]> {
     log.info("[refreshProfiles] Refreshing profiles");
+    startProfilesStep();
 
     const userConfig = config.get("userConfig") as UserConfig;
     const accessToken = config.get("accessToken") as string;
@@ -45,6 +51,29 @@ export async function refreshProfiles(): Promise<Profile[]> {
     log.info("[refreshProfiles] Roles: %s", JSON.stringify(roles));
 
     const profiles = generateProfiles(userConfig, accounts, roles);
+
+    config.set(
+        "profiles",
+        profiles.map((p) => ({
+            name: p.name,
+            accountName: p.accountName,
+            roleName: p.roleName,
+            accountId: p.contents.sso_account_id,
+        }))
+    );
+
+    const profileEntries: ProfileEntry[] = accounts.map((account) => ({
+        accountId: account.accountId!,
+        accountName: account.accountName!,
+        roles: roles
+            .filter((r) => r.accountId === account.accountId)
+            .map((r) => ({
+                roleName: r.roleName!,
+                profileName: `${shortAccountName(account.accountName!)}-${shortPermissionSetName(r.roleName!)}`,
+            })),
+    }));
+    completeProfilesStep("success", profileEntries);
+
     await writeAwsConfig(profiles);
     return profiles;
 }
