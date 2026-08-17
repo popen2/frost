@@ -1520,15 +1520,23 @@ function fmtHotkey(a) {
 // first state push arrives.
 document.getElementById('hotkey-pill').textContent = fmtHotkey(curBehavior.refreshHotkey);
 
+function radioWithValue(name, value) {
+  return Array.from(document.querySelectorAll(`input[name=${name}]`))
+    .find(input => input.value === value);
+}
+
 function populateBehavior(state) {
   // Never overwrite a hotkey the user is in the middle of recording, or one
   // they have recorded but not yet saved.
   if (recording || dirty.behavior) return;
   const cfg = state.behaviorConfig || curBehavior;
   curBehavior = { ...curBehavior, ...cfg };
-  const r = document.querySelector(`input[name=refreshMode][value="${cfg.refreshMode}"]`);
+  // Match on the value rather than building a selector out of it. A stored
+  // value carrying a quote makes querySelector throw SyntaxError, which would
+  // abort apply() halfway and leave the whole dashboard blank.
+  const r = radioWithValue('refreshMode', cfg.refreshMode);
   if (r) r.checked = true;
-  const l = document.querySelector(`input[name=loginMethod][value="${curBehavior.loginMethod}"]`);
+  const l = radioWithValue('loginMethod', curBehavior.loginMethod);
   if (l) l.checked = true;
   document.getElementById('hotkey-pill').textContent = fmtHotkey(cfg.refreshHotkey);
 }
