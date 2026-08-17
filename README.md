@@ -10,19 +10,42 @@ Once a user has successfully logged-in, Frost will add profiles with predictable
 
 When using [AWS SSO with federation](https://docs.aws.amazon.com/singlesignon/latest/userguide/samlfederationconcept.html), such as Google Workspace, Frost can refresh credentials without interrupting the user in most cases.
 
+## Platforms
+
+Frost runs on macOS, Windows and Linux.
+
+| Platform | Architectures            | Download                                    |
+| -------- | ------------------------ | ------------------------------------------- |
+| macOS    | Apple Silicon, Intel     | `.zip` (signed and notarized)                |
+| Windows  | x86-64                   | `.exe` installer                             |
+| Linux    | x86-64, ARM64            | `.zip`                                       |
+
+Frost updates itself in place on all three. Grab a build from the
+[downloads page](https://popen2.github.io/frost/download.html).
+
+Two Windows notes:
+
+-   The Windows builds are **not code-signed**, so SmartScreen warns the first
+    time you run the installer — choose *More info* → *Run anyway*.
+-   There is no ARM64 Windows build, because the bundled
+    [AWS IAM Authenticator](https://github.com/kubernetes-sigs/aws-iam-authenticator)
+    publishes none. Windows on ARM runs the x86-64 build under emulation.
+
 ## The App Window
 
-Frost runs in the menu bar (or tray). Opening it from the tray menu — or with
-the global hotkey — shows a settings window with everything in one place:
+Frost runs in the menu bar (macOS) or the notification area (Windows and
+Linux). Opening it from the tray menu — or with the global hotkey, or by
+clicking the tray icon on Windows and Linux — shows a settings window with
+everything in one place:
 
 -   **Login** — the AWS SSO start URL and region. This is all Frost needs to
     get started.
 -   **Behavior** — whether Frost refreshes credentials automatically or just
     notifies you, whether the AWS login page opens in a Frost window or in your
     default browser (where passkeys and password managers work), plus the global
-    refresh hotkey (`⌘⇧R` by default, rebindable). A **Test** button fires a
-    sample notification, which is also how you grant Frost notification
-    permission on macOS the first time.
+    refresh hotkey (`⌘⇧R` on macOS, `Ctrl+Shift+R` elsewhere, rebindable). A
+    **Test** button fires a sample notification, which is also how you grant
+    Frost notification permission on macOS the first time.
 -   **Privacy** — how long run history is kept (7 days by default), and a button
     to erase it immediately.
 -   **Credentials** — current token status, the accounts and permission sets you
@@ -131,6 +154,11 @@ To do that, add an `@region` to the account name.
 In the example above, if the `ACME Testing` account is mainly used in `eu-west-1` we'd rename it to `ACME Testing (#test @eu-west-1)`.
 
 ## Sharing `~/.aws/config` With Other Tools
+
+This document writes AWS and kubectl paths the POSIX way. On Windows they are
+under your user profile just the same — `~/.aws/config` is
+`%UserProfile%\.aws\config`, `~/.kube/config` is `%UserProfile%\.kube\config` —
+which is exactly where the AWS CLI and kubectl look for them.
 
 Frost doesn't own your `~/.aws/config` file, it only owns the profiles it wrote there. Every profile Frost generates is marked with a comment:
 

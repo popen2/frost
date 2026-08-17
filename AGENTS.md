@@ -23,6 +23,9 @@ build:
 If you add another copied asset, remember to add its `copyfiles` step to the
 `build` script — a missing step only shows up at runtime.
 
+It ships for **macOS, Windows and Linux** — see "Cross-platform gotchas" below
+before touching window chrome, tray icons, or anything path-shaped.
+
 The one renderer is the dashboard: `src/dashboard.html`, a single self-contained
 file (markup, CSS, and inline vanilla JS, no framework) that `npm run build:html`
 copies verbatim into `dist/`. It is **not** type-checked or linted — `tsc` and
@@ -133,7 +136,67 @@ will then be skipped as "not ours" rather than adopted.
 
 There is no test runner in this repo. The merge logic is pure and importable, so
 verify changes to it with a throwaway Node script against `dist/aws-config.js`
-(stub the `electron-log/main` import) rather than trusting `tsc` alone.
+(stub the `electron-log/main` import) rather than trusting `tsc` alone. Include
+a CRLF case: the parser preserves whichever line ending the file already uses,
+which is what keeps a Windows-authored config intact.
+
+## Cross-platform gotchas
+
+The app is written once and packaged per platform, so the platform branches are
+few and deliberate. Each one exists for a reason worth knowing before you
+"simplify" it:
+
+- **Window chrome** (`src/window.ts`). `titleBarStyle: "hiddenInset"` plus
+  `trafficLightPosition` are applied **only on darwin**. On Windows
+  `hiddenInset` degrades to `hidden`, which removes the title bar without
+  putting the caption buttons anywhere — the dashboard ends up closable only
+  with Alt+F4. `src/dashboard.html` mirrors the split: an inline script in
+  `<head>` stamps `document.documentElement.dataset.platform`, and
+  `html:not([data-platform="darwin"])` rules drop the 36px drag strip that
+  stands in for the hidden macOS title bar.
+- **Tray icons** (`src/tray.ts`). macOS and Linux use the `*.Template.png`
+  files — a black shape plus alpha that macOS inverts to match the menu bar.
+  Windows draws tray images verbatim, so it gets the non-template
+  `TrayIcon{Full,Empty}{,@2x}.png` instead: the same snowflakes in white on the
+  blue app badge, legible on a light or dark taskbar. Windows and Linux also
+  wire `tray.on("click")` to the dashboard, because only macOS opens the
+  context menu on a plain click.
+- **Icon assets.** `src/icons/AppIcon.ico` (Windows) and the non-template tray
+  PNGs are generated from the same vector data as `AppIcon.svg` by
+  `tools/generate-windows-icons.py` (needs Pillow). Re-run it if the artwork
+  changes; the `.icns` and `.afdesign` files remain the macOS source.
+  `build:icons` globs `TrayIcon*.png`, so both sets land in `dist/`.
+- **Hotkey rendering.** `src/hotkey.ts` renders an accelerator as `⌘⇧R` on
+  macOS and `Ctrl+Shift+R` elsewhere; `main.ts` and `aws-sso.ts` both use it for
+  notification bodies. `fmtHotkey()` in `dashboard.html` is a **hand-kept copy**
+  — the renderer can't import from `dist/` — so change the two together.
+- **Squirrel** (`src/squirrel.ts`). Windows installs go through
+  Squirrel.Windows, which means three things the other platforms don't need:
+  the install/update/uninstall command lines must be serviced and the process
+  must exit (`handleSquirrelStartup()`, called first in `main()`); the app must
+  claim the Application User Model ID Squirrel put on the Start Menu shortcut
+  (`com.squirrel.Frost.Frost`) or Windows silently drops every notification;
+  and the login item must point at `Update.exe --processStart`, because
+  `Frost.exe` lives in a versioned directory that moves on every update. The
+  AUMID is derived from maker-squirrel's `name`/`exe` in `forge.config.js` —
+  the three have to agree.
+- **Single instance.** `main()` takes `app.requestSingleInstanceLock()`. macOS
+  won't launch a second copy of a bundle anyway, but on Windows and Linux a
+  second launch would add a second tray icon; `second-instance` opens the
+  dashboard instead.
+- **Bundled authenticator** (`src/kubeconfig.ts`). The basename picks up `.exe`
+  on Windows, and `findAwsIamAuthenticator()` **probes** for the file rather
+  than assuming a layout — `extraResource` puts it in `resources/`, while the
+  packager's wholesale copy of the project directory also leaves one in
+  `resources/app/` (the only copy older builds had). The path is written into
+  the user's kubeconfig, so a wrong guess only surfaces later when kubectl runs
+  it.
+- **`~/.aws/config` writes** (`src/aws-config.ts`). Windows fails the
+  write-then-`rename` with EPERM/EBUSY while any other process has either file
+  open — an AWS CLI command mid-read, or an antivirus scanner on the temp file.
+  `renameWithRetry()` backs off a few times before giving up. The merge itself
+  is EOL-preserving already (`parseConfig` sniffs CRLF), which is what keeps a
+  Windows-authored config from being rewritten wholesale.
 
 ## Dependency gotchas
 
@@ -187,26 +250,49 @@ verify changes to it with a throwaway Node script against `dist/aws-config.js`
 
 ## AWS IAM Authenticator
 
-The `aws-iam-authenticator` binary is bundled into the app (`extraResources` in
+The `aws-iam-authenticator` binary is bundled into the app (`extraResource` in
 `forge.config.js`) so users don't need the AWS CLI. It is **not** committed —
 the build workflow downloads it at build time. The version is pinned as
 `AWS_IAM_AUTHENTICATOR_VERSION` in `.github/workflows/build.yaml`. Release
-asset naming is `aws-iam-authenticator_<version>_<os>_<arch>` (os: `darwin` |
-`linux`; arch: `amd64` | `arm64`). At runtime the path is resolved in
-`src/kubeconfig.ts` (overridable via `AWS_IAM_AUTHENTICATOR_PATH`).
+asset naming is `aws-iam-authenticator_<version>_<os>_<arch>[.exe]` (os:
+`darwin` | `linux` | `windows`; arch: `amd64` | `arm64`; `.exe` on Windows
+only). At runtime the path is resolved in `src/kubeconfig.ts` (overridable via
+`AWS_IAM_AUTHENTICATOR_PATH`).
+
+**There is no `windows_arm64` asset**, which is why the build matrix has no
+windows/arm64 row — Windows on ARM runs the x64 package under emulation. If
+upstream ever publishes one, adding the row to `build.yaml` is the only change
+needed.
+
+The packager option is `extraResource`, **singular** — the plural is
+electron-builder's spelling and electron-packager ignores it silently. It was
+plural here for a long while and nothing appeared broken, because the packager
+also copies the whole project directory (repo root included) into
+`resources/app`, so the binary arrived there by accident. Both copies now exist
+in a packaged app, and `findAwsIamAuthenticator()` probes for either. Keep that
+in mind before adding packager `ignore` rules: trimming `resources/app` is a
+good idea, but the accidental copy is what older installs are running off.
 
 ## CI / release pipeline
 
 Five workflows, with the matrix build factored out as a reusable workflow:
 
 - **`.github/workflows/build.yaml`** (reusable, `workflow_call`) — the
-  darwin/linux × x64/arm64 matrix that checks out, installs, optionally stamps
-  a version, builds, downloads the IAM authenticator, sets up the macOS
-  signing keychain, and runs either `electron-forge make` (artifact upload) or
-  `electron-forge publish` based on the `publish` input. Owns
-  `AWS_IAM_AUTHENTICATOR_VERSION` and the matrix definition. Callers should
-  pass `secrets: inherit` so it can read `MAC_CERTS`, `APPLE_API_*`, and
-  `GITHUB_TOKEN` without re-declaring them.
+  five-row build matrix (darwin and linux × x64/arm64, plus win32 x64) that
+  checks out, installs, optionally stamps a version, builds, downloads the IAM
+  authenticator, sets up the macOS signing keychain, and runs either
+  `electron-forge make` (artifact upload) or `electron-forge publish` based on
+  the `publish` input. Owns `AWS_IAM_AUTHENTICATOR_VERSION` and the matrix
+  definition. Callers should pass `secrets: inherit` so it can read
+  `MAC_CERTS`, `APPLE_API_*`, and `GITHUB_TOKEN` without re-declaring them.
+
+  The matrix is written as explicit `include` rows rather than an os × arch
+  product: `exclude` does not match reliably against object-valued dimensions,
+  and win32/arm64 has to be kept out. Two Windows-driven details in the steps:
+  the authenticator download runs under `shell: bash` (Git Bash) so one script
+  covers all three runners, and Forge is invoked through `npx` because
+  PowerShell can't execute the extensionless `./node_modules/.bin/electron-forge`
+  shell script.
 - **`.github/workflows/ci.yaml`** (🔍 Build) runs on **pull requests to `main`
   and pushes to `main`**. Lints, then calls `build.yaml` with `publish: false`
   — packages, **signs and notarizes** the macOS app, and uploads the
@@ -262,6 +348,40 @@ stable line reintroduces a high-severity advisory:
 
 When Forge 8 goes stable, move to `^8.x` and drop this section down to a note.
 
+## Windows packaging (Squirrel)
+
+`@electron-forge/maker-squirrel` builds the Windows installer; macOS and Linux
+still use `maker-zip`. Things worth knowing:
+
+- The maker's `config` is a **function of the target arch**, which is a
+  supported Forge API (`MakerBase` calls it `configOrConfigFetcher`). That is
+  how `setupExe` gets the real architecture in its name
+  (`Frost-win32-<arch>-<version>.exe`) instead of the runner's. The version is
+  read out of `package.json` at config-load time, which is correct because the
+  release pipeline stamps it there first.
+- `noMsi: true`. Squirrel would otherwise also emit an `.msi` that doesn't
+  auto-update; the `.exe` is the only artifact we ship.
+- `iconUrl` must be an **absolute HTTP URL** (Add/Remove Programs fetches it),
+  so it points at the raw `AppIcon.ico` on `main` — unlike `setupIcon`, which
+  is a local path.
+- `electron-packager` picks the icon extension per platform, so
+  `packagerConfig.icon: "./src/icons/AppIcon"` resolves to `AppIcon.ico` here.
+  That file has to exist in the source tree at package time, which is why it's
+  committed.
+- Squirrel emits `RELEASES` and a `.nupkg` alongside the installer. Those are
+  what `update-electron-app`/update.electronjs.org reads on Windows — don't
+  prune them from a release, and don't let the downloads page offer them
+  (`docs/download.html` filters them out by design).
+- Windows builds are **unsigned**: there's no certificate, and SmartScreen
+  warns on first run. `forge.config.js` reads `WINDOWS_CERTIFICATE_FILE` /
+  `WINDOWS_CERTIFICATE_PASSWORD` from the environment and feeds them to
+  `windowsSign` when set, so wiring up signing later is a workflow change only
+  — the config is inert while they're unset. Use `windowsSign`
+  (`@electron/windows-sign`), not the top-level
+  `certificateFile`/`certificatePassword` pair: electron-winstaller still
+  accepts those but documents them as legacy, and only `windowsSign` extends to
+  EV certificates and cloud signing.
+
 ## macOS signing/notarization (Forge 8)
 
 Forge 8 (via `@electron/packager` 20) uses `@electron/osx-sign` v2 and
@@ -289,3 +409,29 @@ You **cannot** launch the app, and you cannot validate macOS
 signing/notarization. Treat those as "verify in CI / on a real desktop" and say
 so explicitly rather than claiming the app works. The PR Build workflow (above)
 is what actually exercises the packaging/signing/notarization path on macOS.
+
+Windows packaging can't be exercised here either: `maker-squirrel` needs a
+Windows host, and even plain `electron-forge package --platform win32` shells
+out to `rcedit` to stamp the icon, which needs Wine off Windows.
+
+A few things that *are* checkable headlessly and worth doing, since nothing
+else covers them:
+
+- **`dashboard.html`** is neither type-checked nor linted. Its `<script>`
+  blocks can be pulled out and run in `node:vm` against a stub `document` /
+  `require("electron")`, once per `process.platform`, which catches load-time
+  breakage (a temporal dead zone, a typo) that would otherwise only show up as
+  a blank window. Stub the timers — the script installs a 30s interval that
+  keeps Node alive.
+- **`forge.config.js`** can be imported directly, and the maker instantiated
+  the same way Forge does (`new MakerSquirrel(cfg, platforms)` then
+  `await maker.prepareConfig(arch)`), to confirm the per-arch config resolves
+  and that the AUMID in `src/squirrel.ts` still matches `name`/`exe`.
+- **`docs/download.html`**'s release-parsing script runs the same way against a
+  synthetic GitHub release payload, which is how you check asset-name changes
+  without cutting a release.
+
+Windows-specific behaviour — Squirrel install/update events, the tray icon and
+click handling, toast notifications, the login item — cannot be exercised
+anywhere but a real Windows machine. The CI matrix proves the installer
+*builds*; it does not prove it installs.

@@ -15,6 +15,12 @@ import {
 } from "./config.js";
 import { pruneHistory } from "./run-log.js";
 import { openDashboard, setupIpc } from "./window.js";
+import { formatHotkey } from "./hotkey.js";
+import {
+    handleSquirrelStartup,
+    setAppUserModelId,
+    setOpenAtLogin,
+} from "./squirrel.js";
 
 let currentHotkey: string | null = null;
 let isRecordingHotkey = false;
@@ -48,6 +54,28 @@ function registerHotkey(hotkey: string) {
 
 async function main() {
     log.info("[main] =================== Starting app ===================");
+
+    // Squirrel runs the app to have it install/remove its own shortcuts. Those
+    // launches must do nothing else and exit, so this comes before any setup.
+    if (await handleSquirrelStartup()) {
+        log.info("[main] Handled Squirrel event, exiting");
+        return;
+    }
+
+    // Frost lives in the tray with no window of its own, so on Windows and
+    // Linux a second launch would just add a second tray icon nobody asked
+    // for. Hand the click to the instance that is already running instead.
+    if (!app.requestSingleInstanceLock()) {
+        log.info("[main] Another instance is already running, exiting");
+        app.quit();
+        return;
+    }
+    app.on("second-instance", () => {
+        log.info("[main] Second instance launched, opening dashboard");
+        openDashboard();
+    });
+
+    setAppUserModelId();
     config.set("isWorking", false);
 
     // One-time migration: lastRun → runHistory. The key is deleted afterwards so
@@ -109,13 +137,11 @@ async function main() {
             const behavior =
                 (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
                 DEFAULT_BEHAVIOR;
-            const displayKey = behavior.refreshHotkey
-                .replace("CmdOrCtrl", "⌘/Ctrl")
-                .replace("Shift", "⇧")
-                .replace("Alt", "⌥");
             new Notification({
                 title: "Frost — Test Notification",
-                body: `Press ${displayKey} to open the AWS login browser.`,
+                body: `Press ${formatHotkey(
+                    behavior.refreshHotkey
+                )} to open the AWS login browser.`,
             }).show();
         },
     });
@@ -128,9 +154,7 @@ async function main() {
     setNextTokenRefresh();
     updateTrayIcon(openDashboard);
 
-    app.setLoginItemSettings({
-        openAtLogin: true,
-    });
+    setOpenAtLogin(true);
 }
 
 log.errorHandler.startCatching({ showDialog: true });

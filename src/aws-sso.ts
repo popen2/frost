@@ -22,6 +22,7 @@ import { writeSsoConfig } from "./aws-config.js";
 import { updateTrayIcon } from "./tray.js";
 import { updateKubeConfig } from "./aws-eks.js";
 import { attachLoginIndicator } from "./login-indicator.js";
+import { formatHotkey } from "./hotkey.js";
 import {
     startRun,
     completeRun,
@@ -159,14 +160,12 @@ async function getNewToken(
         DEFAULT_BEHAVIOR;
 
     if (behavior.refreshMode === "notify") {
-        const displayKey = behavior.refreshHotkey
-            .replace("CmdOrCtrl", "⌘/Ctrl")
-            .replace("Shift", "⇧")
-            .replace("Alt", "⌥");
         log.info("[getNewToken] Notify mode: showing notification");
         const note = new Notification({
             title: "Frost — AWS Credentials Renewal",
-            body: `Press ${displayKey} to open the AWS login browser.`,
+            body: `Press ${formatHotkey(
+                behavior.refreshHotkey
+            )} to open the AWS login browser.`,
         });
         note.on("click", () => triggerPendingAuth());
         note.show();
