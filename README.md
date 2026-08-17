@@ -6,7 +6,7 @@ AWS SSO requires users to run the `aws sso login` command every once in while to
 
 This app tries to automate the process by only requiring the AWS SSO start URL, then getting all the rest of the details directly from AWS SSO's API.
 
-Once a user has successfully logged-in, Frost will create a `~/.aws/config` file with predictable profile names (see below).
+Once a user has successfully logged-in, Frost will add profiles with predictable profile names (see below) to `~/.aws/config`.
 
 When using [AWS SSO with federation](https://docs.aws.amazon.com/singlesignon/latest/userguide/samlfederationconcept.html), such as Google Workspace, Frost can refresh credentials without interrupting the user in most cases.
 
@@ -108,6 +108,29 @@ For example, your AWS SSO may have been created in `us-east-1` but one of the ac
 To do that, add an `@region` to the account name.
 
 In the example above, if the `ACME Testing` account is mainly used in `eu-west-1` we'd rename it to `ACME Testing (#test @eu-west-1)`.
+
+## Sharing `~/.aws/config` With Other Tools
+
+Frost doesn't own your `~/.aws/config` file, it only owns the profiles it wrote there. Every profile Frost generates is marked with a comment:
+
+```ini
+[profile main-admin]
+# frost:managed - Frost updates and removes this profile. Delete this line to take it over.
+sso_start_url = https://acme.awsapps.com/start
+sso_region = us-east-1
+sso_account_id = 123456789012
+sso_role_name = AdministratorAccess
+region = us-east-1
+output = json
+```
+
+On every refresh, Frost rewrites the profiles carrying that marker, removes the ones that no longer exist in AWS SSO, and leaves everything else in the file exactly as it is. So your `[default]` profile, hand-written profiles, `[sso-session ...]` sections and comments all survive.
+
+A few consequences worth knowing:
+
+-   **Upgrading from an older version doesn't duplicate anything.** Older versions of Frost overwrote the whole file and wrote no marker. On the first refresh after upgrading, any unmarked profile whose name and contents are exactly what Frost would generate is adopted (marked as Frost's) instead of being added a second time.
+-   **Deleting the marker takes the profile back.** Frost will stop updating or removing that profile. Note that it also stops keeping it in sync with AWS SSO.
+-   **Frost never overwrites a profile it doesn't own.** If a profile you wrote yourself happens to have the same name as a generated one, Frost keeps yours and skips writing its own (it logs a warning when this happens).
 
 ## EKS Cluster Discovery
 
