@@ -2,11 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
+    <!--
+      V8 compiles JavaScript at runtime, so Electron needs both of these to run
+      under the hardened runtime. Nothing else here is a blanket exception.
+
+      com.apple.security.cs.debugger is deliberately absent: it would let Frost
+      attach to and read the memory of other processes signed by the same team,
+      which a tray app that talks to AWS has no use for and which only widens
+      what an attacker gains by compromising it.
+    -->
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <true/>
-    <key>com.apple.security.cs.debugger</key>
     <true/>
   </dict>
 </plist>
