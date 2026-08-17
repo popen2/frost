@@ -18,9 +18,11 @@ the global hotkey — shows a settings window with everything in one place:
 -   **Login** — the AWS SSO start URL and region. This is all Frost needs to
     get started.
 -   **Behavior** — whether Frost refreshes credentials automatically or just
-    notifies you, plus the global refresh hotkey (`⌘⇧R` by default, rebindable).
-    A **Test** button fires a sample notification, which is also how you grant
-    Frost notification permission on macOS the first time.
+    notifies you, whether the AWS login page opens in a Frost window or in your
+    default browser (where passkeys and password managers work), plus the global
+    refresh hotkey (`⌘⇧R` by default, rebindable). A **Test** button fires a
+    sample notification, which is also how you grant Frost notification
+    permission on macOS the first time.
 -   **Privacy** — how long run history is kept (7 days by default), and a button
     to erase it immediately.
 -   **Credentials** — current token status, the accounts and permission sets you

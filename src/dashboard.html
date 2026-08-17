@@ -943,6 +943,26 @@
       </div>
 
       <div class="section">
+        <div class="section-title">Login Page</div>
+        <div class="section-body">
+          <label class="radio-row">
+            <input type="radio" name="loginMethod" value="popup">
+            <div>
+              <div class="radio-label">In-app window</div>
+              <div class="radio-desc">The AWS login page opens in a Frost window.</div>
+            </div>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="loginMethod" value="default_browser">
+            <div>
+              <div class="radio-label">Default browser</div>
+              <div class="radio-desc">Opens in your browser, so passkeys and password managers work. Frost keeps waiting for you to approve.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="section">
         <div class="section-title">Refresh Hotkey</div>
         <div class="section-body">
           <div class="section-row" style="display:flex;align-items:center;gap:14px;">
@@ -1149,7 +1169,7 @@ const markDirty = panel => () => { dirty[panel] = true; };
 document.getElementById('input-url').addEventListener('input', markDirty('login'));
 document.getElementById('input-region').addEventListener('change', markDirty('login'));
 document.getElementById('retention-days').addEventListener('change', markDirty('privacy'));
-document.querySelectorAll('input[name=refreshMode]')
+document.querySelectorAll('input[name=refreshMode], input[name=loginMethod]')
   .forEach(r => r.addEventListener('change', markDirty('behavior')));
 
 // ── Login ────────────────────────────────────────────────────────────────────
@@ -1449,7 +1469,7 @@ function renderLogStep(step) {
 
 // ── Behavior ────────────────────────────────────────────────────────────────
 
-let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R', historyRetentionDays: 7 };
+let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R', historyRetentionDays: 7, loginMethod:'popup' };
 let recording   = false;
 
 function fmtHotkey(a) {
@@ -1467,6 +1487,8 @@ function populateBehavior(state) {
   curBehavior = { ...curBehavior, ...cfg };
   const r = document.querySelector(`input[name=refreshMode][value="${cfg.refreshMode}"]`);
   if (r) r.checked = true;
+  const l = document.querySelector(`input[name=loginMethod][value="${curBehavior.loginMethod}"]`);
+  if (l) l.checked = true;
   document.getElementById('hotkey-pill').textContent = fmtHotkey(cfg.refreshHotkey);
 }
 
@@ -1537,6 +1559,8 @@ document.addEventListener('keydown', async e => {
 document.getElementById('btn-save-behavior').addEventListener('click', async () => {
   const r = document.querySelector('input[name=refreshMode]:checked');
   if (r) curBehavior.refreshMode = r.value;
+  const l = document.querySelector('input[name=loginMethod]:checked');
+  if (l) curBehavior.loginMethod = l.value;
   await ipcRenderer.invoke('save-behavior', curBehavior);
   dirty.behavior = false;
   showNotice('behavior-notice');

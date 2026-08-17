@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Notification } from "electron";
+import { app, BrowserWindow, Notification, shell } from "electron";
 import log from "electron-log/main";
 import delay from "delay";
 import moment from "moment";
@@ -172,27 +172,36 @@ async function getNewToken(
         await waitForUserTrigger(startAuth.expiresIn! * 1000);
     }
 
-    log.debug("[getNewToken] Opening login window");
-    if (app.dock) await app.dock.show();
-
+    // In default-browser mode there is no window to watch, so windowOpen stays
+    // true and the poll loop runs until the device code expires.
     let windowOpen = true;
-    const window = new BrowserWindow({
-        width: 550,
-        height: 700,
-        center: true,
-        webPreferences: {
-            nodeIntegration: false,
-        },
-    });
+    let window: BrowserWindow | undefined;
 
-    try {
+    if (behavior.loginMethod === "default_browser") {
+        log.debug("[getNewToken] Opening login in default browser");
+        await shell.openExternal(startAuth.verificationUriComplete!);
+    } else {
+        log.debug("[getNewToken] Opening login window");
+        if (app.dock) await app.dock.show();
+
+        window = new BrowserWindow({
+            width: 550,
+            height: 700,
+            center: true,
+            webPreferences: {
+                nodeIntegration: false,
+            },
+        });
+
         window.on("close", () => {
             log.warn("[getNewToken] Login window closed");
             windowOpen = false;
         });
 
         window.loadURL(startAuth.verificationUriComplete!);
+    }
 
+    try {
         while (moment().isBefore(tokenExpires)) {
             log.debug("[getNewToken] Sleeping for %ss", startAuth.interval!);
             await delay(startAuth.interval! * 1000);
@@ -221,7 +230,9 @@ async function getNewToken(
         }
         throw new Error("Login timed out");
     } finally {
-        window.close();
+        if (window && !window.isDestroyed()) {
+            window.close();
+        }
     }
 }
 

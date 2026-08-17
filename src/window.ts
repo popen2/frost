@@ -104,9 +104,10 @@ export function setupIpc(callbacks: IpcCallbacks) {
 
     ipcMain.handle("save-behavior", (_event, behavior: BehaviorConfig) => {
         log.info(
-            "[save-behavior] mode=%s hotkey=%s",
+            "[save-behavior] mode=%s hotkey=%s loginMethod=%s",
             behavior.refreshMode,
-            behavior.refreshHotkey
+            behavior.refreshHotkey,
+            behavior.loginMethod
         );
         config.set("behaviorConfig", behavior);
         // Apply the (possibly shortened) retention period immediately rather
