@@ -905,6 +905,26 @@
         </div>
       </div>
 
+      <div class="section">
+        <div class="section-title">Sign-in Page</div>
+        <div class="section-body">
+          <label class="radio-row">
+            <input type="radio" name="loginMethod" value="popup">
+            <div>
+              <div class="radio-label">Frost window</div>
+              <div class="radio-desc">The AWS sign-in page opens in a window inside Frost.</div>
+            </div>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="loginMethod" value="default_browser">
+            <div>
+              <div class="radio-label">Default browser</div>
+              <div class="radio-desc">The AWS sign-in page opens in your default browser, where your existing session, password manager and passkeys are already available.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <div style="display:flex;align-items:center;gap:12px;">
         <button class="btn btn-primary" id="btn-save-settings">Save &amp; Refresh</button>
         <span class="save-notice" id="settings-notice">✓ Saved</span>
@@ -1148,6 +1168,8 @@ const markDirty = panel => () => { dirty[panel] = true; };
 
 document.getElementById('input-url').addEventListener('input', markDirty('login'));
 document.getElementById('input-region').addEventListener('change', markDirty('login'));
+document.querySelectorAll('input[name=loginMethod]')
+  .forEach(r => r.addEventListener('change', markDirty('login')));
 document.getElementById('retention-days').addEventListener('change', markDirty('privacy'));
 document.querySelectorAll('input[name=refreshMode]')
   .forEach(r => r.addEventListener('change', markDirty('behavior')));
@@ -1158,6 +1180,10 @@ function populateLogin(state) {
   if (dirty.login) return;
   const u = state.userConfig || {};
   document.getElementById('input-url').value = u.startUrl || '';
+  // Anything other than an explicit default_browser means the in-app window,
+  // which is also what an unconfigured Frost does.
+  const method = u.loginMethod === 'default_browser' ? 'default_browser' : 'popup';
+  document.querySelector(`input[name=loginMethod][value="${method}"]`).checked = true;
   const sel = document.getElementById('input-region');
   if (!u.region) return;
   // Assigning an unlisted value blanks the select (selectedIndex = -1) and then
@@ -1175,7 +1201,9 @@ document.getElementById('btn-save-settings').addEventListener('click', async () 
   const startUrl = document.getElementById('input-url').value.trim();
   const region   = document.getElementById('input-region').value;
   if (!startUrl || !region) return;
-  await ipcRenderer.invoke('save-settings', { startUrl, region });
+  const picked = document.querySelector('input[name=loginMethod]:checked');
+  const loginMethod = picked ? picked.value : 'popup';
+  await ipcRenderer.invoke('save-settings', { startUrl, region, loginMethod });
   dirty.login = false;
   showNotice('settings-notice');
 });

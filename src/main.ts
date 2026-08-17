@@ -12,6 +12,7 @@ import {
     config,
     DEFAULT_BEHAVIOR,
     type BehaviorConfig,
+    type UserConfig,
 } from "./config.js";
 import { pruneHistory } from "./run-log.js";
 import { openDashboard, setupIpc } from "./window.js";
@@ -88,9 +89,19 @@ async function main() {
 
     setupIpc({
         onSaveSettings: (settings) => {
+            const previous = config.get("userConfig") as UserConfig | undefined;
             config.set("userConfig", settings);
-            config.delete("accessToken");
-            config.delete("expiresAt");
+            // The token belongs to a specific start URL and region, so those
+            // changing invalidates it. Switching only the login method leaves
+            // a valid token valid — dropping it would force a pointless
+            // re-login just to change where the sign-in page opens.
+            if (
+                previous?.startUrl !== settings.startUrl ||
+                previous?.region !== settings.region
+            ) {
+                config.delete("accessToken");
+                config.delete("expiresAt");
+            }
             setNextTokenRefresh();
             // Flip the tray's "Get Started" item to "Settings…" right away
             // rather than waiting for the next 30s tick.

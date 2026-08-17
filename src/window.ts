@@ -85,17 +85,15 @@ export function setupIpc(callbacks: IpcCallbacks) {
         return getState();
     });
 
-    ipcMain.handle(
-        "save-settings",
-        (_event, settings: { startUrl: string; region: string }) => {
-            log.info(
-                "[save-settings] Saving startUrl=%s region=%s",
-                settings.startUrl,
-                settings.region
-            );
-            callbacks.onSaveSettings(settings);
-        }
-    );
+    ipcMain.handle("save-settings", (_event, settings: UserConfig) => {
+        log.info(
+            "[save-settings] Saving startUrl=%s region=%s loginMethod=%s",
+            settings.startUrl,
+            settings.region,
+            settings.loginMethod
+        );
+        callbacks.onSaveSettings(settings);
+    });
 
     ipcMain.handle("trigger-refresh", () => {
         log.info("[trigger-refresh] Triggered from dashboard");
