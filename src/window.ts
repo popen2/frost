@@ -9,6 +9,7 @@ import {
     type BehaviorConfig,
     DEFAULT_BEHAVIOR,
 } from "./config.js";
+import { validateUserConfig } from "./user-config.js";
 import {
     runLogEmitter,
     pruneHistory,
@@ -88,13 +89,33 @@ export function setupIpc(callbacks: IpcCallbacks) {
 
     ipcMain.handle(
         "save-settings",
-        (_event, settings: { startUrl: string; region: string }) => {
+        (_event, settings: { startUrl?: unknown; region?: unknown }) => {
+            // Validate here rather than trusting the form. These two values
+            // pick the endpoint every SSO and SSO-OIDC client talks to, and a
+            // bad one otherwise surfaces several steps later as a raw SDK
+            // error in the Credentials panel.
+            const problem = validateUserConfig(settings);
+            if (problem) {
+                log.warn(
+                    "[save-settings] Rejected startUrl=%s region=%s: %s",
+                    settings.startUrl,
+                    settings.region,
+                    problem
+                );
+                return { ok: false, error: problem };
+            }
+
+            const clean: UserConfig = {
+                startUrl: (settings.startUrl as string).trim(),
+                region: settings.region as string,
+            };
             log.info(
                 "[save-settings] Saving startUrl=%s region=%s",
-                settings.startUrl,
-                settings.region
+                clean.startUrl,
+                clean.region
             );
-            callbacks.onSaveSettings(settings);
+            callbacks.onSaveSettings(clean);
+            return { ok: true };
         }
     );
 
