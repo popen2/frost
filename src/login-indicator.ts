@@ -16,13 +16,14 @@ const OVERLAY_SCRIPT = path.join(__dirname, "login-overlay.js");
 /** Must match SIGNAL in src/login-overlay.js. */
 const LOGIN_OVERLAY_SIGNAL = "__frost-login-overlay__:";
 
+/** Echoes the toast in src/login-overlay.js, for the window title. */
 const WAITING_TITLES: Record<string, string> = {
-    "security-key": "Waiting for your security key…",
-    "register-key": "Waiting for your security key…",
-    passkey: "Waiting for your passkey…",
-    "register-passkey": "Waiting for your passkey…",
-    otp: "Waiting for a one-time code…",
-    password: "Waiting for a saved password…",
+    "security-key": "Touch your security key",
+    "register-key": "Register your security key",
+    passkey: "Confirm with your passkey",
+    "register-passkey": "Create your passkey",
+    otp: "Watching for your one-time code",
+    password: "Looking for a saved login",
 };
 
 const DEFAULT_WAITING_TITLE = WAITING_TITLES["security-key"];
@@ -208,7 +209,7 @@ export function attachLoginIndicator(window: BrowserWindow) {
             const options: Electron.MessageBoxSyncOptions = {
                 type: "question",
                 title: "Frost",
-                message: "Choose an account",
+                message: "Choose an account to sign in with",
                 detail: `Your security key holds more than one credential for ${details.relyingPartyId}.`,
                 buttons: [...buttons, "Cancel"],
                 defaultId: 0,

@@ -43,14 +43,15 @@ that point. Those requests used to be invisible: the page simply sat there,
 with nothing to say it was waiting for you to touch anything.
 
 Frost now shows a small notice at the bottom of the login window for as long as
-the page is waiting — naming what it wants, and nudging you if the wait drags on
-— and it disappears the moment the request completes or is cancelled. If you've
-switched to another app in the meantime, the Dock icon (or the taskbar entry)
-asks for your attention and the window title says what's pending, so a key
-waiting for a touch can't go unnoticed.
+a request is pending — "Touch your security key", "Confirm with your passkey" —
+and it disappears the moment the request completes or is cancelled. If the wait
+drags on, the notice suggests what to try. And if you've switched to another app
+in the meantime, the Dock icon (or the taskbar entry) asks for your attention
+and the window title says what's pending, so a key waiting for a touch can't go
+unnoticed.
 
 If your key holds several credentials for the same identity provider, Frost asks
-which account to use instead of failing the sign-in.
+which account to sign in with instead of failing the sign-in.
 
 ## Profile Name Generation
 

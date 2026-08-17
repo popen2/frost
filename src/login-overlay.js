@@ -58,42 +58,48 @@
      */
     const ROAMING_TRANSPORTS = ["usb", "nfc", "ble", "smart-card"];
 
+    /**
+     * Each notice leads with the thing to do, not with the fact that Frost is
+     * blocked — the user's next move is the useful half. The nudge replaces the
+     * detail once the wait has gone on long enough to feel like something has
+     * gone wrong, and says what to try.
+     */
     const COPY = {
         "security-key": {
             icon: "key",
-            title: "Waiting for your security key",
-            detail: "Insert it, then touch its button to approve the sign-in.",
-            nudge: "Still waiting — re-insert your key and touch it again.",
+            title: "Touch your security key",
+            detail: "Insert it if you haven't, then press the button to sign in.",
+            nudge: "Still listening. Try removing the key and inserting it again.",
         },
         passkey: {
             icon: "fingerprint",
-            title: "Waiting for your passkey",
-            detail: "Approve the sign-in on your device to continue.",
-            nudge: "Still waiting for the passkey to be approved.",
+            title: "Confirm with your passkey",
+            detail: "Approve the request on your device to continue.",
+            nudge: "Still listening for your approval.",
         },
         "register-key": {
             icon: "key",
-            title: "Waiting for your security key",
-            detail: "Touch its button to finish registering the key.",
-            nudge: "Still waiting — re-insert your key and touch it again.",
+            title: "Register your security key",
+            detail: "Press the button on your key to finish setting it up.",
+            nudge: "Still listening. Try removing the key and inserting it again.",
         },
         "register-passkey": {
             icon: "fingerprint",
-            title: "Setting up your passkey",
+            title: "Create your passkey",
             detail: "Approve the request on your device to finish.",
-            nudge: "Still waiting for the request to be approved.",
+            nudge: "Still listening for your approval.",
         },
         otp: {
             icon: "lock",
-            title: "Waiting for a one-time code",
-            detail: "The page is waiting for the code sent to your device.",
-            nudge: "Still waiting for the one-time code.",
+            title: "Watching for your one-time code",
+            detail: "It will be filled in as soon as the code arrives.",
+            nudge: "Still watching. You can also type the code in yourself.",
         },
         password: {
             icon: "lock",
-            title: "Waiting for a saved password",
-            detail: "The page asked your password manager for a saved login.",
-            nudge: "Still waiting for the saved login.",
+            title: "Looking for a saved login",
+            detail: "The page asked your password manager to fill this in.",
+            nudge: "Still looking. You may need to type it in yourself.",
         },
     };
 
@@ -105,11 +111,9 @@
             "M15.1 12v2.2",
         ],
         fingerprint: [
-            "M6.3 8.4a6.6 6.6 0 0 1 11.4 3.9",
-            "M8.6 12a3.4 3.4 0 0 1 6.8 0c0 2.8-.4 5.5-1.3 8",
-            "M12 12v2.6c0 1.9-.2 3.8-.7 5.6",
-            "M5.6 15.3c.4-1.1.6-2.2.6-3.3",
-            "M17.6 15.6c-.2 1.4-.5 2.7-.9 4",
+            "M4.2 16.4c-.1-.8-.2-1.7-.2-2.5a8 8 0 0 1 16 0c0 .8-.1 1.7-.2 2.5",
+            "M6.4 18.8c.4-1.6.6-3.2.6-4.9a5 5 0 0 1 10 0c0 1.7.2 3.3.6 4.9",
+            "M9.2 20c.4-1.9.8-4 .8-6a2 2 0 0 1 4 0c0 2 .4 4.1.8 6",
         ],
         lock: [
             "M7.6 10.4V8.2a4.4 4.4 0 0 1 8.8 0v2.2",
