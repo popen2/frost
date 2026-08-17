@@ -67,7 +67,10 @@ export function updateTrayIcon(onOpenDashboard?: () => void) {
     const menu = Menu.buildFromTemplate([
         ...refreshItems,
         {
-            label: "Settings",
+            // Trailing ellipsis per platform convention: the item opens a
+            // window rather than acting immediately. Before Frost is
+            // configured there is nothing to change yet, so it invites setup.
+            label: config.get("userConfig") ? "Settings…" : "Get Started",
             click() {
                 openDashboardCallback?.();
             },

@@ -148,9 +148,9 @@ export function openDashboard() {
 
     dashboardWindow = new BrowserWindow({
         width: 760,
-        height: 520,
+        height: 620,
         minWidth: 620,
-        minHeight: 420,
+        minHeight: 500,
         title: "Frost",
         titleBarStyle: "hiddenInset",
         trafficLightPosition: { x: 12, y: 12 },

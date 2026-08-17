@@ -92,6 +92,9 @@ async function main() {
             config.delete("accessToken");
             config.delete("expiresAt");
             setNextTokenRefresh();
+            // Flip the tray's "Get Started" item to "Settings…" right away
+            // rather than waiting for the next 30s tick.
+            updateTrayIcon();
         },
         onTriggerRefresh: () => {
             refresh();
