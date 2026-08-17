@@ -1,7 +1,8 @@
 import { homedir } from "os";
-import { join, dirname } from "path";
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { readFile } from "fs/promises";
 import { existsSync } from "fs";
+import { writeFileAtomic } from "./atomic-write.js";
 import log from "electron-log/main";
 import { ClusterInfo } from "./aws-eks.js";
 import { KubeConfig } from "@kubernetes/client-node";
@@ -71,7 +72,6 @@ async function readExistingConfig(): Promise<{
 export async function writeKubeconfig(clusters: ClusterInfo[]) {
     const { path, currentKubeconfig } = await readExistingConfig();
     log.info("[writeKubeconfig] Writing %s", path);
-    await mkdir(dirname(path), { recursive: true });
 
     const namePattern = getNamePattern(clusters);
 
@@ -82,7 +82,11 @@ export async function writeKubeconfig(clusters: ClusterInfo[]) {
     const exported = JSON.parse(kubeconfig.exportConfig());
     const contents = yaml.dump(exported);
 
-    await writeFile(path, contents);
+    // Same treatment as ~/.aws/config: this file holds the user's own clusters
+    // as well as ours, so a run interrupted mid-write must not truncate it, and
+    // the permissions they chose are theirs to keep. kubectl warns about a
+    // group- or world-readable kubeconfig, so a new one starts at 0600.
+    await writeFileAtomic(path, contents, "preserve");
 }
 
 function mergeKubeConfigs(

@@ -1,11 +1,12 @@
 import { homedir } from "os";
-import { join, dirname } from "path";
-import { readFile, writeFile, rename, mkdir } from "fs/promises";
+import { join } from "path";
+import { readFile } from "fs/promises";
 import { createHash } from "crypto";
 import ini from "ini";
 import log from "electron-log/main";
 import { UserConfig } from "./config.js";
 import { Profile } from "./profiles.js";
+import { writeFileAtomic, type ModePolicy } from "./atomic-write.js";
 
 /**
  * Token Frost writes into every profile it owns. Profiles carrying it are
@@ -23,46 +24,14 @@ function awsConfigPath(subpath: string): string {
     return join(homedir(), ".aws", subpath);
 }
 
-/**
- * Windows fails the rename outright — EPERM or EBUSY — while another process
- * holds either file open, which for `~/.aws/config` means an AWS CLI command
- * mid-read or an antivirus scanner looking at the file we just wrote. Both
- * clear in milliseconds, so back off briefly rather than failing the refresh.
- */
-const RENAME_RETRY_DELAYS_MS = [20, 50, 120, 300];
-
-async function renameWithRetry(from: string, to: string) {
-    for (let attempt = 0; ; attempt++) {
-        try {
-            await rename(from, to);
-            return;
-        } catch (err) {
-            const code = (err as NodeJS.ErrnoException).code;
-            const retriable = code === "EPERM" || code === "EBUSY";
-            if (!retriable || attempt >= RENAME_RETRY_DELAYS_MS.length) {
-                throw err;
-            }
-            log.warn(
-                "[renameWithRetry] %s renaming to %s, retrying",
-                code,
-                to
-            );
-            await new Promise((done) =>
-                setTimeout(done, RENAME_RETRY_DELAYS_MS[attempt])
-            );
-        }
-    }
-}
-
-async function writeAwsConfigFile(subpath: string, contents: string) {
+async function writeAwsConfigFile(
+    subpath: string,
+    contents: string,
+    policy: ModePolicy
+) {
     const fullPath = awsConfigPath(subpath);
-    const tempPath = `${fullPath}.frost-tmp`;
     log.info("[writeAwsConfigFile] Writing %s", fullPath);
-    await mkdir(dirname(fullPath), { recursive: true });
-    // Write-then-rename so an interrupted run can't leave a truncated file
-    // behind - this file also holds profiles Frost doesn't own.
-    await writeFile(tempPath, contents);
-    await renameWithRetry(tempPath, fullPath);
+    await writeFileAtomic(fullPath, contents, policy);
 }
 
 async function readAwsConfigFile(subpath: string): Promise<string> {
@@ -88,7 +57,9 @@ export async function writeAwsConfig(profiles: Profile[]) {
         return;
     }
 
-    await writeAwsConfigFile("config", contents);
+    // The user's own file: it carries their hand-written profiles too, so
+    // whatever permissions they chose for it are theirs to keep.
+    await writeAwsConfigFile("config", contents, "preserve");
 }
 
 interface ConfigSection {
@@ -316,8 +287,13 @@ export async function writeSsoConfig(
         expiresAt,
     };
 
+    // Holds the access token, so it is always 0600 - the mode the AWS CLI
+    // gives its own cache entries. Not "preserve": versions up to v0.2.16
+    // created this file 0644, and preserving that would leave the token
+    // readable by every other account on the machine indefinitely.
     await writeAwsConfigFile(
         join("sso", "cache", filename),
-        JSON.stringify(contents)
+        JSON.stringify(contents),
+        "private"
     );
 }
