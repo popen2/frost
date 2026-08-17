@@ -8,12 +8,13 @@
  * window it looked exactly like a page that had stopped responding — the
  * complaint behind issue #17.
  *
- * This file is not part of the main-process TypeScript build. It is copied
- * verbatim into `dist/` by `npm run build:overlay` and injected — as source —
- * into every document the login window loads (see `src/login-indicator.ts`).
- * That means it runs in the page's own JavaScript world, on pages we do not
- * control (AWS, plus whatever identity provider it redirects to), so it is
- * written defensively:
+ * Unlike every other file in `src/`, this one runs **in the browser** — in the
+ * page's own JavaScript world, on pages we do not control (AWS, plus whatever
+ * identity provider it redirects to). `npm run build:overlay` compiles it on
+ * its own (`tsconfig.overlay.json`: DOM types, no Node types, plain-script
+ * output) and `src/login-indicator.ts` reads the emitted `dist/login-overlay.js`
+ * back as text to inject into every document the login window loads. Because
+ * of where it lands it is written defensively:
  *
  * -   It wraps `navigator.credentials.{get,create}` rather than guessing from
  *     page content, so the toast appears exactly while a request is pending
@@ -26,6 +27,8 @@
  *     serve a strict CSP (and sometimes Trusted Types), either of which would
  *     reject those; `createElement` plus a constructed stylesheet is not
  *     subject to either.
+ * -   It treats everything the page hands it as `unknown` and narrows. The
+ *     request options are the sign-in page's data, not ours.
  *
  * Waits are reported to the main process by logging a magic prefix to the
  * console — the only channel a script in the page's world has to the main
@@ -35,8 +38,11 @@
     "use strict";
 
     const FLAG = "__frostLoginOverlay";
-    if (window[FLAG]) return;
-    window[FLAG] = true;
+
+    /** The page's globals are not typed for our own bookkeeping. */
+    const flags = window as unknown as Record<string, boolean | undefined>;
+    if (flags[FLAG]) return;
+    flags[FLAG] = true;
 
     /** Must match LOGIN_OVERLAY_SIGNAL in src/login-indicator.ts. */
     const SIGNAL = "__frost-login-overlay__:";
@@ -49,6 +55,42 @@
 
     const credentials = window.navigator.credentials;
     if (!credentials) return;
+
+    type Kind =
+        | "security-key"
+        | "passkey"
+        | "register-key"
+        | "register-passkey"
+        | "otp"
+        | "password";
+
+    type IconName = "key" | "fingerprint" | "lock";
+
+    interface Notice {
+        icon: IconName;
+        title: string;
+        detail: string;
+        nudge: string;
+    }
+
+    /**
+     * What the page passed to `navigator.credentials` — described as loosely
+     * as it actually arrives. The DOM lib's `CredentialRequestOptions` is too
+     * optimistic to describe an argument that comes from a remote page, and
+     * too narrow: it has no `federated`, and `identity` comes and goes between
+     * TypeScript releases.
+     */
+    interface CredentialOptions {
+        mediation?: unknown;
+        publicKey?: {
+            allowCredentials?: unknown;
+            authenticatorSelection?: { authenticatorAttachment?: unknown };
+        };
+        otp?: unknown;
+        password?: unknown;
+        federated?: unknown;
+        identity?: unknown;
+    }
 
     /**
      * Transports that mean "something the user physically holds". Anything
@@ -64,7 +106,7 @@
      * detail once the wait has gone on long enough to feel like something has
      * gone wrong, and says what to try.
      */
-    const COPY = {
+    const COPY: Record<Kind, Notice> = {
         "security-key": {
             icon: "key",
             title: "Touch your security key",
@@ -103,7 +145,7 @@
         },
     };
 
-    const ICONS = {
+    const ICONS: Record<IconName, string[]> = {
         key: [
             "M8.4 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z",
             "M11.8 12H21",
@@ -250,25 +292,29 @@
 
     const SVG_NS = "http://www.w3.org/2000/svg";
 
-    let host = null;
-    let card = null;
-    let badge = null;
-    let titleText = null;
-    let detailText = null;
-    let nudgeTimer = null;
-    let leaveTimer = null;
+    interface Toast {
+        host: HTMLElement;
+        card: HTMLDivElement;
+        badge: HTMLDivElement;
+        title: HTMLDivElement;
+        detail: HTMLDivElement;
+    }
+
+    let toast: Toast | null = null;
+    let nudgeTimer = 0;
+    let leaveTimer = 0;
 
     /** Number of credential requests currently in flight. */
     let pending = 0;
 
-    function div(parent, className) {
+    function div(parent: Node, className: string): HTMLDivElement {
         const element = window.document.createElement("div");
         element.className = className;
         parent.appendChild(element);
         return element;
     }
 
-    function styleSheet() {
+    function styleSheet(): CSSStyleSheet | null {
         // Constructed stylesheets are exempt from the page's `style-src` CSP,
         // which a `<style>` element is not. Keep the element as a fallback for
         // the (unlikely) case that construction fails.
@@ -281,8 +327,8 @@
         }
     }
 
-    function build() {
-        host = window.document.createElement("frost-login-overlay");
+    function build(): Toast {
+        const host = window.document.createElement("frost-login-overlay");
         for (const [property, value] of HOST_STYLE) {
             host.style.setProperty(property, value, "important");
         }
@@ -301,15 +347,20 @@
         wrap.setAttribute("role", "status");
         wrap.setAttribute("aria-live", "polite");
 
-        card = div(wrap, "card");
-        badge = div(card, "badge");
-
+        const card = div(wrap, "card");
+        const badge = div(card, "badge");
         const text = div(card, "text");
-        titleText = div(text, "title");
-        detailText = div(text, "detail");
+
+        return {
+            host,
+            card,
+            badge,
+            title: div(text, "title"),
+            detail: div(text, "detail"),
+        };
     }
 
-    function setIcon(name) {
+    function setIcon(badge: HTMLDivElement, name: IconName) {
         badge.textContent = "";
 
         const svg = window.document.createElementNS(SVG_NS, "svg");
@@ -321,7 +372,7 @@
         svg.setAttribute("stroke-linejoin", "round");
         svg.setAttribute("aria-hidden", "true");
 
-        for (const path of ICONS[name] || ICONS.key) {
+        for (const path of ICONS[name]) {
             const element = window.document.createElementNS(SVG_NS, "path");
             element.setAttribute("d", path);
             svg.appendChild(element);
@@ -331,40 +382,41 @@
         div(badge, "ring");
     }
 
-    function show(kind) {
-        const copy = COPY[kind] || COPY["security-key"];
+    function show(kind: Kind) {
+        const copy = COPY[kind];
+        const view = toast ?? (toast = build());
 
-        if (!host) build();
-        if (!host.isConnected) {
-            (window.document.body || window.document.documentElement).appendChild(
-                host
-            );
+        if (!view.host.isConnected) {
+            const root = window.document.body || window.document.documentElement;
+            root.appendChild(view.host);
         }
 
         window.clearTimeout(leaveTimer);
         window.clearTimeout(nudgeTimer);
-        card.classList.remove("leaving");
+        view.card.classList.remove("leaving");
 
-        setIcon(copy.icon);
-        titleText.textContent = copy.title;
-        detailText.textContent = copy.detail;
+        setIcon(view.badge, copy.icon);
+        view.title.textContent = copy.title;
+        view.detail.textContent = copy.detail;
 
         nudgeTimer = window.setTimeout(() => {
-            detailText.textContent = copy.nudge;
+            view.detail.textContent = copy.nudge;
         }, NUDGE_AFTER_MS);
     }
 
     function hide() {
         window.clearTimeout(nudgeTimer);
-        if (!host || !host.isConnected) return;
 
-        card.classList.add("leaving");
+        const view = toast;
+        if (!view || !view.host.isConnected) return;
+
+        view.card.classList.add("leaving");
         leaveTimer = window.setTimeout(() => {
-            if (host && host.isConnected) host.remove();
+            if (view.host.isConnected) view.host.remove();
         }, LEAVE_MS);
     }
 
-    function signal(state, kind) {
+    function signal(state: "start" | "stop", kind: Kind | null) {
         try {
             window.console.info(SIGNAL + JSON.stringify({ state, kind }));
         } catch {
@@ -372,7 +424,7 @@
         }
     }
 
-    function begin(kind) {
+    function begin(kind: Kind) {
         pending += 1;
         show(kind);
         signal("start", kind);
@@ -385,14 +437,16 @@
         signal("stop", null);
     }
 
-    function transportsOf(publicKey) {
-        const allowed = publicKey.allowCredentials;
-        const transports = [];
-        if (!Array.isArray(allowed)) return transports;
+    function transportsOf(publicKey: { allowCredentials?: unknown }): string[] {
+        const transports: string[] = [];
+        if (!Array.isArray(publicKey.allowCredentials)) return transports;
 
-        for (const descriptor of allowed) {
-            if (!descriptor || !Array.isArray(descriptor.transports)) continue;
-            for (const transport of descriptor.transports) {
+        for (const descriptor of publicKey.allowCredentials as unknown[]) {
+            const listed = (descriptor as { transports?: unknown } | null)
+                ?.transports;
+            if (!Array.isArray(listed)) continue;
+            for (const transport of listed as unknown[]) {
+                if (typeof transport !== "string") continue;
                 if (!transports.includes(transport)) transports.push(transport);
             }
         }
@@ -403,20 +457,20 @@
      * Work out what the page is waiting for, or null if it is something the
      * user is not expected to act on right now.
      */
-    function classify(method, options) {
+    function classify(method: "get" | "create", options: unknown): Kind | null {
         if (!options || typeof options !== "object") return null;
+        const request = options as CredentialOptions;
 
         // Conditional mediation ("passkey autofill") leaves a request pending
         // for as long as the page is open, waiting for the user to pick an
         // account from a form field. Nobody is being kept waiting, so a toast
         // insisting they touch something would be a lie.
-        if (options.mediation === "conditional") return null;
+        if (request.mediation === "conditional") return null;
 
-        if (options.publicKey) {
+        if (request.publicKey && typeof request.publicKey === "object") {
             const platform =
-                options.publicKey.authenticatorSelection &&
-                options.publicKey.authenticatorSelection
-                    .authenticatorAttachment === "platform";
+                request.publicKey.authenticatorSelection
+                    ?.authenticatorAttachment === "platform";
 
             if (method === "create") {
                 return platform ? "register-passkey" : "register-key";
@@ -426,51 +480,58 @@
             // a passkey request; anything else — including a request with no
             // allow-list at all — can be answered by a key in a USB port,
             // which is the case that most needs explaining.
-            const transports = transportsOf(options.publicKey);
+            const transports = transportsOf(request.publicKey);
             const roaming = transports.some((transport) =>
                 ROAMING_TRANSPORTS.includes(transport)
             );
-            return transports.length > 0 && !roaming ? "passkey" : "security-key";
+            return transports.length > 0 && !roaming
+                ? "passkey"
+                : "security-key";
         }
 
-        if (options.otp) return "otp";
-        if (options.password || options.federated || options.identity) {
+        if (request.otp) return "otp";
+        if (request.password || request.federated || request.identity) {
             return "password";
         }
         return null;
     }
 
-    function patch(method) {
-        const original = credentials[method];
-        if (typeof original !== "function") return;
+    type AnyCall = (this: unknown, ...args: unknown[]) => unknown;
 
-        const wrapped = function (options) {
-            const kind = classify(method, options);
-            if (!kind) return original.apply(this, arguments);
+    function patch(method: "get" | "create") {
+        const container = credentials as unknown as Record<string, unknown>;
+        const original = container[method];
+        if (typeof original !== "function") return;
+        const call = original as AnyCall;
+
+        const wrapped = function (this: unknown, ...args: unknown[]): unknown {
+            const kind = classify(method, args[0]);
+            if (!kind) return call.apply(this, args);
 
             begin(kind);
 
             // Call through synchronously: WebAuthn requests are made from a
             // click handler and deferring would spend the user activation.
-            let result;
+            let result: unknown;
             try {
-                result = original.apply(this, arguments);
+                result = call.apply(this, args);
             } catch (err) {
                 end();
                 throw err;
             }
 
-            if (!result || typeof result.then !== "function") {
+            const settled = result as PromiseLike<unknown> | null;
+            if (!settled || typeof settled.then !== "function") {
                 end();
                 return result;
             }
 
-            return result.then(
+            return settled.then(
                 (value) => {
                     end();
                     return value;
                 },
-                (err) => {
+                (err: unknown) => {
                     end();
                     throw err;
                 }
@@ -478,7 +539,7 @@
         };
 
         try {
-            credentials[method] = wrapped;
+            container[method] = wrapped;
         } catch {
             // Frozen `navigator.credentials`: nothing to do but stay quiet and
             // leave the page working exactly as it did before.
