@@ -81,15 +81,62 @@ function pushStateUpdate() {
     }, STATE_PUSH_DEBOUNCE_MS);
 }
 
+/**
+ * Whether an IPC call came from the dashboard's own top-level frame.
+ *
+ * Nothing else can reach these handlers as things stand: the login window has
+ * no preload script and runs with context isolation, so the AWS and identity
+ * provider pages it renders have no `ipcRenderer` at all. The check is here so
+ * that stays true by construction - the contextIsolation migration will add a
+ * preload bridge, and a bridge that arrives later inherits this rather than
+ * needing someone to remember it.
+ */
+function isFromDashboard(
+    event: Electron.IpcMainInvokeEvent,
+    channel: string
+): boolean {
+    const sender = event.senderFrame;
+    if (
+        dashboardWindow &&
+        !dashboardWindow.isDestroyed() &&
+        sender &&
+        sender === dashboardWindow.webContents.mainFrame
+    ) {
+        return true;
+    }
+
+    log.warn(
+        "[ipc] Ignoring %s from an unexpected frame: %s",
+        channel,
+        sender?.url ?? "<gone>"
+    );
+    return false;
+}
+
+function handleFromDashboard<A extends unknown[]>(
+    channel: string,
+    listener: (...args: A) => unknown
+) {
+    ipcMain.handle(channel, (event, ...args) => {
+        if (!isFromDashboard(event, channel)) {
+            // Thrown rather than returned: invoke() rejects in the renderer, so
+            // a caller that reads a result - save-settings answers {ok} - can
+            // never read a refusal as success.
+            throw new Error(`${channel} is not available from this window`);
+        }
+        return listener(...(args as A));
+    });
+}
+
 export function setupIpc(callbacks: IpcCallbacks) {
-    ipcMain.handle("get-state", () => {
+    handleFromDashboard("get-state", () => {
         log.debug("[get-state] Returning state to dashboard");
         return getState();
     });
 
-    ipcMain.handle(
+    handleFromDashboard(
         "save-settings",
-        (_event, settings: { startUrl?: unknown; region?: unknown }) => {
+        (settings: { startUrl?: unknown; region?: unknown }) => {
             // Validate here rather than trusting the form. These two values
             // pick the endpoint every SSO and SSO-OIDC client talks to, and a
             // bad one otherwise surfaces several steps later as a raw SDK
@@ -119,12 +166,12 @@ export function setupIpc(callbacks: IpcCallbacks) {
         }
     );
 
-    ipcMain.handle("trigger-refresh", () => {
+    handleFromDashboard("trigger-refresh", () => {
         log.info("[trigger-refresh] Triggered from dashboard");
         callbacks.onTriggerRefresh();
     });
 
-    ipcMain.handle("save-behavior", (_event, behavior: BehaviorConfig) => {
+    handleFromDashboard("save-behavior", (behavior: BehaviorConfig) => {
         log.info(
             "[save-behavior] mode=%s hotkey=%s loginMethod=%s",
             behavior.refreshMode,
@@ -140,16 +187,16 @@ export function setupIpc(callbacks: IpcCallbacks) {
         callbacks.onSaveBehavior(behavior);
     });
 
-    ipcMain.handle("clear-history", () => {
+    handleFromDashboard("clear-history", () => {
         log.info("[clear-history] Deleting all run history");
         clearHistory();
     });
 
-    ipcMain.handle("set-hotkey-recording", (_event, recording: boolean) => {
+    handleFromDashboard("set-hotkey-recording", (recording: boolean) => {
         callbacks.onSetHotkeyRecording(recording);
     });
 
-    ipcMain.handle("test-notification", () => {
+    handleFromDashboard("test-notification", () => {
         callbacks.onTestNotification();
     });
 
