@@ -54,20 +54,42 @@ jobs:
       # invokes, and Windows on ARM emulates x64 processes transparently —
       # while the app itself, which is where the CPU and battery actually go,
       # stays native.
+      #
+      # `authenticator_sha256` pins the exact bytes of the aws-iam-authenticator
+      # asset for that row. GitHub release assets are mutable, and this binary is
+      # bundled into a signed, notarized app and written into every user's
+      # kubeconfig as the exec credential plugin - so kubectl runs it with their
+      # AWS profile in the environment. A tag alone is not a strong enough pin.
+      #
+      # To refresh after bumping AWS_IAM_AUTHENTICATOR_VERSION:
+      #
+      #   V=0.7.16
+      #   for t in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64 windows_amd64.exe; do
+      #     curl -fsSL "https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${V}/aws-iam-authenticator_${V}_${t}" \
+      #       | shasum -a 256 | sed "s/-/${t}/"
+      #   done
+      #
+      # win32/arm64 shares the windows_amd64 asset, so it shares its checksum.
       matrix:
         include:
           - os: { name: darwin, runs-on: macos-latest, aws: darwin, exe: "" }
             arch: { name: x86_64, aws: amd64, electron: x64 }
+            authenticator_sha256: 6a3472a37747551a3b9ad7d3cfdb029862088e7dd21f8d282fe5e7120dd1f85e
           - os: { name: darwin, runs-on: macos-latest, aws: darwin, exe: "" }
             arch: { name: arm64, aws: arm64, electron: arm64 }
+            authenticator_sha256: 7f0703556b9453150218fd115676ede45d8545cb118ecbe9b7c3adab6a51a411
           - os: { name: linux, runs-on: ubuntu-latest, aws: linux, exe: "" }
             arch: { name: x86_64, aws: amd64, electron: x64 }
+            authenticator_sha256: c9586953372361f4760cc5cb33bc2a0c7992efd15d6028c2bde45d46a724b369
           - os: { name: linux, runs-on: ubuntu-latest, aws: linux, exe: "" }
             arch: { name: arm64, aws: arm64, electron: arm64 }
+            authenticator_sha256: 829f48f0d71da8aa43d5ee252f9458c9c51dfeb4089c14cf4f19bcb1838f87e2
           - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
             arch: { name: x86_64, aws: amd64, electron: x64 }
+            authenticator_sha256: 1fb1a49bbcc5ad3ee4da8796d03fe9cd90777c5be9e812a95c83ce165e35618f
           - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
             arch: { name: arm64, aws: amd64, electron: arm64 }
+            authenticator_sha256: 1fb1a49bbcc5ad3ee4da8796d03fe9cd90777c5be9e812a95c83ce165e35618f
     runs-on: ${{ matrix.os.runs-on }}
     steps:
       - name: 📥 Checkout code
@@ -95,12 +117,28 @@ jobs:
       - name: ⬇️ Download aws-iam-authenticator
         # Git Bash on the Windows runner, so one script covers all three.
         shell: bash
+        env:
+          EXPECTED: ${{ matrix.authenticator_sha256 }}
         run: |
           URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${{ matrix.os.aws }}_${{ matrix.arch.aws }}${{ matrix.os.exe }}"
           TARGET="aws-iam-authenticator${{ matrix.os.exe }}"
           # -f so a missing asset fails here instead of packaging GitHub's 404
           # page as the binary.
           curl -fL "${URL}" -o "${TARGET}"
+
+          # Node rather than sha256sum or shasum: those are spelled differently
+          # across the three runners, and setup-node has already guaranteed this
+          # one is here.
+          ACTUAL="$(node -e 'const {createHash}=require("crypto"),{readFileSync}=require("fs");process.stdout.write(createHash("sha256").update(readFileSync(process.argv[1])).digest("hex"))' "${TARGET}")"
+          if [ "${ACTUAL}" != "${EXPECTED}" ]; then
+            echo "::error::aws-iam-authenticator ${AWS_IAM_AUTHENTICATOR_VERSION} ${{ matrix.os.aws }}_${{ matrix.arch.aws }} does not match its pinned checksum"
+            echo "  expected ${EXPECTED}"
+            echo "  actual   ${ACTUAL}"
+            echo "  from     ${URL}"
+            exit 1
+          fi
+          echo "aws-iam-authenticator checksum verified: ${ACTUAL}"
+
           chmod a+x "${TARGET}"
 
       # Deliberately after `npm ci` and `npm run build` in the file, but gated
