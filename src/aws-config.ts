@@ -280,10 +280,9 @@ export async function writeSsoConfig(
         expiresAt,
     };
 
-    // Holds the access token, so it is always 0600 - the mode the AWS CLI
-    // gives its own cache entries. Deliberately not preserving what is there:
-    // versions up to v0.2.16 created this file 0644, and carrying that forward
-    // would leave the token readable by every other account on the machine.
+    // Holds the access token, so always 0600 - not "whatever is there", since
+    // v0.2.16 created this file 0644 and carrying that forward would leave the
+    // token readable by every other account on the machine.
     const fullPath = awsConfigPath(join("sso", "cache", filename));
     log.info("[writeSsoConfig] Writing %s", fullPath);
     await writeFile(fullPath, JSON.stringify(contents), {

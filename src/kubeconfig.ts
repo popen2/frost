@@ -82,10 +82,8 @@ export async function writeKubeconfig(clusters: ClusterInfo[]) {
     const exported = JSON.parse(kubeconfig.exportConfig());
     const contents = yaml.dump(exported);
 
-    // Same treatment as ~/.aws/config: this file holds the user's own clusters
-    // as well as ours, so a run interrupted mid-write must not truncate it, and
-    // the permissions they chose are theirs to keep. kubectl warns about a
-    // group- or world-readable kubeconfig, so a new one starts at 0600.
+    // Holds the user's own clusters as well as ours, so an interrupted run
+    // must not truncate it and their permissions are theirs to keep.
     await writeFilePreservingMode(path, contents);
 }
 
