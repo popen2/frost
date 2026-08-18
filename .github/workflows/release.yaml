@@ -29,7 +29,7 @@ jobs:
     name: 🔖 Resolve draft release
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     outputs:
       tag: ${{ steps.draft.outputs.tag }}
       version: ${{ steps.draft.outputs.version }}

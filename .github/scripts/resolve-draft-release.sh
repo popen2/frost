@@ -19,7 +19,7 @@ else
 fi
 
 if [ -z "${TAG}" ]; then
-    echo "::error::No draft release found${WANTED:+ for ${WANTED}}. release-drafter creates one on each push to main."
+    echo "::error::No draft release found${WANTED:+ for ${WANTED}}. Needs a push to main to create one, and contents: write to see it."
     exit 1
 fi
 
