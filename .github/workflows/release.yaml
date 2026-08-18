@@ -37,7 +37,8 @@ jobs:
     needs:
       - prep
     uses: ./.github/workflows/build.yaml
-    # The publisher creates the GitHub release and uploads to it.
+    # Each matrix job uploads its distributables to the release this tag
+    # belongs to.
     permissions:
       contents: write
     secrets: inherit

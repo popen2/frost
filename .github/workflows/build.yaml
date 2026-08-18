@@ -9,8 +9,9 @@ on:
     inputs:
       publish:
         description: >-
-          If true, run `electron-forge publish` (release). If false, run
-          `electron-forge make` and upload the distributables as artifacts.
+          If true, upload the distributables to the `v<version>` GitHub
+          release. If false, upload them as workflow artifacts instead. Either
+          way the build itself is the same `electron-forge make`.
         type: boolean
         default: false
       sign:
@@ -176,8 +177,11 @@ jobs:
       # unset the package is left unsigned rather than half-configured, because
       # @electron/osx-sign fails outright when asked to sign with an identity
       # that is not in the keychain.
+      #
+      # This runs for releases too. `electron-forge publish` would make the same
+      # distributables and then upload them itself, but its GitHub publisher is
+      # unusable here - see the upload step below.
       - name: 🛠️ Make app (sign + notarize)
-        if: ${{ !inputs.publish }}
         env:
           FROST_SIGN: ${{ inputs.sign }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -185,15 +189,45 @@ jobs:
         run: |
           npx --no-install electron-forge make --arch ${{ matrix.arch.electron }}
 
-      - name: 🚀 Publish app
+      # Uploaded with the GitHub CLI rather than `electron-forge publish`.
+      # @electron-forge/publisher-github hand-sets a `content-length` header on
+      # its Octokit asset upload, and `electron-forge publish` also installs
+      # undici's EnvHttpProxyAgent as the global fetch dispatcher (unconditional
+      # in @electron/get 5's initializeProxy, which Forge's CLI calls at
+      # startup). Node's built-in fetch appends its own Content-Length to the
+      # one the publisher set, and undici 7 - unlike the undici Node bundles -
+      # rejects the resulting "<n>, <n>" with "invalid content-length header"
+      # before the request leaves the machine. That took down the whole v0.3.0
+      # release matrix, and none of the three pieces are ours to fix.
+      #
+      # The release itself already exists: release.yaml only runs on a pushed
+      # tag, which is created by publishing the release-drafter draft. So there
+      # is nothing left for the publisher to do that `gh release upload` does
+      # not, and --clobber makes a re-run of a failed job idempotent.
+      - name: 🚀 Upload to release
         if: ${{ inputs.publish }}
+        # Git Bash on the Windows runner, so one script covers all three.
+        shell: bash
         env:
-          FROST_SIGN: ${{ inputs.sign }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v${{ inputs.version }}
         run: |
-          npx --no-install electron-forge publish --arch ${{ matrix.arch.electron }}
+          # -print0 rather than a glob: the artifact names are ours, but the
+          # runner's checkout path is not.
+          assets=()
+          while IFS= read -r -d '' asset; do
+            assets+=("${asset}")
+          done < <(find out/make -type f -print0)
+
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "::error::No distributables found under out/make"
+            exit 1
+          fi
+
+          printf 'Uploading to %s:\n' "${TAG}"
+          printf '  %s\n' "${assets[@]}"
+          gh release upload "${TAG}" "${assets[@]}" --clobber
 
       - name: 📤 Upload distributables
         if: ${{ !inputs.publish }}
