@@ -26,7 +26,7 @@ If you add another copied asset, remember to add its `copyfiles` step to the
 It ships for **macOS, Windows and Linux** — see "Cross-platform gotchas" below
 before touching window chrome, tray icons, or anything path-shaped.
 
-Four small modules exist because they hold a decision that is easy to undo by
+Five small modules exist because they hold a decision that is easy to undo by
 accident. Prefer them over doing the thing inline:
 
 - **`src/atomic-write.ts`** — `writeFilePreservingMode()` for files the user
@@ -45,6 +45,13 @@ accident. Prefer them over doing the thing inline:
 - **`src/run-log.ts`** — the per-run step log the Activity panel renders. One
   run is in flight at a time; `refresh()` guards on `isWorking` because a second
   run would overwrite the current-run slot.
+- **`src/browsing-data.ts`** — `clearBrowsingData()` behind the Privacy panel's
+  "Clear cookies and local storage". The login window takes no partition, so
+  everything AWS and the identity provider store lands in
+  `session.defaultSession`; clear it there, with `clearData()` (every
+  BrowsingDataRemover type, every origin) plus `clearAuthCache()`, which is not
+  covered by it. It deliberately leaves the electron-store alone — the point of
+  the button is to sign out *without* resetting the SSO settings.
 
 The one renderer is the dashboard: `src/dashboard.html`, a single self-contained
 file (markup, CSS, and inline vanilla JS, no framework) that `npm run build:html`
