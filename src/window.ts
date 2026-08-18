@@ -237,8 +237,13 @@ export function openDashboard() {
             : {}),
         center: true,
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
+            // The renderer gets no Node and no direct ipcRenderer; everything
+            // it can do is the named surface in preload.cts. `.cjs` because a
+            // sandboxed preload must be CommonJS - see that file.
+            preload: path.join(__dirname, "preload.cjs"),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
         },
     });
 
