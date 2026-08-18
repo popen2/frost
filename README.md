@@ -51,12 +51,12 @@ everything in one place:
     default browser (where passkeys and password managers work), plus the global
     refresh hotkey (`⌘⇧R` on macOS, `Ctrl+Shift+R` elsewhere, rebindable). A
     **Test** button fires a sample notification, which is also how you grant
-    Frost notification permission on macOS the first time.
--   **Privacy** — how long run history is kept (7 days by default), a button to
-    erase it immediately, and a **Clear Cookies** button that wipes the cookies
-    and local storage of the AWS login page and your identity provider so the
-    next sign-in starts fresh — useful for switching accounts or shaking off a
-    stuck login, and it leaves your start URL, region, and profiles alone.
+    Frost notification permission on macOS the first time, and **Clear
+    Cookies** wipes the cookies and local storage the in-app login window keeps
+    — for switching accounts or shaking off a stuck login page — without
+    touching your start URL, region, or profiles.
+-   **Privacy** — how long run history is kept (7 days by default), and a button
+    to erase it immediately.
 -   **Credentials** — current token status, the accounts and permission sets you
     can access, and a **Refresh Now** button.
 -   **EKS** — the clusters discovered on the last scan.

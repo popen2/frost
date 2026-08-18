@@ -45,11 +45,11 @@ accident. Prefer them over doing the thing inline:
 - **`src/run-log.ts`** — the per-run step log the Activity panel renders. One
   run is in flight at a time; `refresh()` guards on `isWorking` because a second
   run would overwrite the current-run slot.
-- **`src/browsing-data.ts`** — `clearBrowsingData()`, behind the Privacy
-  panel's "Clear cookies and local storage". The login window takes no
+- **`src/browsing-data.ts`** — `clearBrowsingData()`, behind Behavior → Login
+  Page's "Clear cookies and local storage". The login window takes no
   partition, so it clears `session.defaultSession`: `clearData()` plus
   `clearAuthCache()`, which that does not cover. The electron-store stays — the
-  point is to sign out *without* resetting the SSO settings.
+  point is to start the next login clean *without* resetting the SSO settings.
 
 The one renderer is the dashboard: `src/dashboard.html`, a single self-contained
 file (markup, CSS, and inline vanilla JS, no framework) that `npm run build:html`
