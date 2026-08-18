@@ -28,8 +28,11 @@ jobs:
   prep:
     name: 🔖 Resolve draft release
     runs-on: ubuntu-latest
+    # write, not read: the releases API only lists *draft* releases to callers
+    # with push access, so a read-only token sees an empty list and this job
+    # reports the draft as missing.
     permissions:
-      contents: read
+      contents: write
     outputs:
       tag: ${{ steps.draft.outputs.tag }}
       version: ${{ steps.draft.outputs.version }}
