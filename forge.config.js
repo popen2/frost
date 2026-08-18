@@ -148,17 +148,10 @@ export default {
         },
     ],
 
-    publishers: [
-        {
-            name: "@electron-forge/publisher-github",
-            config: {
-                repository: {
-                    owner: "popen2",
-                    name: "frost",
-                },
-            },
-        },
-    ],
+    // No `publishers`. The release workflow runs `electron-forge make` and
+    // uploads out/make with `gh release upload` — see the "Upload to release"
+    // step in .github/workflows/build.yaml for why the GitHub publisher is not
+    // usable here.
 
     hooks: {
         /**
@@ -173,9 +166,10 @@ export default {
          * `<id>-<version>-full.nupkg`, and the id already carries the
          * architecture (see squirrelPackageName).
          *
-         * postMake is a mutating hook — the returned results are what the
-         * publisher uploads — so the renamed path has to go back into
-         * `artifacts`.
+         * The rename on disk is what the upload picks up (it walks `out/make`),
+         * but postMake is a mutating hook whose return value is the artifact
+         * list Forge reports, so the renamed path goes back into `artifacts`
+         * too rather than leaving the two out of step.
          */
         async postMake(_forgeConfig, makeResults) {
             return Promise.all(

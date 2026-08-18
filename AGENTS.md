@@ -328,11 +328,28 @@ Five workflows, with the matrix build factored out as a reusable workflow:
 - **`.github/workflows/build.yaml`** (reusable, `workflow_call`) — the
   six-row build matrix (darwin, linux and win32 × x64/arm64) that checks out,
   installs, optionally stamps a version, builds, downloads the IAM
-  authenticator, sets up the macOS signing keychain, and runs either
-  `electron-forge make` (artifact upload) or `electron-forge publish` based on
-  the `publish` input. Owns `AWS_IAM_AUTHENTICATOR_VERSION` and the matrix
+  authenticator, sets up the macOS signing keychain, and runs
+  `electron-forge make`. The `publish` input then decides where `out/make`
+  goes: to the `v<version>` GitHub release via `gh release upload --clobber`,
+  or to workflow artifacts. Owns `AWS_IAM_AUTHENTICATOR_VERSION` and the matrix
   definition. Callers should pass `secrets: inherit` so it can read
   `MAC_CERTS`, `APPLE_API_*`, and `GITHUB_TOKEN` without re-declaring them.
+
+  **There is no Forge publisher, and `electron-forge publish` must not come
+  back.** `@electron-forge/publisher-github` hand-sets a `content-length`
+  header on its Octokit asset upload, and `electron-forge publish` installs
+  undici's `EnvHttpProxyAgent` as the global fetch dispatcher on the way in
+  (unconditional in `@electron/get` 5's `initializeProxy()`, which Forge's CLI
+  calls at startup — version 3, which Forge 7 pulled, bootstrapped
+  `global-agent` instead and left `fetch` alone). Node's built-in fetch appends
+  its own `Content-Length` to the publisher's, and undici 7 rejects the
+  resulting `"<n>, <n>"` with `invalid content-length header` where the undici
+  Node bundles only `parseInt` it. The request never leaves the machine;
+  Octokit re-wraps it as a 500 and `@octokit/plugin-retry` burns three retries
+  on it. That failed every job of the v0.3.0 release matrix, and all three
+  pieces are upstream. `gh release upload` sidesteps the lot, and the release
+  already exists by then — release.yaml only fires on a pushed tag, which comes
+  from publishing the release-drafter draft.
 
   Two inputs beyond `publish`/`version` are load-bearing:
 
