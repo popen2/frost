@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>App Window & Tray — Frost Documentation</title>
+  <meta name="description" content="A tour of the Frost settings window — its six pages — and the tray menu it lives behind." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">How Frost works</p>
+      <h1>App window &amp; tray</h1>
+      <p class="doc-lead">Frost has no main window. It sits in the menu bar or notification area, and opens a single settings window with configuration on one side and live status on the other.</p>
+
+      <h2 id="tray">The tray</h2>
+      <p>
+        Frost's snowflake sits in the macOS menu bar or the Windows/Linux
+        notification area. The icon fills in when Frost is idle and empties while
+        a refresh is running, so a glance tells you whether something is
+        happening. The menu holds:
+      </p>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Item</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td>Next refresh <em>in 7 hours</em></td><td>Not clickable — when the current token expires, and therefore when Frost will refresh. Updates every 30 seconds.</td></tr>
+            <tr><td>Refresh now</td><td>Starts a refresh immediately. Only shown once Frost is configured.</td></tr>
+            <tr><td>Settings… / Get Started</td><td>Opens the app window. Reads <em>Get Started</em> until you have saved a start URL.</td></tr>
+            <tr><td>About Frost</td><td>Opens this website in your browser.</td></tr>
+            <tr><td>Quit</td><td>Stops Frost. Nothing refreshes while it is not running.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        On Windows and Linux a left click on the icon opens the app window
+        directly and the menu is on the right click; on macOS a click opens the
+        menu.
+      </p>
+
+      <h2 id="window">The app window</h2>
+      <p>
+        One window, six pages, split into what you configure and what Frost
+        found:
+      </p>
+      <div class="app-shot-wrap">
+        <div class="app-shot" role="img" aria-label="The Frost app window: a sidebar with Login, Behavior, Privacy, Credentials, EKS and Activity, showing the Login page">
+          <div class="app-titlebar">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          </div>
+          <div class="app-body">
+            <aside class="app-sidebar">
+              <div class="app-brand"><span class="app-brand-mark">✳</span> Frost</div>
+              <div class="app-navlabel">Configuration</div>
+              <div class="app-nav is-active">Login</div>
+              <div class="app-nav">Behavior</div>
+              <div class="app-nav">Privacy</div>
+              <div class="app-navlabel">Status</div>
+              <div class="app-nav">Credentials</div>
+              <div class="app-nav">EKS</div>
+              <div class="app-nav">Activity</div>
+            </aside>
+            <div class="app-main">
+              <h4>Login</h4>
+              <p class="app-sub">Connect Frost to your AWS IAM Identity Center.</p>
+              <div class="app-label">SSO Start URL</div>
+              <div class="app-field">https://acme.awsapps.com/start</div>
+              <div class="app-label">AWS Region</div>
+              <div class="app-field app-field-select">eu-west-1</div>
+              <div class="app-save">Save</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p>
+        Closing the window does not quit Frost — it keeps running in the tray.
+        Every page updates live while a refresh runs, except for a form you are
+        in the middle of editing: unsaved changes are never overwritten by an
+        incoming update.
+      </p>
+
+      <h2 id="configuration">Configuration pages</h2>
+
+      <h3>Login</h3>
+      <p>
+        The SSO start URL and the region your Identity Center lives in — the two
+        things Frost genuinely needs. Saving them clears the current token and
+        starts a fresh refresh.
+        <a href="settings-login.html">Login settings →</a>
+      </p>
+
+      <h3>Behavior</h3>
+      <p>
+        Whether Frost opens the login page by itself or notifies you first, where
+        that page opens, and the global refresh hotkey. There is a
+        <strong>Test</strong> button for notifications, which doubles as the way
+        to grant Frost notification permission on macOS, and a
+        <strong>Clear Cookies</strong> button that resets the login window's
+        browser state.
+        <a href="settings-behavior.html">Behavior settings →</a>
+      </p>
+
+      <h3>Privacy</h3>
+      <p>
+        How long run history and log files are kept, and a button that erases the
+        history immediately.
+        <a href="settings-privacy.html">Privacy settings →</a>
+      </p>
+
+      <h2 id="status">Status pages</h2>
+
+      <h3>Credentials</h3>
+      <p>
+        The state of the current token — active with an expiry time, expired,
+        refreshing, or failed with the exact error — and a <strong>Refresh
+        Now</strong> button. Below that, every account you can reach, with its
+        account id and a badge showing how many permission sets you have in it.
+        Expand an account to see each permission set alongside the profile name
+        Frost wrote for it, which is the fastest way to find the name to pass to
+        <code>--profile</code>.
+      </p>
+
+      <h3>EKS</h3>
+      <p>
+        The clusters found on the last scan, as a table of cluster, profile and
+        region. Empty until the first refresh completes; if it stays empty, the
+        Activity page shows which regions returned access errors.
+        <a href="eks.html">EKS discovery →</a>
+      </p>
+
+      <h3>Activity</h3>
+      <p>
+        A list of recent refresh runs, newest first, with status and duration.
+        Open one to see the three steps, the accounts and clusters each found,
+        and the error if it failed.
+        <a href="activity.html">Activity &amp; logs →</a>
+      </p>
+
+      <h2 id="live">Live updates</h2>
+      <p>
+        The window is driven by Frost's own state rather than polled: start a
+        refresh and you can watch the steps appear, the accounts fill in, and the
+        cluster table populate. Two things are deliberately protected from those
+        updates — a form with unsaved edits, and an expanded account or step you
+        are reading — so nothing collapses or reverts under you mid-run.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

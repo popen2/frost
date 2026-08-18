@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Profile Names — Frost Documentation</title>
+  <meta name="description" content="How Frost turns AWS accounts and permission sets into predictable profile names, and the account-name markers that shorten them or pin a region." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">How Frost works</p>
+      <h1>Profile names</h1>
+      <p class="doc-lead">Every account and permission set combination you can reach becomes a profile in <code>~/.aws/config</code>. The names are generated, deterministic, and identical for everyone on your team.</p>
+
+      <h2 id="rule">The rule</h2>
+      <p>
+        A profile name is the <strong>account part</strong> and the
+        <strong>permission set part</strong>, joined by a hyphen and lower-cased:
+      </p>
+      <pre class="config"><code><span class="c-comment"># account name              permission set        profile name</span>
+ACME Production          AdministratorAccess   acme-production-administratoraccess
+ACME Testing             PowerUserAccess       acme-testing-poweruseraccess</code></pre>
+      <p>
+        Each part is slugified — spaces become hyphens, punctuation is dropped,
+        everything is lower-cased — so the result is safe to type, to put in a
+        script, and to use as <code>AWS_PROFILE</code>.
+      </p>
+      <p>
+        Because both halves come from AWS rather than from local configuration,
+        everyone on your team gets the same names without coordinating anything.
+        A runbook that says <code>--profile prod-admin</code> works on every
+        machine.
+      </p>
+
+      <h2 id="short-names">Shortening the account part</h2>
+      <p>
+        Account names are usually written for humans, not for command lines. Add
+        a <code>#short-name</code> marker anywhere in the AWS account name and
+        Frost uses that instead of the slugified name:
+      </p>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>AWS account name</th><th>Account part</th></tr></thead>
+          <tbody>
+            <tr><td>ACME Main</td><td><code>acme-main</code></td></tr>
+            <tr><td>ACME Main (#main)</td><td><code>main</code></td></tr>
+            <tr><td>ACME Production (#prod)</td><td><code>prod</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The marker is <code>#</code> followed by letters, digits, hyphens or
+        underscores, and the first one in the name wins. Renaming an account is
+        done in AWS Organizations — see
+        <a href="https://aws.amazon.com/premiumsupport/knowledge-center/change-organizations-name/" target="_blank" rel="noopener">the AWS guide to changing an account name</a>
+        — and takes effect on everyone's machine at their next refresh.
+      </p>
+
+      <h2 id="permission-sets">Shortening the permission set part</h2>
+      <p>
+        Custom permission sets are slugified as they are, so the best way to get
+        short profile names is to give them short names in Identity Center. For
+        the AWS-managed permission sets, which you cannot rename, Frost applies a
+        built-in shorthand:
+      </p>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Permission set</th><th>Profile part</th></tr></thead>
+          <tbody>
+            <tr><td>AdministratorAccess</td><td><code>admin</code></td></tr>
+            <tr><td>Billing</td><td><code>billing</code></td></tr>
+            <tr><td>DatabaseAdministrator</td><td><code>dba</code></td></tr>
+            <tr><td>DataScientist</td><td><code>datasci</code></td></tr>
+            <tr><td>NetworkAdministrator</td><td><code>netadmin</code></td></tr>
+            <tr><td>PowerUserAccess</td><td><code>poweruser</code></td></tr>
+            <tr><td>SecurityAudit</td><td><code>secaudit</code></td></tr>
+            <tr><td>SupportUser</td><td><code>support</code></td></tr>
+            <tr><td>SystemAdministrator</td><td><code>sysadmin</code></td></tr>
+            <tr><td>ViewOnlyAccess</td><td><code>viewonly</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The profile still points at the real permission set — only the name is
+        shortened. <code>sso_role_name</code> in <code>~/.aws/config</code> keeps
+        the original value.
+      </p>
+
+      <h2 id="together">Both together</h2>
+      <div class="evolution">
+        <h3>The same account and permission set</h3>
+        <p>ACME Production, AdministratorAccess:</p>
+        <div class="evolution-rows">
+          <div class="evo-row">
+            <span class="evo-label">default</span>
+            <code class="evo-name"><span data-c="a3">acme-production</span>-<span data-c="p1">administratoraccess</span></code>
+          </div>
+          <div class="evo-row">
+            <span class="evo-label">+ <code>#prod</code></span>
+            <code class="evo-name"><span data-c="a3">prod</span>-<span data-c="p1">administratoraccess</span></code>
+          </div>
+          <div class="evo-row evo-final">
+            <span class="evo-label">+ shorthand</span>
+            <code class="evo-name"><span data-c="a3">prod</span>-<span data-c="p1">admin</span></code>
+          </div>
+        </div>
+      </div>
+
+      <h2 id="region">Pinning a region per account</h2>
+      <p>
+        Profiles get <code>region</code> set to your Identity Center region by
+        default. When an account's workloads live somewhere else, add an
+        <code>@region</code> marker to the account name and Frost writes that
+        region into every profile for that account instead:
+      </p>
+      <pre class="config"><code><span class="c-comment"># AWS account name: ACME Testing (#test @eu-west-1)</span>
+
+<span class="c-section">[profile test-poweruser]</span>
+sso_start_url  = https://acme.awsapps.com/start
+sso_region     = us-east-1
+sso_account_id = 222222222222
+sso_role_name  = PowerUserAccess
+<span class="c-key">region</span>         = <span class="c-val">eu-west-1</span>
+output         = json</code></pre>
+      <p>
+        With that in place, <code>aws --profile test-poweruser …</code> and any
+        SDK using the profile target <code>eu-west-1</code> without
+        <code>--region</code> on every call. <code>sso_region</code> is untouched:
+        it still points at the Identity Center instance.
+      </p>
+      <div class="callout callout-warn">
+        <span class="callout-icon" aria-hidden="true">⚠️</span>
+        <p>
+          The marker recognises three-part region names —
+          <code>@eu-west-1</code>, <code>@ap-southeast-4</code>. Longer forms such
+          as <code>us-gov-west-1</code> are not matched, and those accounts fall
+          back to the Identity Center region.
+        </p>
+      </div>
+
+      <h2 id="written">What lands in the file</h2>
+      <p>Every generated profile has exactly six keys:</p>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Key</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td><code>sso_start_url</code></td><td>Your access portal URL</td></tr>
+            <tr><td><code>sso_region</code></td><td>The Identity Center region from your Login settings</td></tr>
+            <tr><td><code>sso_account_id</code></td><td>The 12-digit account id</td></tr>
+            <tr><td><code>sso_role_name</code></td><td>The permission set name, unshortened</td></tr>
+            <tr><td><code>region</code></td><td>The account's <code>@region</code> marker, or the Identity Center region</td></tr>
+            <tr><td><code>output</code></td><td><code>json</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        These are the legacy-style SSO profile keys rather than an
+        <code>[sso-session]</code> block, which is what lets Frost keep the token
+        cache in the format the AWS CLI expects without you running
+        <code>aws sso login</code>. Each profile is written with a marker comment
+        that tells Frost it owns that section — see
+        <a href="aws-config.html">the <code>~/.aws/config</code> file</a>.
+      </p>
+
+      <h2 id="collisions">Name collisions</h2>
+      <p>
+        Two accounts that slugify to the same account part — or that carry the
+        same <code>#short-name</code> — produce colliding profile names, and only
+        one of them can win. If a profile you expected is missing, check for a
+        duplicate short name first; the <strong>Credentials</strong> page lists
+        every account with the profile names generated for it, which makes the
+        clash easy to spot.
+      </p>
+      <p>
+        A profile you wrote yourself always wins over a generated one of the same
+        name: Frost skips its own rather than overwriting yours.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

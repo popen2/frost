@@ -10,6 +10,27 @@ Once a user has successfully logged-in, Frost will add profiles with predictable
 
 When using [AWS SSO with federation](https://docs.aws.amazon.com/singlesignon/latest/userguide/samlfederationconcept.html), such as Google Workspace, Frost can refresh credentials without interrupting the user in most cases.
 
+## Documentation
+
+Full documentation lives at
+[popen2.github.io/frost/docs](https://popen2.github.io/frost/docs/) — a page per
+feature, every setting, and a reference for the files Frost touches:
+
+-   [Getting started](https://popen2.github.io/frost/docs/getting-started.html)
+    and [platforms & updates](https://popen2.github.io/frost/docs/platforms.html)
+-   [Credential refresh](https://popen2.github.io/frost/docs/credential-refresh.html)
+    and [signing in](https://popen2.github.io/frost/docs/login.html)
+-   [Profile names](https://popen2.github.io/frost/docs/profiles.html) and
+    [the `~/.aws/config` file](https://popen2.github.io/frost/docs/aws-config.html)
+-   Integrations: [EKS discovery](https://popen2.github.io/frost/docs/eks.html)
+    and the [bundled IAM authenticator](https://popen2.github.io/frost/docs/authenticator.html)
+-   [Settings](https://popen2.github.io/frost/docs/settings.html),
+    [security & privacy](https://popen2.github.io/frost/docs/security.html),
+    [files & locations](https://popen2.github.io/frost/docs/files.html) and
+    [troubleshooting](https://popen2.github.io/frost/docs/troubleshooting.html)
+
+The rest of this file is the short version.
+
 ## Platforms
 
 Frost runs on macOS, Windows and Linux.

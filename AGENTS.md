@@ -55,22 +55,23 @@ The one renderer is the dashboard: `src/dashboard.html`, a single self-contained
 file (markup, CSS, and inline vanilla JS, no framework) that `npm run build:html`
 copies verbatim into `dist/`. It is **not** type-checked or linted — `tsc` and
 ESLint only see `src/*.ts` — so changes there are verified by eye and at runtime.
-It talks to the main process purely over IPC (`ipcRenderer.invoke` +
-a `state-updated` push); the handlers live in `src/window.ts`, which takes an
-`IpcCallbacks` object so it never has to import `aws-sso.ts` (that would be a
-cycle). It currently runs with `nodeIntegration: true` /
-`contextIsolation: false`, so **every value interpolated into `innerHTML` must
-go through the `esc()` helper** — account names, cluster names, and error
+It talks to the main process purely over the `window.frost` bridge in
+`src/preload.cts` (named operations + a `state-updated` push); the handlers live
+in `src/window.ts`, which takes an `IpcCallbacks` object so it never has to
+import `aws-sso.ts` (that would be a cycle). It runs sandboxed, with
+`contextIsolation: true` / `nodeIntegration: false` and a CSP, so an unescaped
+value is no longer code execution against a live token — but **every value
+interpolated into `innerHTML` must still go through the `esc()` helper** — account names, cluster names, and error
 strings all originate from AWS. For the same reason, never build a selector or
 an inline `onclick` out of a value: put it in a `data-` attribute and read it
 back (`esc()` is an HTML escaper, and an HTML attribute is decoded *before* its
 contents are parsed as JS or CSS, so escaping does not hold there).
 
 Register new IPC handlers with **`handleFromDashboard()`**, not `ipcMain.handle`
-directly. It rejects anything that is not the dashboard's own top frame. Nothing
-can reach those handlers today — the login window has no preload and runs with
-context isolation — but the check is what keeps that true once a preload bridge
-exists.
+directly: it rejects anything that is not the dashboard's own top frame. A new
+handler also needs a named method in `src/preload.cts` — the renderer has no
+`ipcRenderer` of its own, so a handler without a bridge entry is unreachable
+from the page, and `dashboard.html` is linted by nothing that would notice.
 
 ## Commands
 
@@ -372,8 +373,8 @@ Five workflows, with the matrix build factored out as a reusable workflow:
   release-drafter keeps a draft release up to date, and publishing that draft
   from the GitHub UI is what creates the tag and triggers this workflow.
 - **`.github/workflows/pages.yaml`** (🌐 Deploy Pages) publishes `docs/` — the
-  marketing site at the project's GitHub Pages URL — on pushes to `main` that
-  touch `docs/**`.
+  marketing site and the documentation at the project's GitHub Pages URL — on
+  pushes to `main` that touch `docs/**`. See "Documentation site" below.
 - **`.github/workflows/autolabeler.yaml`** (🏷️ Autolabel) applies
   release-drafter's changelog labels to incoming PRs from branch-name patterns.
 
@@ -393,6 +394,36 @@ TypeScript 6, Electron 43, and **Node >= 22.12** — `@electron/packager` 20 and
 `@electron/osx-sign` 2 both declare that engine floor. `NODEJS_VERSION: 22`
 resolves to the latest 22.x, which clears it; don't pin it to an exact 22.x
 below 22.12.
+
+## Documentation site
+
+`docs/` is plain static HTML with no build step — GitHub Pages serves it as it
+is committed, so anything added there has to work when opened directly.
+
+- `docs/index.html` (landing), `docs/download.html` (reads the latest GitHub
+  release at runtime) and `docs/style.css` are the marketing site.
+- `docs/docs/*.html` is the documentation: one page per feature, an
+  **Integrations** section (EKS and the authenticator it needs — new AWS
+  services get a page there), three settings pages, and a reference section. `docs/docs.css` layers the docs shell on top
+  of `style.css`; both pages of the marketing site link it too, because the
+  landing page reuses `.doc-cards` and `.section-more`.
+- **The page list lives in one place**: `SECTIONS` in `docs/docs/docs-nav.js`,
+  which renders the sidebar (marking the current page from
+  `location.pathname`) and the prev/next pager. A new page has to be added
+  there or it will exist without being linked; it can be checked headlessly by
+  `eval`-ing that file against a stub `document`/`location`/`window`.
+- Every page carries the same shell — header, `<details class="doc-sidebar"
+  id="doc-nav">`, article, `<nav id="doc-pager">`, footer. Copy an existing page
+  when adding one rather than assembling it by hand.
+- Content is written against the behaviour in `src/`, not against the README:
+  when you change a default, a setting, a generated key set or a file path,
+  the matching page in `docs/docs/` is part of that change. The pages that go
+  stale fastest are `settings*.html`, `files.html` and `profiles.html`.
+- Worth re-running after edits: a link/anchor check across `docs/**/*.html`
+  (every `href` that is not external should resolve to a file, and every
+  fragment to an `id`), and a Playwright pass in both colour schemes at a
+  narrow and a wide viewport — `docs.css` is not otherwise exercised by
+  anything.
 
 ## Electron Forge 8 (prerelease — deliberate)
 

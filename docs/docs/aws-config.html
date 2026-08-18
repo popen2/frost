@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>The ~/.aws/config File — Frost Documentation</title>
+  <meta name="description" content="How Frost merges its generated profiles into an existing ~/.aws/config without disturbing anything you wrote yourself." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">How Frost works</p>
+      <h1>The <code>~/.aws/config</code> file</h1>
+      <p class="doc-lead">Frost doesn't own your <code>~/.aws/config</code> — it owns the profiles it wrote there. Everything else in the file survives every refresh, byte for byte.</p>
+
+      <h2 id="marker">The ownership marker</h2>
+      <p>
+        Every profile Frost writes carries a comment line directly under its
+        header:
+      </p>
+      <pre class="config"><code><span class="c-section">[profile main-admin]</span>
+<span class="c-comment"># frost:managed - Frost updates and removes this profile. Delete this line to take it over.</span>
+sso_start_url  = https://acme.awsapps.com/start
+sso_region     = us-east-1
+sso_account_id = 111111111111
+sso_role_name  = AdministratorAccess
+region         = us-east-1
+output         = json</code></pre>
+      <p>
+        That marker is the whole ownership model. On every refresh Frost rewrites
+        the sections carrying it, removes the ones whose account or permission
+        set has gone away in Identity Center, and leaves every other line in the
+        file exactly as it found it.
+      </p>
+      <div class="callout">
+        <span class="callout-icon" aria-hidden="true">✋</span>
+        <p>
+          <strong>Want to take a profile over?</strong> Delete the marker line.
+          Frost stops updating and stops removing it — and also stops keeping it
+          in step with Identity Center, so a renamed permission set is then yours
+          to fix.
+        </p>
+      </div>
+
+      <h2 id="preserved">What is preserved</h2>
+      <p>
+        The file is merged, never rewritten wholesale. It is shared with the AWS
+        CLI and with whatever you have put there by hand, so everything below
+        survives untouched:
+      </p>
+      <ul>
+        <li>your <code>[default]</code> profile;</li>
+        <li>hand-written <code>[profile …]</code> sections;</li>
+        <li><code>[sso-session …]</code> and <code>[services …]</code> sections;</li>
+        <li>comments, including their exact position — a comment written directly above a section header travels with that section, so removing a profile does not eat the note about the next one;</li>
+        <li>blank-line placement, and the file's line endings (a CRLF file stays CRLF).</li>
+      </ul>
+      <p>
+        When a merge produces exactly what is already on disk, Frost skips the
+        write altogether.
+      </p>
+
+      <h2 id="writing">How the file is written</h2>
+      <p>
+        This file is shared, so the write is careful about more than its
+        contents:
+      </p>
+      <ul>
+        <li><strong>Atomically.</strong> The new contents are written and flushed to disk before replacing the old ones, so an interrupted run cannot leave a truncated <code>~/.aws/config</code> behind — the file is either the old version or the new one.</li>
+        <li><strong>Keeping your permissions.</strong> Whatever mode the file already has is what it keeps. If you tightened <code>~/.aws/config</code> to <code>0600</code>, it stays <code>0600</code>; a file Frost has to create from nothing starts at <code>0600</code>.</li>
+        <li><strong>Keeping your symlink.</strong> If the file is a symlink — into a dotfiles repository, say — the link survives and the file it points at is what changes, along with that file's own permissions.</li>
+        <li><strong>Retrying on Windows.</strong> Windows refuses to replace a file while another process holds it open; the write backs off and retries briefly rather than failing the refresh.</li>
+      </ul>
+      <p>
+        <code>~/.kube/config</code> is written the same way.
+        <a href="eks.html#merge">EKS discovery →</a>
+      </p>
+
+      <h2 id="conflicts">Profiles you wrote yourself</h2>
+      <p>
+        If one of your own profiles happens to have the same name as one Frost
+        would generate, <strong>yours wins</strong>. Frost leaves it alone,
+        skips writing its own, and logs a warning. Nothing you wrote is ever
+        overwritten by a generated profile.
+      </p>
+      <p>
+        The practical consequence: that account/permission set pair no longer
+        tracks Identity Center. If that is not what you wanted, rename your
+        profile (or give the AWS account a <code>#short-name</code> that steers
+        the generated name elsewhere — see
+        <a href="profiles.html#short-names">profile names</a>).
+      </p>
+
+      <h2 id="adoption">Upgrading from older versions</h2>
+      <p>
+        Older versions of Frost rewrote <code>~/.aws/config</code> wholesale and
+        wrote no marker. On the first refresh after upgrading, an unmarked
+        profile whose name <em>and</em> full contents are exactly what Frost would
+        generate today is <strong>adopted</strong>: the marker is added and the
+        profile continues to be managed. Without that, the upgrade would add a
+        second copy of every profile.
+      </p>
+      <p>
+        Adoption compares the complete key set, so a profile that has drifted —
+        an extra key, a different region — is not adopted. It is treated as
+        yours, per the previous section.
+      </p>
+
+      <h2 id="removal">When profiles disappear</h2>
+      <p>
+        Losing access to an account, or having a permission set revoked, removes
+        the corresponding marked profiles at the next refresh. That is the point
+        of the marker: your config file tracks your actual access rather than
+        accumulating profiles that no longer work.
+      </p>
+      <p>
+        To keep such a profile around anyway, delete its marker line before the
+        next refresh.
+      </p>
+
+      <h2 id="cli">Using the profiles elsewhere</h2>
+      <p>
+        Alongside the profiles, Frost writes the SSO access token into
+        <code>~/.aws/sso/cache/</code> in the format the AWS CLI and the AWS SDKs
+        expect. That is what makes this work with no further setup:
+      </p>
+      <pre class="code"><code>$ aws --profile prod-admin sts get-caller-identity
+$ AWS_PROFILE=prod-admin terraform apply
+$ aws --profile test-poweruser s3 ls</code></pre>
+      <p>
+        No <code>aws sso login</code>, and no AWS CLI installation required for
+        Frost itself — it talks to AWS through its own SDK. See
+        <a href="files.html">files &amp; locations</a> for exactly what is
+        written where.
+      </p>
+
+      <h2 id="windows">A note for Windows</h2>
+      <p>
+        On Windows the file is <code>%UserProfile%\.aws\config</code>. An AWS
+        CLI command reading it, or an antivirus scanner looking at it, can block
+        the replacement for a moment; the write retries before giving up, and a
+        refresh that still fails says so on the Credentials page.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>
