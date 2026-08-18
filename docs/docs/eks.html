@@ -184,6 +184,14 @@ deployment.apps/api restarted</code></pre>
         </p>
       </div>
       <p>
+        The write itself is atomic and leaves the file's own properties alone:
+        the permissions you gave <code>~/.kube/config</code> are kept, a
+        <code>~/.kube/config</code> that is a symlink stays one, and an
+        interrupted refresh cannot truncate it. A file Frost has to create from
+        nothing is created <code>0600</code>.
+        <a href="security.html#permissions">Security &amp; privacy →</a>
+      </p>
+      <p>
         Clusters are not removed when they disappear from AWS. A stale context
         simply stops authenticating; delete it with
         <code>kubectl config delete-context</code> if you want it gone.

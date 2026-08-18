@@ -85,10 +85,24 @@ output         = json</code></pre>
         <li>blank-line placement, and the file's line endings (a CRLF file stays CRLF).</li>
       </ul>
       <p>
-        Writes go through a temporary file and a rename, so an interrupted run
-        cannot leave a truncated <code>~/.aws/config</code> behind. When a merge
-        produces exactly what is already on disk, Frost skips the write
-        altogether.
+        When a merge produces exactly what is already on disk, Frost skips the
+        write altogether.
+      </p>
+
+      <h2 id="writing">How the file is written</h2>
+      <p>
+        This file is shared, so the write is careful about more than its
+        contents:
+      </p>
+      <ul>
+        <li><strong>Atomically.</strong> The new contents are written and flushed to disk before replacing the old ones, so an interrupted run cannot leave a truncated <code>~/.aws/config</code> behind — the file is either the old version or the new one.</li>
+        <li><strong>Keeping your permissions.</strong> Whatever mode the file already has is what it keeps. If you tightened <code>~/.aws/config</code> to <code>0600</code>, it stays <code>0600</code>; a file Frost has to create from nothing starts at <code>0600</code>.</li>
+        <li><strong>Keeping your symlink.</strong> If the file is a symlink — into a dotfiles repository, say — the link survives and the file it points at is what changes, along with that file's own permissions.</li>
+        <li><strong>Retrying on Windows.</strong> Windows refuses to replace a file while another process holds it open; the write backs off and retries briefly rather than failing the refresh.</li>
+      </ul>
+      <p>
+        <code>~/.kube/config</code> is written the same way.
+        <a href="eks.html#merge">EKS discovery →</a>
       </p>
 
       <h2 id="conflicts">Profiles you wrote yourself</h2>
@@ -151,11 +165,10 @@ $ aws --profile test-poweruser s3 ls</code></pre>
 
       <h2 id="windows">A note for Windows</h2>
       <p>
-        On Windows the file is <code>%UserProfile%\.aws\config</code>. Windows
-        refuses to replace a file while another process has it open, so if an
-        AWS CLI command or an antivirus scanner is reading it at exactly the
-        wrong moment, Frost backs off and retries a few times before reporting a
-        failure.
+        On Windows the file is <code>%UserProfile%\.aws\config</code>. An AWS
+        CLI command reading it, or an antivirus scanner looking at it, can block
+        the replacement for a moment; the write retries before giving up, and a
+        refresh that still fails says so on the Credentials page.
       </p>
 
       <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>

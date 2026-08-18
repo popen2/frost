@@ -175,7 +175,7 @@
       <h2 id="windows">Windows-specific</h2>
       <ul>
         <li><strong>SmartScreen warns on the installer.</strong> Expected — the builds are unsigned. Choose <em>More info</em> → <em>Run anyway</em>. <a href="platforms.html#windows">Platforms →</a></li>
-        <li><strong>A refresh fails writing <code>~/.aws/config</code>.</strong> Windows refuses to replace the file while another process holds it open. Frost retries briefly; if it still fails, close whatever is reading the file (an AWS CLI command, an editor) and refresh again.</li>
+        <li><strong>A refresh fails writing <code>~/.aws/config</code>.</strong> Windows refuses to replace the file while another process holds it open. The write retries briefly on its own; if it still fails, close whatever is holding the file (an AWS CLI command, an editor, an antivirus scan) and refresh again.</li>
         <li><strong>Two tray icons.</strong> Should not happen — Frost only allows one instance. If it does, quit both and relaunch once.</li>
       </ul>
 

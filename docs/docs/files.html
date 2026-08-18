@@ -59,7 +59,10 @@
         SHA-1 of your start URL — the same scheme the AWS CLI uses — and the file
         holds the start URL, region, access token and expiry. This is the file
         that makes <code>aws --profile … </code> work without a separate
-        <code>aws sso login</code>, and it is rewritten on every refresh.
+        <code>aws sso login</code>, and it is rewritten on every refresh. It
+        holds a live credential, so it is always written with owner-only
+        permissions (<code>0600</code>) — even when it replaces a more permissive
+        file left by an older version.
       </p>
 
       <h3><code>~/.kube/config</code></h3>
@@ -70,6 +73,18 @@
         comments in it are not preserved.
         <a href="eks.html#merge">EKS discovery →</a>
       </p>
+
+      <div class="callout callout-security">
+        <span class="callout-icon" aria-hidden="true">🔒</span>
+        <p>
+          <code>~/.aws/config</code> and <code>~/.kube/config</code> are yours,
+          so Frost keeps the permissions you gave them and leaves a symlinked
+          file a symlink; it only chooses <code>0600</code> when it has to create
+          the file itself. Every write is atomic, so an interrupted refresh
+          cannot leave one of them half-written.
+          <a href="security.html#permissions">Security &amp; privacy →</a>
+        </p>
+      </div>
 
       <h2 id="frosts">Files that belong to Frost</h2>
 
@@ -93,8 +108,9 @@
         <li>the run history.</li>
       </ul>
       <p>
-        Written with owner-only permissions. Deleting it resets Frost entirely,
-        without touching the AWS or kubectl files above.
+        Always written with owner-only permissions (<code>0600</code>) — it holds
+        the access token. Deleting it resets Frost entirely, without touching the
+        AWS or kubectl files above.
         <a href="security.html">Security &amp; privacy →</a>
       </p>
 
@@ -111,7 +127,7 @@
       </div>
       <p>
         One file per local day, <code>main-YYYY-MM-DD.log</code>, at debug level,
-        with owner-only permissions. Deleted automatically once they pass the
+        with owner-only permissions (<code>0600</code>). Deleted automatically once they pass the
         retention period set on the <a href="settings-privacy.html">Privacy</a>
         page. <a href="activity.html#logs">Activity &amp; logs →</a>
       </p>

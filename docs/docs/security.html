@@ -108,11 +108,38 @@
         </p>
       </div>
       <p>
-        <code>~/.aws/config</code> and <code>~/.kube/config</code> keep whatever
-        permissions they already had — they are your files, shared with the AWS
-        CLI and <code>kubectl</code>, and Frost does not change their mode. The
-        token cache under <code>~/.aws/sso/cache/</code> follows the same
-        convention as the AWS CLI's own cache files.
+        The file holding the SSO token — Frost's own configuration file — and the
+        token cache under <code>~/.aws/sso/cache/</code> are always written
+        <code>0600</code>, whatever mode they had before. That is deliberate:
+        versions up to v0.2.16 created the cache file <code>0644</code>, and
+        carrying that forward would leave the token readable by every other
+        account on the machine.
+      </p>
+      <p>
+        <code>~/.aws/config</code> and <code>~/.kube/config</code> are treated
+        differently, because they are yours — shared with the AWS CLI and
+        <code>kubectl</code>, and holding entries you wrote. Frost keeps whatever
+        permissions you gave them, and only picks <code>0600</code> when it has
+        to create the file from nothing. A file that is a symlink stays a
+        symlink.
+      </p>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>File</th><th>Mode</th></tr></thead>
+          <tbody>
+            <tr><td>Frost's <code>config.json</code></td><td><code>0600</code>, always</td></tr>
+            <tr><td>Log files</td><td><code>0600</code>, always</td></tr>
+            <tr><td><code>~/.aws/sso/cache/&lt;hash&gt;.json</code></td><td><code>0600</code>, always</td></tr>
+            <tr><td><code>~/.aws/config</code></td><td>Yours, preserved; <code>0600</code> if Frost creates it</td></tr>
+            <tr><td><code>~/.kube/config</code></td><td>Yours, preserved; <code>0600</code> if Frost creates it</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Every one of these writes is atomic — the contents are flushed to disk
+        before the old version is replaced — so an interrupted refresh, or a
+        machine losing power mid-write, cannot leave a half-written file behind.
+        <a href="aws-config.html#writing">How the config file is written →</a>
       </p>
 
       <h2 id="not-logged">What is deliberately never logged</h2>
@@ -160,6 +187,13 @@
         hostile page could imitate — so nothing security relevant hangs off it.
         At most it picks a window title and asks for your attention.
         <a href="login.html#security-keys">Signing in →</a>
+      </p>
+      <p>
+        The two windows are kept apart. The commands the app window can issue —
+        save settings, trigger a refresh, erase history — are accepted only from
+        the app window's own top-level frame; a request arriving from anywhere
+        else, the login window and the remote pages it renders included, is
+        refused and logged.
       </p>
 
       <h2 id="supply-chain">Builds and the supply chain</h2>
