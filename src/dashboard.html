@@ -1617,12 +1617,16 @@ document.getElementById('btn-clear-cookies').addEventListener('click', async () 
   btn.disabled = true;
   btn.textContent = 'Clearing…';
   try {
-    const result = await ipcRenderer.invoke('clear-browsing-data');
+    const result = await frost.clearBrowsingData();
     if (result && result.ok) {
       showNotice('cookies-notice');
     } else {
       alert('Could not clear cookies and local storage.\n\n' + ((result && result.error) || 'Unknown error'));
     }
+  } catch (err) {
+    // Otherwise a rejected bridge call is an unhandled rejection, and the
+    // button just appears to have worked.
+    alert('Could not clear cookies and local storage.\n\n' + err);
   } finally {
     btn.disabled = false;
     btn.textContent = label;
