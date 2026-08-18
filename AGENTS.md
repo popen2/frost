@@ -347,9 +347,8 @@ Five workflows, with the matrix build factored out as a reusable workflow:
   Node bundles only `parseInt` it. The request never leaves the machine;
   Octokit re-wraps it as a 500 and `@octokit/plugin-retry` burns three retries
   on it. That failed every job of the v0.3.0 release matrix, and all three
-  pieces are upstream. `gh release upload` sidesteps the lot, and the release
-  already exists by then — release.yaml only fires on a pushed tag, which comes
-  from publishing the release-drafter draft.
+  pieces are upstream. `gh release upload` sidesteps the lot, and it uploads to
+  a **draft** — see "Immutable releases" below for why that part matters.
 
   Two inputs beyond `publish`/`version` are load-bearing:
 
@@ -384,11 +383,32 @@ Five workflows, with the matrix build factored out as a reusable workflow:
   distributable zips as artifacts. Never tags or publishes. Notarization needs
   the Apple secrets, which are only available on same-repo PRs (not forks). On
   pushes to `main` it also refreshes the release-drafter draft.
-- **`.github/workflows/release.yaml`** (🚀 Release Version) runs on **pushed
-  `v*` tags** (plus a `workflow_dispatch` fallback). It strips the leading `v`
-  and calls `build.yaml` with `publish: true`. It does **not** create the tag:
-  release-drafter keeps a draft release up to date, and publishing that draft
-  from the GitHub UI is what creates the tag and triggers this workflow.
+- **`.github/workflows/release.yaml`** (🚀 Release Version) is
+  **`workflow_dispatch` only — run it from the Actions tab, and it is the whole
+  release.** Three jobs: `prep` reads the tag off the newest release-drafter
+  draft (an optional `tag` input picks a specific draft), `release-app` calls
+  `build.yaml` with `publish: true` so every matrix job attaches its
+  distributables to that still-unpublished draft, and `publish` flips the draft
+  to published — pinned with `--target` to the commit that was built, so the tag
+  lands on the right source — then asserts the release came out with assets on
+  it. A `concurrency: release` group keeps two releases from racing into the
+  same draft.
+
+  **Do not publish the draft from the GitHub UI, and do not add a
+  `push: tags` or `release: published` trigger back.** Immutable releases are
+  enabled on this repository, so publishing *freezes* a release, assets
+  included — every later upload gets `422 Cannot upload assets to an immutable
+  release`. Under the old flow the human's Publish click created the tag that
+  started the build, which means the release was already sealed before the
+  first artifact existed. That is how **v0.3.0 and v0.3.1 both shipped with
+  zero assets**, and neither can be repaired: sealed is sealed, so a botched
+  release costs you the version number. The only order that works is build →
+  upload to the draft → publish, which is why the workflow owns the publish
+  step. Publishing from a workflow also means the release is attributed to
+  `github-actions[bot]` rather than to whoever cut it — that is the trade, and
+  it is why the old "bot-attributed release events don't fire downstream
+  workflows" objection no longer applies: nothing downstream is waiting on the
+  event any more.
 - **`.github/workflows/pages.yaml`** (🌐 Deploy Pages) publishes `docs/` — the
   marketing site and the documentation at the project's GitHub Pages URL — on
   pushes to `main` that touch `docs/**`. See "Documentation site" below.
@@ -402,6 +422,14 @@ minor release, put the `minor` label on the PR. `autolabeler.yaml` only assigns
 the changelog-category labels (`feature` / `fix` / `chore`) and only from
 branch-name patterns (`feat/…`, `fix/…`, `chore/…`), so a branch named anything
 else — e.g. `claude/…` — needs its labels set by hand.
+
+The draft's tag is therefore the single source of truth for the version being
+released: `prep` reads it, strips the `v`, and `build.yaml` reconstructs
+`v<version>` to find the draft again. That round-trip only holds while
+`release-drafter.yml`'s `tag-template` stays `v$RESOLVED_VERSION` — `prep`
+fails loudly if the draft's tag stops starting with `v`, but a template change
+that keeps the `v` and alters the rest would silently point the upload at a
+release that doesn't exist. Change the two together.
 
 The app version in `package.json` is overwritten in CI from the tag
 (`npm version --no-git-tag-version`), so **don't bump it manually**. The build

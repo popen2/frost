@@ -9,9 +9,10 @@ on:
     inputs:
       publish:
         description: >-
-          If true, upload the distributables to the `v<version>` GitHub
-          release. If false, upload them as workflow artifacts instead. Either
-          way the build itself is the same `electron-forge make`.
+          If true, upload the distributables to the `v<version>` draft release
+          (release.yaml publishes it once every job has). If false, upload them
+          as workflow artifacts instead. Either way the build itself is the
+          same `electron-forge make`.
         type: boolean
         default: false
       sign:
@@ -200,11 +201,13 @@ jobs:
       # before the request leaves the machine. That took down the whole v0.3.0
       # release matrix, and none of the three pieces are ours to fix.
       #
-      # The release itself already exists: release.yaml only runs on a pushed
-      # tag, which is created by publishing the release-drafter draft. So there
-      # is nothing left for the publisher to do that `gh release upload` does
-      # not, and --clobber makes a re-run of a failed job idempotent.
-      - name: 🚀 Upload to release
+      # The target is release.yaml's **draft** release, which is still mutable -
+      # immutable releases are enabled here, so a published one would answer
+      # `422 Cannot upload assets to an immutable release`. release.yaml
+      # publishes the draft only once every matrix job has landed its files.
+      # `gh release upload` resolves a draft by tag name, and --clobber makes a
+      # re-run of a failed job idempotent.
+      - name: 🚀 Upload to draft release
         if: ${{ inputs.publish }}
         # Git Bash on the Windows runner, so one script covers all three.
         shell: bash
@@ -225,7 +228,7 @@ jobs:
             exit 1
           fi
 
-          printf 'Uploading to %s:\n' "${TAG}"
+          printf 'Uploading to draft %s:\n' "${TAG}"
           printf '  %s\n' "${assets[@]}"
           gh release upload "${TAG}" "${assets[@]}" --clobber
 
