@@ -198,8 +198,7 @@ export function setupIpc(callbacks: IpcCallbacks) {
             await clearBrowsingData();
             return { ok: true };
         } catch (err) {
-            // Reported rather than thrown: the dashboard tells the user why it
-            // could not sign them out instead of leaving the button silent.
+            // Answered rather than thrown so the dashboard can say why.
             const described = describeError(err);
             log.error("[clear-browsing-data] Failed: %s", described);
             return { ok: false, error: described };
