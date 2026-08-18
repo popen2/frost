@@ -6,7 +6,9 @@ export default tseslint.config(
     js.configs.recommended,
     ...tseslint.configs.recommended,
     {
-        files: ["**/*.ts"],
+        // .cts too, so src/preload.cts is treated like every other source
+        // file rather than silently getting a stricter rule set.
+        files: ["**/*.ts", "**/*.cts"],
         rules: {
             "@typescript-eslint/no-non-null-assertion": "off",
         },

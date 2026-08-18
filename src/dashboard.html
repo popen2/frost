@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
   <title>Frost</title>
   <script>
     // Stamped before the stylesheet is applied so the platform-specific rules
     // below never flash the wrong chrome. Only macOS gets the frameless
     // window (see openDashboard() in window.ts); Windows and Linux keep their
     // native title bar, so the drag strip has to go.
-    document.documentElement.dataset.platform = process.platform;
+    document.documentElement.dataset.platform = frost.platform;
   </script>
   <style>
     /* ── Colour tokens ───────────────────────────────────────────────────── */
@@ -1135,7 +1137,6 @@
 
 <script>
 'use strict';
-const { ipcRenderer } = require('electron');
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 
@@ -1225,7 +1226,7 @@ document.getElementById('btn-save-settings').addEventListener('click', async () 
   // The main process is what decides whether these are usable - it is the side
   // that hands them to the AWS clients - so show whatever it says rather than
   // duplicating the rules here.
-  const result = await ipcRenderer.invoke('save-settings', { startUrl, region });
+  const result = await frost.saveSettings({ startUrl, region });
   if (result && result.ok === false) {
     errEl.textContent = result.error;
     errEl.style.display = 'block';
@@ -1237,6 +1238,16 @@ document.getElementById('btn-save-settings').addEventListener('click', async () 
 });
 
 // ── Credentials ─────────────────────────────────────────────────────────────
+
+// Delegated so it survives updateCredentials() replacing the list's innerHTML,
+// and so the markup carries no inline handler.
+document.getElementById('accounts-body').addEventListener('click', e => {
+  const row = e.target.closest('.account-row');
+  if (!row) return;
+  row.classList.toggle('open');
+  const roles = row.nextElementSibling;
+  if (roles) roles.style.display = row.classList.contains('open') ? 'grid' : 'none';
+});
 
 function updateCredentials(state) {
   const dot   = document.getElementById('cred-dot');
@@ -1298,7 +1309,7 @@ function updateCredentials(state) {
   let html = '';
   for (const [,a] of byId) {
     html += `
-    <div class="account-row" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'grid':'none'">
+    <div class="account-row">
       <div class="avatar">${esc(initials(a.name))}</div>
       <div class="account-info">
         <div class="account-name">${esc(a.name)}</div>
@@ -1531,7 +1542,7 @@ const HOTKEY_PC = {
   CommandOrControl:'Ctrl', CmdOrCtrl:'Ctrl', Command:'Win', Cmd:'Win',
   Control:'Ctrl', Option:'Alt', Super:'Win', Meta:'Win',
 };
-const IS_MAC = process.platform === 'darwin';
+const IS_MAC = frost.platform === 'darwin';
 
 function fmtHotkey(a) {
   const parts = String(a || '').split('+');
@@ -1574,23 +1585,23 @@ function populatePrivacy(state) {
 }
 
 document.getElementById('btn-test-notif').addEventListener('click', async () => {
-  await ipcRenderer.invoke('test-notification');
+  await frost.testNotification();
 });
 
 document.getElementById('btn-refresh-now').addEventListener('click', async () => {
-  await ipcRenderer.invoke('trigger-refresh');
+  await frost.triggerRefresh();
 });
 
 document.getElementById('btn-clear-history').addEventListener('click', async () => {
   if (!confirm('Delete all stored run history? This cannot be undone.')) return;
-  await ipcRenderer.invoke('clear-history');
+  await frost.clearHistory();
   showHistoryList();
   showNotice('privacy-notice');
 });
 
 document.getElementById('btn-record').addEventListener('click', async () => {
   recording = true;
-  await ipcRenderer.invoke('set-hotkey-recording', true);
+  await frost.setHotkeyRecording(true);
   document.getElementById('hotkey-pill').textContent = 'Press keys…';
   document.getElementById('hotkey-pill').classList.add('recording');
   document.getElementById('btn-record').style.display = 'none';
@@ -1599,7 +1610,7 @@ document.getElementById('btn-record').addEventListener('click', async () => {
 
 document.getElementById('btn-cancel-record').addEventListener('click', async () => {
   recording = false;
-  await ipcRenderer.invoke('set-hotkey-recording', false);
+  await frost.setHotkeyRecording(false);
   document.getElementById('hotkey-pill').classList.remove('recording');
   document.getElementById('btn-record').style.display = '';
   document.getElementById('btn-cancel-record').style.display = 'none';
@@ -1627,7 +1638,7 @@ document.addEventListener('keydown', async e => {
   curBehavior.refreshHotkey = acc;
   dirty.behavior = true;
   recording = false;
-  await ipcRenderer.invoke('set-hotkey-recording', false);
+  await frost.setHotkeyRecording(false);
   document.getElementById('hotkey-pill').classList.remove('recording');
   document.getElementById('btn-record').style.display = '';
   document.getElementById('btn-cancel-record').style.display = 'none';
@@ -1639,7 +1650,7 @@ document.getElementById('btn-save-behavior').addEventListener('click', async () 
   if (r) curBehavior.refreshMode = r.value;
   const l = document.querySelector('input[name=loginMethod]:checked');
   if (l) curBehavior.loginMethod = l.value;
-  await ipcRenderer.invoke('save-behavior', curBehavior);
+  await frost.saveBehavior(curBehavior);
   dirty.behavior = false;
   showNotice('behavior-notice');
 });
@@ -1647,7 +1658,7 @@ document.getElementById('btn-save-behavior').addEventListener('click', async () 
 document.getElementById('btn-save-privacy').addEventListener('click', async () => {
   const retEl = document.getElementById('retention-days');
   if (retEl) curBehavior.historyRetentionDays = Number(retEl.value);
-  await ipcRenderer.invoke('save-behavior', curBehavior);
+  await frost.saveBehavior(curBehavior);
   dirty.privacy = false;
   showNotice('privacy-notice');
 });
@@ -1666,8 +1677,8 @@ function apply(state) {
   updateHistory(state);
 }
 
-ipcRenderer.on('state-updated', (_, s) => apply(s));
-ipcRenderer.invoke('get-state').then(apply);
+frost.onStateUpdated(apply);
+frost.getState().then(apply);
 
 setInterval(() => { if (st) updateCredentials(st); }, 30000);
 </script>
