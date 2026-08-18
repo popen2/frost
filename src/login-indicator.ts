@@ -1,17 +1,13 @@
-import * as fs from "fs";
-import * as path from "path";
-import { fileURLToPath } from "url";
 import { app, dialog, BrowserWindow } from "electron";
 import log from "electron-log/main";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { injectIntoEveryFrame, loadPageScript } from "./page-script.js";
 
 /**
  * The overlay is browser code with its own compile (`tsconfig.overlay.json`),
- * which emits a plain script next to the compiled main-process files. We read
- * it back as a string to inject.
+ * which emits a plain script next to the compiled main-process files;
+ * `src/page-script.ts` reads it back as a string to inject.
  */
-const OVERLAY_SCRIPT = path.join(__dirname, "login-overlay.js");
+const OVERLAY_SCRIPT = "login-overlay.js";
 
 /** Must match SIGNAL in src/login-overlay.ts. */
 const LOGIN_OVERLAY_SIGNAL = "__frost-login-overlay__:";
@@ -32,13 +28,6 @@ interface OverlaySignal {
     state?: string;
     kind?: string;
 }
-
-/** Both `WebContents` and `WebFrameMain` can run a script for us. */
-interface ScriptTarget {
-    executeJavaScript(code: string): Promise<unknown>;
-}
-
-let overlaySource: string | null | undefined;
 
 /**
  * Run the overlay at document start, before the page's own scripts.
@@ -129,22 +118,6 @@ function detachDebugger(contents: Electron.WebContents) {
     }
 }
 
-function loadOverlaySource(): string | null {
-    if (overlaySource === undefined) {
-        try {
-            overlaySource = fs.readFileSync(OVERLAY_SCRIPT, "utf8");
-        } catch (err) {
-            log.error(
-                "[loginIndicator] Could not read %s: %s",
-                OVERLAY_SCRIPT,
-                err
-            );
-            overlaySource = null;
-        }
-    }
-    return overlaySource;
-}
-
 function describeAccount(
     account: Electron.WebAuthnAccount,
     index: number
@@ -176,15 +149,23 @@ function describeAccount(
  * Call this before loading the login URL, and only for the login window: the
  * account picker is a session-wide event, and it is unregistered when the
  * window closes so it can never outlive the sign-in it belongs to.
+ *
+ * `onUserNeeded` is called the first time the page waits on a credential. Under
+ * automatic approval (`src/auto-approve.ts`) the window may not be on screen
+ * yet, and a key waiting for a touch behind a window nobody can see is the one
+ * wait that cannot resolve itself.
  */
-export async function attachLoginIndicator(window: BrowserWindow) {
+export async function attachLoginIndicator(
+    window: BrowserWindow,
+    onUserNeeded?: (reason: string) => void
+) {
     const contents = window.webContents;
     // Held on to now, while the window is alive: by the time `closed` fires,
     // the WebContents is gone and even reading `contents.session` off it
     // throws "Object has been destroyed". The Session itself outlives the
     // window, so the listener below can still be removed from it.
     const session = contents.session;
-    const source = loadOverlaySource();
+    const source = loadPageScript(OVERLAY_SCRIPT);
 
     // First, and awaited: the overlay is only useful if it is running before
     // the login page's own scripts are, and both steps below need to finish
@@ -199,42 +180,13 @@ export async function attachLoginIndicator(window: BrowserWindow) {
         return;
     }
 
-    if (source) {
-        const inject = (target: ScriptTarget, where: string) => {
-            target.executeJavaScript(source).catch((err) => {
-                log.debug(
-                    "[loginIndicator] Could not inject the overlay into %s: %s",
-                    where,
-                    err
-                );
-            });
-        };
-
-        // Injecting again once the document is up covers the case where the
-        // document-start hook could not be armed. The overlay no-ops when it
-        // lands in a document twice, so the two cannot collide.
-        contents.on("dom-ready", () => inject(contents, contents.getURL()));
-
-        // A sign-in page may delegate WebAuthn to a cross-origin <iframe> (an
-        // identity provider embedded by the AWS page). Those run in their own
-        // process, out of reach of both executeJavaScript on the WebContents
-        // and the document-start hook, so follow sub-frames as they appear. The
-        // overlay no-ops if it lands in a frame twice.
-        contents.on("frame-created", (_event, details) => {
-            const frame = details.frame;
-            if (!frame || frame === contents.mainFrame) return;
-            frame.on("dom-ready", () => {
-                try {
-                    if (!frame.isDestroyed()) inject(frame, frame.url);
-                } catch (err) {
-                    log.debug(
-                        "[loginIndicator] Sub-frame went away before injection: %s",
-                        err
-                    );
-                }
-            });
-        });
-    }
+    // Injecting again once each document is up covers the case where the
+    // document-start hook could not be armed, and the cross-origin <iframe> an
+    // identity provider may put the sign-in in: those run in their own process,
+    // out of reach of both executeJavaScript on the WebContents and the
+    // document-start registration. The overlay no-ops when it lands in a
+    // document twice, so the two cannot collide.
+    if (source) injectIntoEveryFrame(contents, source, "loginIndicator");
 
     let waiting = false;
     let bounceId: number | null = null;
@@ -244,6 +196,10 @@ export async function attachLoginIndicator(window: BrowserWindow) {
         if (waiting || window.isDestroyed()) return;
         waiting = true;
         log.info("[loginIndicator] Login page is waiting for: %s", kind);
+
+        // Before anything else: there is no point titling or bouncing a window
+        // that automatic approval has kept off screen.
+        onUserNeeded?.("the page is waiting for a security key or passkey");
 
         // The page keeps setting its own title, so block those updates for as
         // long as ours is the more useful one.
@@ -309,6 +265,11 @@ export async function attachLoginIndicator(window: BrowserWindow) {
     ) => {
         let credentialId: string | null = null;
         try {
+            // The picker below is modal and blocks this process, so ask for the
+            // window before it opens: a sheet attached to a window that has not
+            // been shown yet is a prompt nobody can answer.
+            onUserNeeded?.("your security key holds more than one credential");
+
             const accounts = details.accounts || [];
             log.info(
                 "[loginIndicator] Key offered %d credentials for %s",

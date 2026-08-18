@@ -1,7 +1,8 @@
 {
-  // src/login-overlay.ts is the one file that runs in a browser rather than in
-  // the main process, and it is injected into a page as source text — so it
-  // needs its own compile. Differences from tsconfig.json that matter:
+  // src/login-overlay.ts and src/approve-overlay.ts are the files that run in a
+  // browser rather than in the main process, and they are injected into a page
+  // as source text — so they need their own compile. Each is emitted on its
+  // own; neither may import anything, or it would come out as a module. Differences from tsconfig.json that matter:
   //
   //   module        NodeNext would append `export {}` (this package is ESM),
   //                 which is a syntax error in an injected classic script.
@@ -21,5 +22,5 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "files": ["src/login-overlay.ts"]
+  "files": ["src/login-overlay.ts", "src/approve-overlay.ts"]
 }

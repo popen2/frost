@@ -25,6 +25,7 @@ import { writeSsoConfig } from "./aws-config.js";
 import { updateTrayIcon } from "./tray.js";
 import { updateKubeConfig } from "./aws-eks.js";
 import { attachLoginIndicator } from "./login-indicator.js";
+import { attachAutoApprove } from "./auto-approve.js";
 import { formatHotkey } from "./hotkey.js";
 import {
     startRun,
@@ -303,42 +304,113 @@ async function getNewToken(
         await waitForUserTrigger(expiresInSec * 1000);
     }
 
-    // In default-browser mode there is no window to watch, so windowOpen stays
-    // true and the poll loop runs until the device code expires.
-    let windowOpen = true;
-    let window: BrowserWindow | undefined;
-
     const verificationUrl = startAuth.verificationUriComplete;
     if (!verificationUrl) {
         throw new Error("Missing verification URL from device authorization");
     }
 
+    const useBrowser = behavior.loginMethod === "default_browser";
+    const silent = behavior.autoApprove !== false;
+
+    // In default-browser mode there is no window to watch, so windowOpen stays
+    // true and the poll loop runs until the device code expires.
+    let windowOpen = true;
+    let window: BrowserWindow | undefined;
+    let closingForBrowser = false;
+    let handedOver = false;
+
+    const openInBrowser = async () => {
+        log.debug("[getNewToken] Opening login in default browser");
+        try {
+            await shell.openExternal(verificationUrl);
+        } catch (err) {
+            throw new Error(
+                `Failed opening login page in browser: ${describeError(err)}`,
+                { cause: err }
+            );
+        }
+    };
+
+    /** Never throws: failing to show a window must not fail the run. */
+    const showLoginWindow = (reason: string) => {
+        try {
+            if (!window || window.isDestroyed() || window.isVisible()) return;
+            log.info("[getNewToken] Showing the login window: %s", reason);
+            // Synchronously, before anything else: a WebAuthn account picker
+            // arrives as a modal that blocks this process, so a show queued
+            // behind it would come too late. The dock can catch up after.
+            window.show();
+            window.focus();
+            if (app.dock) app.dock.show();
+        } catch (err) {
+            log.error(
+                "[getNewToken] Could not show the login window: %s",
+                describeError(err)
+            );
+        }
+    };
+
+    /**
+     * The page needs the user. Give them whichever surface they asked for: the
+     * window that has been driving itself so far, or — for someone who picked
+     * the default browser, presumably because that is where their passkeys and
+     * saved passwords live — that browser, with the silent attempt dropped.
+     */
+    const handOverToUser = (reason: string) => {
+        if (!useBrowser) {
+            showLoginWindow(reason);
+            return;
+        }
+
+        // Once, however many things notice the page needs the user: every call
+        // after the first would be another browser tab.
+        if (handedOver) return;
+        handedOver = true;
+        log.info("[getNewToken] Handing the login to the browser: %s", reason);
+
+        openInBrowser().then(
+            () => {
+                // Only now that the browser is up. Closing the probe first and
+                // then failing to open anything would leave the run polling
+                // with nothing on screen to sign in with.
+                if (window && !window.isDestroyed()) {
+                    closingForBrowser = true;
+                    window.destroy();
+                }
+            },
+            (err: unknown) => {
+                log.error("[getNewToken] %s", describeError(err));
+                showLoginWindow("the browser could not be opened");
+            }
+        );
+    };
+
     // Opening the login page happens inside the try: each attempt starts its
     // own device authorization, so a window left behind by a throw would sit
     // there pointing at a code nothing polls any more.
     try {
-        if (behavior.loginMethod === "default_browser") {
-            log.debug("[getNewToken] Opening login in default browser");
-            try {
-                await shell.openExternal(verificationUrl);
-            } catch (err) {
-                throw new Error(
-                    `Failed opening login page in browser: ${describeError(
-                        err
-                    )}`,
-                    { cause: err }
-                );
-            }
+        // Under automatic approval even the default-browser user gets a window
+        // first: it stays off screen, and it is closed in favour of the browser
+        // the moment the page turns out to need them.
+        if (useBrowser && !silent) {
+            await openInBrowser();
         } else {
-            log.debug("[getNewToken] Opening login window");
-            if (app.dock) await app.dock.show();
+            log.debug("[getNewToken] Opening login window (silent=%s)", silent);
+            if (!silent && app.dock) await app.dock.show();
 
             window = new BrowserWindow({
                 width: 550,
                 height: 700,
                 center: true,
+                // Under automatic approval the window starts off screen and is
+                // shown only if the page turns out to need the user — and in
+                // default-browser mode it is never shown at all, it only probes
+                // whether this refresh needs anyone. Background throttling
+                // would slow the driver's scan loop to a crawl while hidden.
+                show: !silent,
                 webPreferences: {
                     nodeIntegration: false,
+                    backgroundThrottling: false,
                 },
             });
 
@@ -354,7 +426,7 @@ async function getNewToken(
             // key or passkey — a sign-in page that starts listening as it boots
             // asks for the key before any later hook could wrap the call. The
             // default-browser path needs nothing: the browser has its own UI.
-            await attachLoginIndicator(window);
+            await attachLoginIndicator(window, handOverToUser);
 
             // Arming the overlay is asynchronous, and the user can close the
             // window while it happens. Nothing below survives a destroyed
@@ -366,7 +438,15 @@ async function getNewToken(
                 });
             }
 
+            // After the indicator, so the approval driver is not scanning a
+            // window that turned out to be gone, and before loadURL, so it is
+            // watching from the first document.
+            if (silent) attachAutoApprove(window, handOverToUser);
+
             window.on("close", () => {
+                // Frost closing the probe in favour of the browser is not the
+                // user saying "not now".
+                if (closingForBrowser) return;
                 log.warn("[getNewToken] Login window closed");
                 windowOpen = false;
             });

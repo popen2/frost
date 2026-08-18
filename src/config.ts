@@ -103,6 +103,7 @@ export const config = new Store({
                 refreshHotkey: { type: "string" },
                 historyRetentionDays: { type: "number" },
                 loginMethod: { type: "string" },
+                autoApprove: { type: "boolean" },
             },
         },
     },
@@ -129,6 +130,11 @@ export interface BehaviorConfig {
      * front, but the default browser can reach passkeys and password managers.
      */
     loginMethod: "popup" | "default_browser";
+    /**
+     * Whether Frost clicks through the AWS approval pages itself, showing the
+     * login only when the page needs the user (see `src/auto-approve.ts`).
+     */
+    autoApprove: boolean;
 }
 
 export const DEFAULT_BEHAVIOR: BehaviorConfig = {
@@ -136,4 +142,5 @@ export const DEFAULT_BEHAVIOR: BehaviorConfig = {
     refreshHotkey: "CmdOrCtrl+Shift+R",
     historyRetentionDays: 7,
     loginMethod: "popup",
+    autoApprove: true,
 };

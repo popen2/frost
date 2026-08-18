@@ -686,7 +686,8 @@
       background: var(--sep);
     }
     .radio-row:hover { background: var(--hover); }
-    .radio-row input[type=radio] { margin-top: 1px; width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+    .radio-row input[type=radio],
+    .radio-row input[type=checkbox] { margin-top: 1px; width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
     .radio-label { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
     .radio-desc  { font-size: 12px; color: var(--text-2); margin-top: 3px; line-height: 1.5; }
 
@@ -988,6 +989,13 @@
               <div class="radio-desc">Opens in your browser, so passkeys and password managers work. Frost keeps waiting for you to approve.</div>
             </div>
           </label>
+          <label class="radio-row">
+            <input type="checkbox" id="auto-approve">
+            <div>
+              <div class="radio-label">Approve automatically</div>
+              <div class="radio-desc">Frost clicks through the AWS approval steps in the background and only brings up the login page when you have to sign in yourself.</div>
+            </div>
+          </label>
           <div class="section-row" style="display:flex;align-items:center;gap:14px;">
             <div style="flex:1">
               <div style="font-size:13px;font-weight:600;margin-bottom:3px;letter-spacing:-0.1px;">Clear cookies and local storage</div>
@@ -1205,7 +1213,7 @@ const markDirty = panel => () => { dirty[panel] = true; };
 document.getElementById('input-url').addEventListener('input', markDirty('login'));
 document.getElementById('input-region').addEventListener('change', markDirty('login'));
 document.getElementById('retention-days').addEventListener('change', markDirty('privacy'));
-document.querySelectorAll('input[name=refreshMode], input[name=loginMethod]')
+document.querySelectorAll('input[name=refreshMode], input[name=loginMethod], #auto-approve')
   .forEach(r => r.addEventListener('change', markDirty('behavior')));
 
 // ── Login ────────────────────────────────────────────────────────────────────
@@ -1539,7 +1547,7 @@ function renderLogStep(step) {
 
 // ── Behavior ────────────────────────────────────────────────────────────────
 
-let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R', historyRetentionDays: 7, loginMethod:'popup' };
+let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R', historyRetentionDays: 7, loginMethod:'popup', autoApprove:true };
 let recording   = false;
 
 // Mirrors formatHotkey() in src/hotkey.ts, which the main process uses for
@@ -1585,6 +1593,8 @@ function populateBehavior(state) {
   if (r) r.checked = true;
   const l = radioWithValue('loginMethod', curBehavior.loginMethod);
   if (l) l.checked = true;
+  const a = document.getElementById('auto-approve');
+  if (a) a.checked = curBehavior.autoApprove !== false;
   document.getElementById('hotkey-pill').textContent = fmtHotkey(cfg.refreshHotkey);
 }
 
@@ -1684,6 +1694,8 @@ document.getElementById('btn-save-behavior').addEventListener('click', async () 
   if (r) curBehavior.refreshMode = r.value;
   const l = document.querySelector('input[name=loginMethod]:checked');
   if (l) curBehavior.loginMethod = l.value;
+  const a = document.getElementById('auto-approve');
+  if (a) curBehavior.autoApprove = !!a.checked;
   await frost.saveBehavior(curBehavior);
   dirty.behavior = false;
   showNotice('behavior-notice');
