@@ -28,7 +28,6 @@ jobs:
   prep:
     name: 🔖 Resolve draft release
     runs-on: ubuntu-latest
-    # write, not read: the API only lists drafts to callers with push access.
     permissions:
       contents: write
     outputs:
