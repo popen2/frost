@@ -110,6 +110,26 @@
         <a href="login.html">More about signing in →</a>
       </p>
 
+      <h3 id="clear-cookies">Clear cookies and local storage</h3>
+      <p>
+        The in-app login window keeps its cookies and local storage between
+        sign-ins — that is what lets a federated identity provider carry you
+        through a refresh without asking anything. <strong>Clear Cookies</strong>
+        throws that away, so the next sign-in starts from scratch. Two reasons to
+        use it:
+      </p>
+      <ul>
+        <li><strong>Signing in as someone else</strong> — a second AWS identity, or a colleague's account on a shared machine.</li>
+        <li><strong>A login page that has wedged itself</strong> — a half-finished redirect or a stale identity provider session that no longer resolves.</li>
+      </ul>
+      <p>
+        Frost asks for confirmation first, then reports <em>✓ Cleared</em>. Your
+        start URL, region, hotkey, profiles and run history are untouched — this
+        clears the login window's browser state and nothing else. It does not
+        affect the default-browser mode, where the session belongs to your
+        browser.
+      </p>
+
       <h2 id="hotkey">Refresh Hotkey</h2>
       <p>
         A global shortcut, registered system-wide, that does one of two things
@@ -141,7 +161,8 @@
 
       <h2 id="saving">Saving</h2>
       <p>
-        <strong>Save</strong> applies all three settings at once. The hotkey is
+        <strong>Save</strong> applies all three settings at once (clearing
+        cookies happens on the spot and needs no save). The hotkey is
         re-registered immediately; the mode and login page choices apply from the
         next refresh onwards. A refresh finishing in the background will not
         overwrite edits you have not saved yet.

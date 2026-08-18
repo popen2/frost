@@ -62,12 +62,12 @@
           <tbody>
             <tr>
               <td>SSO access token and expiry</td>
-              <td>Frost's config file, and <code>~/.aws/sso/cache/</code></td>
+              <td>Frost's config file (<a href="#encryption">encrypted</a>), and <code>~/.aws/sso/cache/</code></td>
               <td><strong>High</strong> — grants every account and permission set you can reach, until it expires</td>
             </tr>
             <tr>
               <td>OAuth client id and secret</td>
-              <td>Frost's config file</td>
+              <td>Frost's config file (the secret <a href="#encryption">encrypted</a>)</td>
               <td><strong>High</strong> — with a device code, could be redeemed for a token</td>
             </tr>
             <tr>
@@ -94,6 +94,54 @@
         </table>
       </div>
       <p>Exact paths per platform are in <a href="files.html">files &amp; locations</a>.</p>
+
+      <h2 id="encryption">Credentials at rest</h2>
+      <p>
+        The two values worth stealing — the SSO access token and the OAuth client
+        secret — are encrypted before they are written to Frost's configuration
+        file, using the operating system's own credential store:
+      </p>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Platform</th><th>Backed by</th></tr></thead>
+          <tbody>
+            <tr><td>macOS</td><td>Keychain</td></tr>
+            <tr><td>Windows</td><td>DPAPI</td></tr>
+            <tr><td>Linux</td><td>libsecret or kwallet, through your desktop's keyring</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        A copied configuration file is therefore not enough on its own: a backup,
+        a synced home directory or another machine's copy will not decrypt.
+        Values written by an earlier version are recognisable as plaintext, read
+        as they are, and re-written encrypted the next time they change — there is
+        no migration step to run.
+      </p>
+      <p>Two cases are handled deliberately:</p>
+      <ul>
+        <li>
+          <strong>No keyring available</strong> — a headless or keyring-less Linux
+          box has nowhere to put a key. Frost stores the value as earlier versions
+          did and logs a warning once, rather than refusing to sign you in.
+        </li>
+        <li>
+          <strong>A value that will not decrypt</strong> — a copied profile
+          directory, a reset keychain, a different machine. Frost treats it as
+          "no credential" and sends you through a fresh sign-in, instead of
+          failing several steps later with a confusing AWS error.
+        </li>
+      </ul>
+      <div class="callout callout-warn">
+        <span class="callout-icon" aria-hidden="true">⚠️</span>
+        <p>
+          The token cache under <code>~/.aws/sso/cache/</code> is
+          <strong>not</strong> encrypted. It is the AWS CLI's own file format and
+          the CLI has to be able to read it, which is the entire point of Frost
+          writing it. It is <code>0600</code>, so it is protected from other
+          accounts on the machine but not from a backup of your home directory.
+        </p>
+      </div>
 
       <h2 id="permissions">File permissions</h2>
       <div class="callout callout-security">
@@ -174,7 +222,7 @@
         stops it refreshing.
       </p>
 
-      <h2 id="login-window">The login window</h2>
+      <h2 id="windows">The two windows</h2>
       <p>
         Sign-in happens on the AWS access portal page. Frost's login window loads
         that page with Node integration disabled, and Frost never sees your
@@ -189,11 +237,21 @@
         <a href="login.html#security-keys">Signing in →</a>
       </p>
       <p>
-        The two windows are kept apart. The commands the app window can issue —
-        save settings, trigger a refresh, erase history — are accepted only from
-        the app window's own top-level frame; a request arriving from anywhere
-        else, the login window and the remote pages it renders included, is
-        refused and logged.
+        The app window — the one with your settings and status in it — runs with
+        no access to the system it sits on. It gets no Node, no filesystem and no
+        network of its own: a content security policy blocks every outbound
+        request, external script and <code>eval</code>, and the only thing the
+        page can reach is a fixed list of named operations (read state, save
+        settings, trigger a refresh, clear history, and so on). It cannot invoke
+        anything else, and those operations are in turn accepted only from that
+        window's own top-level frame — a request from anywhere else, the login
+        window and the remote pages it renders included, is refused and logged.
+      </p>
+      <p>
+        That matters because the account names, cluster names and AWS error
+        strings the window displays all come from AWS. Even if one of them ever
+        escaped being escaped, there is no longer a live token and a Node runtime
+        sitting behind the page for it to reach.
       </p>
 
       <h2 id="supply-chain">Builds and the supply chain</h2>

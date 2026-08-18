@@ -55,22 +55,23 @@ The one renderer is the dashboard: `src/dashboard.html`, a single self-contained
 file (markup, CSS, and inline vanilla JS, no framework) that `npm run build:html`
 copies verbatim into `dist/`. It is **not** type-checked or linted — `tsc` and
 ESLint only see `src/*.ts` — so changes there are verified by eye and at runtime.
-It talks to the main process purely over IPC (`ipcRenderer.invoke` +
-a `state-updated` push); the handlers live in `src/window.ts`, which takes an
-`IpcCallbacks` object so it never has to import `aws-sso.ts` (that would be a
-cycle). It currently runs with `nodeIntegration: true` /
-`contextIsolation: false`, so **every value interpolated into `innerHTML` must
-go through the `esc()` helper** — account names, cluster names, and error
+It talks to the main process purely over the `window.frost` bridge in
+`src/preload.cts` (named operations + a `state-updated` push); the handlers live
+in `src/window.ts`, which takes an `IpcCallbacks` object so it never has to
+import `aws-sso.ts` (that would be a cycle). It runs sandboxed, with
+`contextIsolation: true` / `nodeIntegration: false` and a CSP, so an unescaped
+value is no longer code execution against a live token — but **every value
+interpolated into `innerHTML` must still go through the `esc()` helper** — account names, cluster names, and error
 strings all originate from AWS. For the same reason, never build a selector or
 an inline `onclick` out of a value: put it in a `data-` attribute and read it
 back (`esc()` is an HTML escaper, and an HTML attribute is decoded *before* its
 contents are parsed as JS or CSS, so escaping does not hold there).
 
 Register new IPC handlers with **`handleFromDashboard()`**, not `ipcMain.handle`
-directly. It rejects anything that is not the dashboard's own top frame. Nothing
-can reach those handlers today — the login window has no preload and runs with
-context isolation — but the check is what keeps that true once a preload bridge
-exists.
+directly: it rejects anything that is not the dashboard's own top frame. A new
+handler also needs a named method in `src/preload.cts` — the renderer has no
+`ipcRenderer` of its own, so a handler without a bridge entry is unreachable
+from the page, and `dashboard.html` is linted by nothing that would notice.
 
 ## Commands
 
@@ -396,8 +397,9 @@ is committed, so anything added there has to work when opened directly.
 
 - `docs/index.html` (landing), `docs/download.html` (reads the latest GitHub
   release at runtime) and `docs/style.css` are the marketing site.
-- `docs/docs/*.html` is the documentation: one page per feature, three settings
-  pages, and a reference section. `docs/docs.css` layers the docs shell on top
+- `docs/docs/*.html` is the documentation: one page per feature, an
+  **Integrations** section (EKS and the authenticator it needs — new AWS
+  services get a page there), three settings pages, and a reference section. `docs/docs.css` layers the docs shell on top
   of `style.css`; both pages of the marketing site link it too, because the
   landing page reuses `.doc-cards` and `.section-more`.
 - **The page list lives in one place**: `SECTIONS` in `docs/docs/docs-nav.js`,

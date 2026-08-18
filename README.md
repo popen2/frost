@@ -22,8 +22,8 @@ feature, every setting, and a reference for the files Frost touches:
     and [signing in](https://popen2.github.io/frost/docs/login.html)
 -   [Profile names](https://popen2.github.io/frost/docs/profiles.html) and
     [the `~/.aws/config` file](https://popen2.github.io/frost/docs/aws-config.html)
--   [EKS discovery](https://popen2.github.io/frost/docs/eks.html) and the
-    [bundled IAM authenticator](https://popen2.github.io/frost/docs/authenticator.html)
+-   Integrations: [EKS discovery](https://popen2.github.io/frost/docs/eks.html)
+    and the [bundled IAM authenticator](https://popen2.github.io/frost/docs/authenticator.html)
 -   [Settings](https://popen2.github.io/frost/docs/settings.html),
     [security & privacy](https://popen2.github.io/frost/docs/security.html),
     [files & locations](https://popen2.github.io/frost/docs/files.html) and

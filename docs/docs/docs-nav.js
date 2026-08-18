@@ -25,10 +25,15 @@
         { href: 'login.html', title: 'Signing in' },
         { href: 'profiles.html', title: 'Profile names' },
         { href: 'aws-config.html', title: 'The ~/.aws/config file' },
-        { href: 'eks.html', title: 'EKS cluster discovery' },
-        { href: 'authenticator.html', title: 'Bundled IAM authenticator' },
         { href: 'app-window.html', title: 'App window & tray' },
         { href: 'activity.html', title: 'Activity & logs' },
+      ],
+    },
+    {
+      label: 'Integrations',
+      pages: [
+        { href: 'eks.html', title: 'EKS cluster discovery' },
+        { href: 'authenticator.html', title: 'Bundled IAM authenticator' },
       ],
     },
     {

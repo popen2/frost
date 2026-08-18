@@ -57,7 +57,8 @@
       <h2 id="features">How Frost works</h2>
       <p>
         One page per feature. If you are trying to understand why a file on your
-        disk looks the way it does, the last four are the ones you want.
+        disk looks the way it does, the profiles and <code>~/.aws/config</code>
+        pages are the ones you want.
       </p>
       <div class="doc-cards">
         <a class="doc-card" href="credential-refresh.html">
@@ -76,14 +77,6 @@
           <strong>The <code>~/.aws/config</code> file</strong>
           <span>What Frost owns in that file, what it never touches, and how upgrades avoid duplicates.</span>
         </a>
-        <a class="doc-card" href="eks.html">
-          <strong>EKS cluster discovery</strong>
-          <span>The region scan, the kubeconfig merge, and how contexts get their names.</span>
-        </a>
-        <a class="doc-card" href="authenticator.html">
-          <strong>Bundled IAM authenticator</strong>
-          <span>The helper binary that lets <code>kubectl</code> talk to EKS without the AWS CLI.</span>
-        </a>
         <a class="doc-card" href="app-window.html">
           <strong>App window &amp; tray</strong>
           <span>A tour of the six pages in the settings window and the tray menu behind them.</span>
@@ -91,6 +84,22 @@
         <a class="doc-card" href="activity.html">
           <strong>Activity &amp; logs</strong>
           <span>The per-run record of every step, and the log files that go with it.</span>
+        </a>
+      </div>
+
+      <h2 id="integrations">Integrations</h2>
+      <p>
+        What Frost does with your credentials once it has them. EKS is the first
+        AWS service it wires up for you; more will follow.
+      </p>
+      <div class="doc-cards">
+        <a class="doc-card" href="eks.html">
+          <strong>EKS cluster discovery</strong>
+          <span>The region scan, the kubeconfig merge, and how contexts get their names.</span>
+        </a>
+        <a class="doc-card" href="authenticator.html">
+          <strong>Bundled IAM authenticator</strong>
+          <span>The helper binary that lets <code>kubectl</code> talk to EKS without the AWS CLI.</span>
         </a>
       </div>
 
