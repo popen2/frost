@@ -9,9 +9,7 @@ set -euo pipefail
 WANTED="${WANTED:-}"
 
 # There is no `gh` command for "the newest draft", so use the API for the list.
-# Newest first is the endpoint's own order. It only includes drafts when the
-# token has push access - a read-only one just returns published releases, and
-# looks exactly like there being no draft.
+# Newest first is the endpoint's own order.
 if [ -n "${WANTED}" ]; then
     TAG="$(gh api 'repos/{owner}/{repo}/releases' \
         --jq "map(select(.draft and .tag_name == \"${WANTED}\")) | first | .tag_name // empty")"
@@ -21,7 +19,7 @@ else
 fi
 
 if [ -z "${TAG}" ]; then
-    echo "::error::No draft release found${WANTED:+ for ${WANTED}}. release-drafter creates one on each push to main - and check the job has contents: write, since a read-only token cannot see drafts at all."
+    echo "::error::No draft release found${WANTED:+ for ${WANTED}}. Needs a push to main to create one, and contents: write to see it."
     exit 1
 fi
 
