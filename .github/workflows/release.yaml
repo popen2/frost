@@ -1,38 +1,25 @@
 name: 🚀 Release Version
 
-# Run this from the Actions tab to cut a release. It is the whole release: it
-# builds the draft's version, attaches the distributables to the draft, and
-# publishes it last.
+# Run from the Actions tab; this is the whole release.
 #
-# Publishing has to come last because **immutable releases are enabled on this
-# repository**: publishing freezes a release, assets included, and the API
-# answers any later upload with `422 Cannot upload assets to an immutable
-# release`. So a human clicking Publish in the UI can no longer be what starts
-# the build - by the time the build finished there would be nowhere to put the
-# artifacts. That is exactly how v0.3.0 and v0.3.1 ended up published with no
-# assets at all, and neither can be repaired: an immutable release stays sealed.
-#
-# What still works is a draft. Drafts are mutable, they can hold assets, and
-# publishing one is what creates the tag - so the order is build, upload,
-# publish, and the tag lands on the exact commit that was built.
-#
-# release-drafter keeps that draft up to date on every push to main and resolves
-# the version from PR labels (.github/release-drafter.yml, `version-resolver`),
-# so the draft already knows what it wants to be called. This workflow reads the
-# tag off it rather than inventing one.
+# Immutable releases are enabled on this repository: publishing freezes a
+# release, assets included, and every later upload gets `422 Cannot upload
+# assets to an immutable release`. So the order has to be build, upload to the
+# draft, publish last - which is why this workflow publishes rather than a human
+# clicking Publish in the UI. v0.3.0 and v0.3.1 shipped with no assets at all by
+# doing it the other way round, and neither can be repaired.
 
 on:
   workflow_dispatch:
     inputs:
       tag:
         description: >-
-          Draft release to build and publish, e.g. v0.3.2. Leave empty to use
-          the newest draft, which is what release-drafter maintains.
+          Draft release to build and publish, e.g. v0.3.2. Empty means the
+          newest draft.
         required: false
         type: string
 
-# One release at a time: the matrix jobs all upload into the same draft, and a
-# second run would be racing the first one's publish.
+# The matrix jobs all upload into the same draft.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -47,54 +34,22 @@ jobs:
       tag: ${{ steps.draft.outputs.tag }}
       version: ${{ steps.draft.outputs.version }}
     steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v6
+
       - id: draft
         name: 🔖 Read the tag off the draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           WANTED: ${{ inputs.tag }}
-        run: |
-          # `gh release view` resolves a draft by tag name, but there is no
-          # `gh` command for "the newest draft", so go to the API for the list.
-          # Newest first is the endpoint's own order.
-          if [ -n "${WANTED}" ]; then
-            TAG="$(gh api repos/{owner}/{repo}/releases \
-              --jq "map(select(.draft and .tag_name == \"${WANTED}\")) | first | .tag_name // empty")"
-          else
-            TAG="$(gh api repos/{owner}/{repo}/releases \
-              --jq 'map(select(.draft)) | first | .tag_name // empty')"
-          fi
-
-          if [ -z "${TAG}" ]; then
-            echo "::error::No draft release found${WANTED:+ for ${WANTED}}. release-drafter creates one on each push to main - check that a push to main has landed since the last release."
-            exit 1
-          fi
-
-          # The version has to round-trip back to this exact tag, because the
-          # build stamps it into package.json and the upload reconstructs the
-          # tag as v<version>. release-drafter's tag-template is
-          # `v$RESOLVED_VERSION`, so anything else means the template changed.
-          case "${TAG}" in
-            v*) VERSION="${TAG#v}" ;;
-            *)
-              echo "::error::Draft tag '${TAG}' does not start with 'v'; build.yaml reconstructs the tag as v<version> and would not find it."
-              exit 1
-              ;;
-          esac
-
-          echo "Releasing ${TAG} (version ${VERSION})"
-          {
-            echo "tag=${TAG}"
-            echo "version=${VERSION}"
-          } >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/resolve-draft-release.sh
 
   release-app:
     name: 📦 Release App
     needs:
       - prep
     uses: ./.github/workflows/build.yaml
-    # Each matrix job attaches its distributables to the still-unpublished
-    # draft.
     permissions:
       contents: write
     secrets: inherit
@@ -112,32 +67,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v6
+
       - name: 🚀 Publish the draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.prep.outputs.tag }}
           SHA: ${{ github.sha }}
-        run: |
-          # --target pins the tag to the commit that was actually built. The
-          # draft points at `main`, which may have moved during the ~20 minutes
-          # the matrix takes, and the tag should name the build's own source.
-          #
-          # This is the point of no return: publishing seals the release.
-          gh release edit "${TAG}" --target "${SHA}" --draft=false
-
-      - name: ✅ Confirm the release has its assets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ needs.prep.outputs.tag }}
-        run: |
-          # Nothing can be added after this point, so say plainly what shipped.
-          COUNT="$(gh release view "${TAG}" --json assets --jq '.assets | length')"
-          gh release view "${TAG}" --json assets --jq '.assets[] | "  \(.name)  \(.size) bytes"'
-
-          if [ "${COUNT}" -eq 0 ]; then
-            echo "::error::${TAG} published with no assets, and an immutable release cannot be repaired. Cut the next version rather than retrying this one."
-            exit 1
-          fi
-          echo "${TAG} published with ${COUNT} assets."
+        run: bash .github/scripts/publish-release.sh

@@ -336,19 +336,11 @@ Five workflows, with the matrix build factored out as a reusable workflow:
   `MAC_CERTS`, `APPLE_API_*`, and `GITHUB_TOKEN` without re-declaring them.
 
   **There is no Forge publisher, and `electron-forge publish` must not come
-  back.** `@electron-forge/publisher-github` hand-sets a `content-length`
-  header on its Octokit asset upload, and `electron-forge publish` installs
-  undici's `EnvHttpProxyAgent` as the global fetch dispatcher on the way in
-  (unconditional in `@electron/get` 5's `initializeProxy()`, which Forge's CLI
-  calls at startup — version 3, which Forge 7 pulled, bootstrapped
-  `global-agent` instead and left `fetch` alone). Node's built-in fetch appends
-  its own `Content-Length` to the publisher's, and undici 7 rejects the
-  resulting `"<n>, <n>"` with `invalid content-length header` where the undici
-  Node bundles only `parseInt` it. The request never leaves the machine;
-  Octokit re-wraps it as a 500 and `@octokit/plugin-retry` burns three retries
-  on it. That failed every job of the v0.3.0 release matrix, and all three
-  pieces are upstream. `gh release upload` sidesteps the lot, and it uploads to
-  a **draft** — see "Immutable releases" below for why that part matters.
+  back** — it fails outright on this repo. Assets go up with `gh release
+  upload`; the comment on build.yaml's upload step has the why.
+
+  Steps longer than a one-liner live in **`.github/scripts/`** rather than
+  inline `run:` blocks, and take their inputs from `env:`.
 
   Two inputs beyond `publish`/`version` are load-bearing:
 
@@ -384,31 +376,17 @@ Five workflows, with the matrix build factored out as a reusable workflow:
   the Apple secrets, which are only available on same-repo PRs (not forks). On
   pushes to `main` it also refreshes the release-drafter draft.
 - **`.github/workflows/release.yaml`** (🚀 Release Version) is
-  **`workflow_dispatch` only — run it from the Actions tab, and it is the whole
-  release.** Three jobs: `prep` reads the tag off the newest release-drafter
-  draft (an optional `tag` input picks a specific draft), `release-app` calls
-  `build.yaml` with `publish: true` so every matrix job attaches its
-  distributables to that still-unpublished draft, and `publish` flips the draft
-  to published — pinned with `--target` to the commit that was built, so the tag
-  lands on the right source — then asserts the release came out with assets on
-  it. A `concurrency: release` group keeps two releases from racing into the
-  same draft.
+  **`workflow_dispatch` only — run it from the Actions tab and it is the whole
+  release**: `prep` reads the tag off release-drafter's draft, `release-app`
+  builds the matrix and attaches the distributables to that draft, and
+  `publish` publishes it, pinned to the commit that was built. Releases are
+  therefore attributed to `github-actions[bot]`, not to whoever cut them.
 
-  **Do not publish the draft from the GitHub UI, and do not add a
-  `push: tags` or `release: published` trigger back.** Immutable releases are
-  enabled on this repository, so publishing *freezes* a release, assets
-  included — every later upload gets `422 Cannot upload assets to an immutable
-  release`. Under the old flow the human's Publish click created the tag that
-  started the build, which means the release was already sealed before the
-  first artifact existed. That is how **v0.3.0 and v0.3.1 both shipped with
-  zero assets**, and neither can be repaired: sealed is sealed, so a botched
-  release costs you the version number. The only order that works is build →
-  upload to the draft → publish, which is why the workflow owns the publish
-  step. Publishing from a workflow also means the release is attributed to
-  `github-actions[bot]` rather than to whoever cut it — that is the trade, and
-  it is why the old "bot-attributed release events don't fire downstream
-  workflows" objection no longer applies: nothing downstream is waiting on the
-  event any more.
+  **Never publish the draft from the GitHub UI, and never add a `push: tags`
+  or `release: published` trigger back.** Immutable releases are enabled here,
+  so publishing seals a release and a sealed one cannot be repaired — a botched
+  release costs the version number. release.yaml's header comment has the
+  detail.
 - **`.github/workflows/pages.yaml`** (🌐 Deploy Pages) publishes `docs/` — the
   marketing site and the documentation at the project's GitHub Pages URL — on
   pushes to `main` that touch `docs/**`. See "Documentation site" below.
@@ -423,13 +401,9 @@ the changelog-category labels (`feature` / `fix` / `chore`) and only from
 branch-name patterns (`feat/…`, `fix/…`, `chore/…`), so a branch named anything
 else — e.g. `claude/…` — needs its labels set by hand.
 
-The draft's tag is therefore the single source of truth for the version being
-released: `prep` reads it, strips the `v`, and `build.yaml` reconstructs
-`v<version>` to find the draft again. That round-trip only holds while
-`release-drafter.yml`'s `tag-template` stays `v$RESOLVED_VERSION` — `prep`
-fails loudly if the draft's tag stops starting with `v`, but a template change
-that keeps the `v` and alters the rest would silently point the upload at a
-release that doesn't exist. Change the two together.
+The draft's tag is therefore the version being released: `prep` strips the `v`
+and the upload reconstructs it, so `tag-template` has to stay
+`v$RESOLVED_VERSION`.
 
 The app version in `package.json` is overwritten in CI from the tag
 (`npm version --no-git-tag-version`), so **don't bump it manually**. The build
