@@ -20,6 +20,7 @@ const frost = {
     saveBehavior: (behavior: unknown) =>
         ipcRenderer.invoke("save-behavior", behavior),
     clearHistory: () => ipcRenderer.invoke("clear-history"),
+    clearBrowsingData: () => ipcRenderer.invoke("clear-browsing-data"),
     setHotkeyRecording: (recording: boolean) =>
         ipcRenderer.invoke("set-hotkey-recording", recording),
     testNotification: () => ipcRenderer.invoke("test-notification"),

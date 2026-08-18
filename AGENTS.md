@@ -569,6 +569,9 @@ else covers them:
   on the `esc()` rule above. One caveat: the `<head>` script at the top of the
   file reads `process.platform` before any injected stub can load, so expect one
   harmless `ReferenceError` in the page-error log.
+- **The preload bridge**: assert every `frost.<name>` in `dashboard.html` has an
+  entry in `src/preload.cts`. Nothing type-checks the two against each other, so
+  a missing one is a button that does nothing (#76).
 - **`forge.config.js`** can be imported directly, and the maker instantiated
   the same way Forge does (`new MakerSquirrel(cfg, platforms)` then
   `await maker.prepareConfig(arch)`), to confirm the per-arch config resolves
