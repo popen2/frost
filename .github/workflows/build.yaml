@@ -3,6 +3,11 @@ name: Build
 # Reusable build matrix shared by ci.yaml (PR validation) and release.yaml
 # (release publish). Callers should pass `secrets: inherit` so this workflow
 # can read MAC_CERTS, APPLE_API_*, and GITHUB_TOKEN without re-declaring them.
+#
+# Anything longer than a one-liner lives in .github/scripts/, invoked as `bash
+# .github/scripts/<name>.sh` with its inputs passed through `env:`. Explicitly
+# through `bash` so it does not depend on the executable bit surviving checkout
+# on the Windows runner.
 
 on:
   workflow_call:
@@ -117,39 +122,18 @@ jobs:
           npm run build
 
       - name: ⬇️ Download aws-iam-authenticator
-        # Git Bash on the Windows runner, so one script covers all three.
         shell: bash
         env:
+          OS_AWS: ${{ matrix.os.aws }}
+          ARCH_AWS: ${{ matrix.arch.aws }}
+          EXE: ${{ matrix.os.exe }}
           EXPECTED: ${{ matrix.authenticator_sha256 }}
-        run: |
-          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${{ matrix.os.aws }}_${{ matrix.arch.aws }}${{ matrix.os.exe }}"
-          TARGET="aws-iam-authenticator${{ matrix.os.exe }}"
-          # -f so a missing asset fails here instead of packaging GitHub's 404
-          # page as the binary.
-          curl -fL "${URL}" -o "${TARGET}"
-
-          # Node rather than sha256sum or shasum: those are spelled differently
-          # across the three runners, and setup-node has already guaranteed this
-          # one is here.
-          ACTUAL="$(node -e 'const {createHash}=require("crypto"),{readFileSync}=require("fs");process.stdout.write(createHash("sha256").update(readFileSync(process.argv[1])).digest("hex"))' "${TARGET}")"
-          if [ "${ACTUAL}" != "${EXPECTED}" ]; then
-            echo "::error::aws-iam-authenticator ${AWS_IAM_AUTHENTICATOR_VERSION} ${{ matrix.os.aws }}_${{ matrix.arch.aws }} does not match its pinned checksum"
-            echo "  expected ${EXPECTED}"
-            echo "  actual   ${ACTUAL}"
-            echo "  from     ${URL}"
-            exit 1
-          fi
-          echo "aws-iam-authenticator checksum verified: ${ACTUAL}"
-
-          chmod a+x "${TARGET}"
+        run: bash .github/scripts/download-authenticator.sh
 
       # Deliberately after `npm ci` and `npm run build` in the file, but gated
       # so it never runs in the same job as pull request code. A postinstall
       # script from a compromised dependency would otherwise be running
       # alongside the Developer ID certificate and the notarization key.
-      #
-      # Every secret goes through `env:` rather than inline `${{ }}`, so the
-      # values are never substituted into the script text itself.
       - name: 🔐 Add MacOS Certificates
         if: runner.os == 'macOS' && inputs.sign
         env:
@@ -157,19 +141,7 @@ jobs:
           MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
           APPLE_API_AUTHKEY_BASE64: ${{ secrets.APPLE_API_AUTHKEY_BASE64 }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-        run: |
-          KEY_CHAIN=build.keychain
-          MACOS_CERT_P12_FILE=certificate.p12
-          echo "$MAC_CERTS" | base64 --decode > "$MACOS_CERT_P12_FILE"
-          security create-keychain -p actions "$KEY_CHAIN"
-          security default-keychain -s "$KEY_CHAIN"
-          security unlock-keychain -p actions "$KEY_CHAIN"
-          security import "$MACOS_CERT_P12_FILE" -k "$KEY_CHAIN" -P "$MAC_CERTS_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k actions "$KEY_CHAIN"
-          rm -rf ./*.p12
-
-          mkdir -p ~/private_keys
-          echo "$APPLE_API_AUTHKEY_BASE64" | base64 -d > ~/private_keys/"AuthKey_${APPLE_API_KEY}.p8"
+        run: bash .github/scripts/add-macos-certificates.sh
 
       # npx rather than ./node_modules/.bin/electron-forge: the latter is a
       # shell script with no extension, which PowerShell on the Windows runner
@@ -179,9 +151,7 @@ jobs:
       # @electron/osx-sign fails outright when asked to sign with an identity
       # that is not in the keychain.
       #
-      # This runs for releases too. `electron-forge publish` would make the same
-      # distributables and then upload them itself, but its GitHub publisher is
-      # unusable here - see the upload step below.
+      # Releases build the same way; only the upload step below differs.
       - name: 🛠️ Make app (sign + notarize)
         env:
           FROST_SIGN: ${{ inputs.sign }}
@@ -190,47 +160,21 @@ jobs:
         run: |
           npx --no-install electron-forge make --arch ${{ matrix.arch.electron }}
 
-      # Uploaded with the GitHub CLI rather than `electron-forge publish`.
-      # @electron-forge/publisher-github hand-sets a `content-length` header on
-      # its Octokit asset upload, and `electron-forge publish` also installs
-      # undici's EnvHttpProxyAgent as the global fetch dispatcher (unconditional
-      # in @electron/get 5's initializeProxy, which Forge's CLI calls at
-      # startup). Node's built-in fetch appends its own Content-Length to the
-      # one the publisher set, and undici 7 - unlike the undici Node bundles -
-      # rejects the resulting "<n>, <n>" with "invalid content-length header"
-      # before the request leaves the machine. That took down the whole v0.3.0
-      # release matrix, and none of the three pieces are ours to fix.
-      #
-      # The target is release.yaml's **draft** release, which is still mutable -
-      # immutable releases are enabled here, so a published one would answer
-      # `422 Cannot upload assets to an immutable release`. release.yaml
-      # publishes the draft only once every matrix job has landed its files.
-      # `gh release upload` resolves a draft by tag name, and --clobber makes a
-      # re-run of a failed job idempotent.
+      # The GitHub CLI rather than `electron-forge publish`, which cannot work
+      # here: @electron-forge/publisher-github hand-sets a `content-length` on
+      # its Octokit upload, Node's fetch appends its own on top, and the undici
+      # that `electron-forge publish` installs as the global dispatcher (via
+      # @electron/get 5's initializeProxy) rejects the combined "<n>, <n>"
+      # before the request leaves the machine. That took down every job of the
+      # v0.3.0 release matrix, and all three pieces are upstream.
       - name: 🚀 Upload to draft release
         if: ${{ inputs.publish }}
-        # Git Bash on the Windows runner, so one script covers all three.
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG: v${{ inputs.version }}
-        run: |
-          # -print0 rather than a glob: the artifact names are ours, but the
-          # runner's checkout path is not.
-          assets=()
-          while IFS= read -r -d '' asset; do
-            assets+=("${asset}")
-          done < <(find out/make -type f -print0)
-
-          if [ ${#assets[@]} -eq 0 ]; then
-            echo "::error::No distributables found under out/make"
-            exit 1
-          fi
-
-          printf 'Uploading to draft %s:\n' "${TAG}"
-          printf '  %s\n' "${assets[@]}"
-          gh release upload "${TAG}" "${assets[@]}" --clobber
+        run: bash .github/scripts/upload-release-assets.sh
 
       - name: 📤 Upload distributables
         if: ${{ !inputs.publish }}
