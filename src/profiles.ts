@@ -9,6 +9,7 @@ import log from "electron-log/main";
 import slugify from "slugify";
 import { config, UserConfig } from "./config.js";
 import { writeAwsConfig } from "./aws-config.js";
+import { decryptSecret } from "./secrets.js";
 import {
     startProfilesStep,
     completeProfilesStep,
@@ -33,7 +34,10 @@ export async function refreshProfiles(): Promise<Profile[]> {
     startProfilesStep();
 
     const userConfig = config.get("userConfig") as UserConfig;
-    const accessToken = config.get("accessToken") as string;
+    const accessToken = decryptSecret(config.get("accessToken") as string);
+    if (!accessToken) {
+        throw new Error("No usable access token; sign in again");
+    }
 
     const sso = new SSOClient({ region: userConfig.region });
 

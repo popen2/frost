@@ -30,6 +30,7 @@ import {
     completeTokenStep,
 } from "./run-log.js";
 import { describeError } from "./logging.js";
+import { decryptSecret, encryptSecret } from "./secrets.js";
 
 let timeoutId: NodeJS.Timeout | undefined;
 let pendingAuthResolve: (() => void) | null = null;
@@ -278,8 +279,10 @@ async function saveToken(
     newToken: CreateTokenCommandOutput
 ) {
     const expiresAt = moment().add(newToken.expiresIn!, "seconds");
-    config.set("accessToken", newToken.accessToken!);
+    config.set("accessToken", encryptSecret(newToken.accessToken!));
     config.set("expiresAt", expiresAt.toISOString());
+    // Plaintext here, deliberately: this is the AWS CLI's own cache format and
+    // the CLI has to be able to read it. See the note in secrets.ts.
     await writeSsoConfig(
         userConfig,
         newToken.accessToken!,
@@ -295,8 +298,28 @@ export interface RegisteredClient {
     expiresAt: number;
 }
 
+/**
+ * The stored client with its secret decrypted, or null if there isn't one - or
+ * if the secret was encrypted with a key this machine no longer has (a copied
+ * profile directory, a reset keychain). Re-registering is cheap and is the only
+ * way forward, so both cases look the same to the caller.
+ */
+function storedSsoClient(): RegisteredClient | null {
+    const stored = config.get("ssoClient") as RegisteredClient | undefined;
+    if (!stored) {
+        return null;
+    }
+
+    const clientSecret = decryptSecret(stored.clientSecret);
+    if (!clientSecret) {
+        log.warn("[getSsoClient] Stored client secret unreadable");
+        return null;
+    }
+    return { ...stored, clientSecret };
+}
+
 async function getSsoClient(userConfig: UserConfig): Promise<RegisteredClient> {
-    let registeredClient = config.get("ssoClient") as RegisteredClient;
+    let registeredClient = storedSsoClient();
 
     if (!registeredClient) {
         log.info(`[getSsoClient] Registering new client`);
@@ -341,6 +364,10 @@ async function registerSsoClient(
         expiresAt: res.clientSecretExpiresAt!,
     };
 
-    config.set("ssoClient", registeredClient);
+    // Encrypted on the way to disk; the caller gets the usable secret back.
+    config.set("ssoClient", {
+        ...registeredClient,
+        clientSecret: encryptSecret(registeredClient.clientSecret),
+    });
     return registeredClient;
 }
