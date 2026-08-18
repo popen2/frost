@@ -90,6 +90,11 @@ function describeAccount(
  */
 export function attachLoginIndicator(window: BrowserWindow) {
     const contents = window.webContents;
+    // Held on to now, while the window is alive: by the time `closed` fires,
+    // the WebContents is gone and even reading `contents.session` off it
+    // throws "Object has been destroyed". The Session itself outlives the
+    // window, so the listener below can still be removed from it.
+    const session = contents.session;
     const source = loadOverlaySource();
 
     if (source) {
@@ -160,7 +165,7 @@ export function attachLoginIndicator(window: BrowserWindow) {
             app.dock?.cancelBounce(bounceId);
             bounceId = null;
         }
-        if (window.isDestroyed()) return;
+        if (window.isDestroyed() || contents.isDestroyed()) return;
 
         if (!app.dock) window.flashFrame(false);
         contents.off("page-title-updated", holdTitle);
@@ -235,10 +240,10 @@ export function attachLoginIndicator(window: BrowserWindow) {
         }
     };
 
-    contents.session.on("select-webauthn-account", selectAccount);
+    session.on("select-webauthn-account", selectAccount);
 
     window.on("closed", () => {
         stopWaiting();
-        contents.session.off("select-webauthn-account", selectAccount);
+        session.off("select-webauthn-account", selectAccount);
     });
 }

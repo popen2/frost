@@ -134,6 +134,11 @@ browser's own prompts:
   **cancels** the request outright when no listener is registered, so without it
   a key holding several discoverable credentials for the same relying party can
   never sign in. The callback must be invoked exactly once on every path.
+  It is unregistered from the `Session` in the window's `closed` handler, and
+  that handler must use the `Session` captured while the window was alive —
+  reaching for `webContents.session` (or anything else off the `WebContents`)
+  once the window is gone throws `TypeError: Object has been destroyed`, which
+  Electron surfaces as a modal error dialog on window close.
 
 The overlay is pure browser logic with no Electron imports, so verify changes to
 it by running the built `dist/login-overlay.js` through
