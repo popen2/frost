@@ -362,6 +362,9 @@
 
     .btn:active { transform: scale(0.975); }
 
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn:disabled:active { transform: none; }
+
     .btn-primary {
       background: var(--accent);
       color: #fff;
@@ -1053,6 +1056,13 @@
             </div>
             <button class="btn btn-secondary" id="btn-clear-history" style="flex-shrink:0;white-space:nowrap">Delete History</button>
           </div>
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px;letter-spacing:-0.1px;">Clear cookies and local storage</div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.45">Sign out of the AWS and identity provider pages Frost opens, so the next login starts fresh. Your start URL, region, and profiles are kept.</div>
+            </div>
+            <button class="btn btn-secondary" id="btn-clear-cookies" style="flex-shrink:0;white-space:nowrap">Clear Cookies</button>
+          </div>
         </div>
       </div>
 
@@ -1586,6 +1596,25 @@ document.getElementById('btn-clear-history').addEventListener('click', async () 
   await ipcRenderer.invoke('clear-history');
   showHistoryList();
   showNotice('privacy-notice');
+});
+
+document.getElementById('btn-clear-cookies').addEventListener('click', async () => {
+  if (!confirm('Clear cookies and local storage?\n\nYou will be signed out of the AWS login page and your identity provider, and asked to sign in again next time. Your Frost settings are kept.')) return;
+  const btn = document.getElementById('btn-clear-cookies');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Clearing…';
+  try {
+    const result = await ipcRenderer.invoke('clear-browsing-data');
+    if (result && result.ok) {
+      showNotice('privacy-notice');
+    } else {
+      alert('Could not clear cookies and local storage.\n\n' + ((result && result.error) || 'Unknown error'));
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
 });
 
 document.getElementById('btn-record').addEventListener('click', async () => {

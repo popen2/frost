@@ -10,13 +10,14 @@ import {
     DEFAULT_BEHAVIOR,
 } from "./config.js";
 import { validateUserConfig } from "./user-config.js";
+import { clearBrowsingData } from "./browsing-data.js";
 import {
     runLogEmitter,
     pruneHistory,
     clearHistory,
     type RunLog,
 } from "./run-log.js";
-import { sweepOldLogs } from "./logging.js";
+import { describeError, sweepOldLogs } from "./logging.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -190,6 +191,19 @@ export function setupIpc(callbacks: IpcCallbacks) {
     handleFromDashboard("clear-history", () => {
         log.info("[clear-history] Deleting all run history");
         clearHistory();
+    });
+
+    handleFromDashboard("clear-browsing-data", async () => {
+        try {
+            await clearBrowsingData();
+            return { ok: true };
+        } catch (err) {
+            // Reported rather than thrown: the dashboard tells the user why it
+            // could not sign them out instead of leaving the button silent.
+            const described = describeError(err);
+            log.error("[clear-browsing-data] Failed: %s", described);
+            return { ok: false, error: described };
+        }
     });
 
     handleFromDashboard("set-hotkey-recording", (recording: boolean) => {
