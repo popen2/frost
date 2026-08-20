@@ -1,2 +1,7 @@
 /node_modules
 /dist
+
+# Downloaded at build time by .github/workflows/build.yaml and bundled via
+# `extraResource` — never committed. See "AWS IAM Authenticator" in AGENTS.md.
+/aws-iam-authenticator
+/aws-iam-authenticator.exe

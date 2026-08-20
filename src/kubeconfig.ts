@@ -1,6 +1,8 @@
 import { homedir } from "os";
-import { join, dirname } from "path";
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { readFile } from "fs/promises";
+import { existsSync } from "fs";
+import { writeFilePreservingMode } from "./atomic-write.js";
 import log from "electron-log/main";
 import { ClusterInfo } from "./aws-eks.js";
 import { KubeConfig } from "@kubernetes/client-node";
@@ -11,9 +13,39 @@ const AWS_IAM_AUTHENTICATOR_BASENAME =
         ? "aws-iam-authenticator.exe"
         : "aws-iam-authenticator";
 
-const AWS_IAM_AUTHENTICATOR =
-    process.env["AWS_IAM_AUTHENTICATOR_PATH"] ||
-    join(process.resourcesPath, "app", AWS_IAM_AUTHENTICATOR_BASENAME);
+/**
+ * Locates the bundled authenticator that `extraResource` in forge.config.js
+ * copies into the package.
+ *
+ * It ends up in two places: `resources/` from `extraResource` itself, and
+ * `resources/app/` because the packager also copies the project directory
+ * wholesale. Older builds only had the second one. The path is written into
+ * the user's kubeconfig, so guessing wrong leaves an entry that fails only
+ * later, when kubectl tries to run it — probe for it instead.
+ */
+function findAwsIamAuthenticator(): string {
+    const override = process.env["AWS_IAM_AUTHENTICATOR_PATH"];
+    if (override) {
+        return override;
+    }
+
+    const candidates = [
+        join(process.resourcesPath, AWS_IAM_AUTHENTICATOR_BASENAME),
+        join(process.resourcesPath, "app", AWS_IAM_AUTHENTICATOR_BASENAME),
+    ];
+
+    const found = candidates.find((candidate) => existsSync(candidate));
+    if (!found) {
+        log.warn(
+            "[findAwsIamAuthenticator] Not found in %s, falling back to %s",
+            candidates.join(", "),
+            candidates[0]
+        );
+    }
+    return found || candidates[0];
+}
+
+const AWS_IAM_AUTHENTICATOR = findAwsIamAuthenticator();
 
 type NamePattern = (info: ClusterInfo) => string;
 
@@ -40,7 +72,6 @@ async function readExistingConfig(): Promise<{
 export async function writeKubeconfig(clusters: ClusterInfo[]) {
     const { path, currentKubeconfig } = await readExistingConfig();
     log.info("[writeKubeconfig] Writing %s", path);
-    await mkdir(dirname(path), { recursive: true });
 
     const namePattern = getNamePattern(clusters);
 
@@ -51,7 +82,9 @@ export async function writeKubeconfig(clusters: ClusterInfo[]) {
     const exported = JSON.parse(kubeconfig.exportConfig());
     const contents = yaml.dump(exported);
 
-    await writeFile(path, contents);
+    // Holds the user's own clusters as well as ours, so an interrupted run
+    // must not truncate it and their permissions are theirs to keep.
+    await writeFilePreservingMode(path, contents);
 }
 
 function mergeKubeConfigs(

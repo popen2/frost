@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Signing In — Frost Documentation</title>
+  <meta name="description" content="The AWS sign-in step in Frost: the in-app login window, the default-browser alternative, and the support for security keys and passkeys." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">How Frost works</p>
+      <h1>Signing in</h1>
+      <p class="doc-lead">Frost never sees your password. Sign-in happens on the AWS access portal itself, through the OAuth device authorization flow — Frost only holds the token that comes back.</p>
+
+      <h2 id="flow">What happens during sign-in</h2>
+      <p>
+        Frost asks AWS to start a device authorization, then opens the
+        verification URL AWS returns. That page is the AWS access portal — the
+        same one you would reach by running <code>aws sso login</code>. You
+        authenticate there, against your own identity provider if your
+        organisation federates Identity Center, and approve the request.
+      </p>
+      <p>
+        While you do that, Frost polls AWS at the interval it was given. When the
+        approval lands, the poll returns an access token and the run continues to
+        the profiles step. Frost never sees your credentials — only the token
+        AWS issues at the end.
+      </p>
+      <div class="callout">
+        <span class="callout-icon" aria-hidden="true">💡</span>
+        <p>
+          AWS asks you to close the sign-in window once you have approved. Go
+          ahead — Frost collects the token on the poll that follows, and only
+          treats a closed window as a cancellation if no token was waiting.
+        </p>
+      </div>
+
+      <h2 id="where">Where the login page opens</h2>
+      <p>
+        The <strong>Login Page</strong> setting on the Behavior page picks
+        between two modes.
+      </p>
+
+      <h3>In-app window (default)</h3>
+      <p>
+        The access portal opens in a small Frost window. Frost stays in front,
+        the window closes itself when the run ends, and Frost can tell whether
+        you closed it — so cancelling a sign-in aborts the run immediately
+        instead of leaving it polling until the device code expires.
+      </p>
+      <p>
+        What this window cannot do is reach your browser's saved passwords or
+        the passkeys stored in your browser profile. Hardware security keys work;
+        platform passkeys and password managers that live in the browser do not.
+      </p>
+      <p>
+        It keeps its own cookies and local storage between sign-ins, separate
+        from your browser's. That is usually what you want — a federated identity
+        provider session carries you through a refresh without asking anything —
+        but it also means the window stays signed in as whoever last used it.
+        <strong>Clear Cookies</strong> on the Behavior page throws that state
+        away, for switching identities or for a login page that has wedged
+        itself.
+        <a href="settings-behavior.html#clear-cookies">Behavior settings →</a>
+      </p>
+
+      <h3>Default browser</h3>
+      <p>
+        Frost hands the verification URL to your default browser instead.
+        Passkeys, password managers and browser extensions all work, and you get
+        your identity provider's session if you are already signed in there.
+      </p>
+      <p>
+        The trade-off is that Frost has no window to watch: it keeps polling
+        until you approve or until the device code expires, so abandoning a
+        sign-in leaves the run waiting rather than failing fast.
+      </p>
+      <p><a href="settings-behavior.html#login-page">Behavior settings →</a></p>
+
+      <h2 id="security-keys">Security keys and passkeys</h2>
+      <p>
+        Electron — the framework Frost's login window is built on — services
+        WebAuthn requests but draws no interface for them. A page waiting for you
+        to touch a YubiKey would simply sit there, with nothing on screen to say
+        what it was waiting for. Frost fills that gap itself.
+      </p>
+      <ul>
+        <li>
+          <strong>A notice inside the window.</strong> For as long as a credential
+          request is pending, a small toast appears at the bottom of the login
+          window — "Touch your security key", "Confirm with your passkey", and so
+          on — and disappears the moment the request completes or is cancelled.
+          If the wait drags on, the notice suggests what to try.
+        </li>
+        <li>
+          <strong>Attention when you have tabbed away.</strong> The Dock icon
+          bounces (or the taskbar entry flashes) and the window title says what is
+          pending, so a key waiting for a touch cannot go unnoticed while you are
+          in another app.
+        </li>
+        <li>
+          <strong>An account picker.</strong> If your key holds several
+          credentials for the same identity provider, Frost asks which one to
+          sign in with. Without that prompt the sign-in would be cancelled
+          outright.
+        </li>
+      </ul>
+      <p>
+        This applies to the in-app window only. In default-browser mode your
+        browser provides its own prompts, so Frost stays out of the way.
+      </p>
+      <div class="callout callout-security">
+        <span class="callout-icon" aria-hidden="true">🔒</span>
+        <p>
+          The notice is drawn by a small script injected into the sign-in page,
+          which reports back to Frost over the page's console. Nothing security
+          relevant depends on that channel — at most, a hostile page could make
+          Frost's Dock icon bounce.
+        </p>
+      </div>
+
+      <h2 id="timeouts">Timeouts and cancellation</h2>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>What you do</th><th>What Frost does</th></tr></thead>
+          <tbody>
+            <tr><td>Approve the sign-in</td><td>Collects the token on the next poll and continues the run</td></tr>
+            <tr><td>Close the login window</td><td>Aborts the run, records "Login window closed", reschedules</td></tr>
+            <tr><td>Ignore it (in-app window)</td><td>Polls until AWS expires the device code, then records "Login timed out"</td></tr>
+            <tr><td>Ignore the notification (notify mode)</td><td>Waits for the hotkey or a click until the device code expires, then gives up</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        In every case the failure is recorded on the
+        <a href="activity.html">Activity</a> page and the next refresh is
+        rescheduled — a cancelled sign-in never leaves Frost wedged.
+      </p>
+
+      <h2 id="client">The OAuth client registration</h2>
+      <p>
+        Frost registers itself with AWS as a public OIDC client the first time it
+        signs you in, and stores the resulting client id and secret alongside the
+        token. The registration is reused for later sign-ins and re-registered
+        when it expires. If AWS ever rejects it as invalid, Frost discards the
+        registration so the next run starts with a fresh one.
+      </p>
+      <p>
+        Everything stored for this lives in Frost's own configuration file, which
+        is written with owner-only permissions — see
+        <a href="security.html">security &amp; privacy</a>.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

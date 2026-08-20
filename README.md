@@ -10,19 +10,72 @@ Once a user has successfully logged-in, Frost will add profiles with predictable
 
 When using [AWS SSO with federation](https://docs.aws.amazon.com/singlesignon/latest/userguide/samlfederationconcept.html), such as Google Workspace, Frost can refresh credentials without interrupting the user in most cases.
 
+## Documentation
+
+Full documentation lives at
+[popen2.github.io/frost/docs](https://popen2.github.io/frost/docs/) — a page per
+feature, every setting, and a reference for the files Frost touches:
+
+-   [Getting started](https://popen2.github.io/frost/docs/getting-started.html)
+    and [platforms & updates](https://popen2.github.io/frost/docs/platforms.html)
+-   [Credential refresh](https://popen2.github.io/frost/docs/credential-refresh.html)
+    and [signing in](https://popen2.github.io/frost/docs/login.html)
+-   [Profile names](https://popen2.github.io/frost/docs/profiles.html) and
+    [the `~/.aws/config` file](https://popen2.github.io/frost/docs/aws-config.html)
+-   Integrations: [EKS discovery](https://popen2.github.io/frost/docs/eks.html)
+    and the [bundled IAM authenticator](https://popen2.github.io/frost/docs/authenticator.html)
+-   [Settings](https://popen2.github.io/frost/docs/settings.html),
+    [security & privacy](https://popen2.github.io/frost/docs/security.html),
+    [files & locations](https://popen2.github.io/frost/docs/files.html) and
+    [troubleshooting](https://popen2.github.io/frost/docs/troubleshooting.html)
+
+The rest of this file is the short version.
+
+## Platforms
+
+Frost runs on macOS, Windows and Linux.
+
+| Platform | Architectures        | Download                      | Updates            |
+| -------- | -------------------- | ----------------------------- | ------------------ |
+| macOS    | Apple Silicon, Intel | `.zip` (signed and notarized) | In place           |
+| Windows  | x86-64, ARM64        | `.exe` installer              | In place           |
+| Linux    | x86-64, ARM64        | `.zip`                        | Re-download        |
+
+Grab a build from the
+[downloads page](https://popen2.github.io/frost/download.html).
+
+Frost updates itself in place on macOS and Windows. Electron's `autoUpdater`
+has no Linux implementation, so **Linux builds do not self-update** — check the
+downloads page and replace the app to upgrade.
+
+Two Windows notes:
+
+-   The Windows builds are **not code-signed**, so SmartScreen warns the first
+    time you run the installer — choose *More info* → *Run anyway*.
+-   The ARM64 build is a native ARM64 app, but the
+    [AWS IAM Authenticator](https://github.com/kubernetes-sigs/aws-iam-authenticator)
+    it bundles has no ARM64 Windows release, so that one helper runs emulated.
+    It is a short-lived process `kubectl` invokes when talking to EKS, so this
+    is not something you should be able to notice.
+
 ## The App Window
 
-Frost runs in the menu bar (or tray). Opening it from the tray menu — or with
-the global hotkey — shows a settings window with everything in one place:
+Frost runs in the menu bar (macOS) or the notification area (Windows and
+Linux). Opening it from the tray menu — or with the global hotkey, or by
+clicking the tray icon on Windows and Linux — shows a settings window with
+everything in one place:
 
 -   **Login** — the AWS SSO start URL and region. This is all Frost needs to
     get started.
 -   **Behavior** — whether Frost refreshes credentials automatically or just
     notifies you, whether the AWS login page opens in a Frost window or in your
     default browser (where passkeys and password managers work), plus the global
-    refresh hotkey (`⌘⇧R` by default, rebindable). A **Test** button fires a
-    sample notification, which is also how you grant Frost notification
-    permission on macOS the first time.
+    refresh hotkey (`⌘⇧R` on macOS, `Ctrl+Shift+R` elsewhere, rebindable). A
+    **Test** button fires a sample notification, which is also how you grant
+    Frost notification permission on macOS the first time, and **Clear
+    Cookies** wipes the cookies and local storage the in-app login window keeps
+    — for switching accounts or shaking off a stuck login page — without
+    touching your start URL, region, or profiles.
 -   **Privacy** — how long run history is kept (7 days by default), and a button
     to erase it immediately.
 -   **Credentials** — current token status, the accounts and permission sets you
@@ -34,6 +87,25 @@ the global hotkey — shows a settings window with everything in one place:
 Frost has no backend. Your token, profiles, and run history are stored in a
 local configuration file and nothing is transmitted anywhere — no analytics, no
 telemetry, no crash reporting.
+
+## Security Keys and Passkeys
+
+When you sign in through Frost's own login window (the default — see
+**Behavior** above for the default-browser alternative), identity providers
+often ask for a hardware key (YubiKey and friends), a passkey, or a saved
+password. Those requests used to be invisible: the page simply sat there, with
+nothing to say it was waiting for you to touch anything.
+
+Frost now shows a small notice at the bottom of the login window for as long as
+a request is pending — "Touch your security key", "Confirm with your passkey" —
+and it disappears the moment the request completes or is cancelled. If the wait
+drags on, the notice suggests what to try. And if you've switched to another app
+in the meantime, the Dock icon (or the taskbar entry) asks for your attention
+and the window title says what's pending, so a key waiting for a touch can't go
+unnoticed.
+
+If your key holds several credentials for the same identity provider, Frost asks
+which account to sign in with instead of failing the sign-in.
 
 ## Profile Name Generation
 
@@ -112,6 +184,11 @@ To do that, add an `@region` to the account name.
 In the example above, if the `ACME Testing` account is mainly used in `eu-west-1` we'd rename it to `ACME Testing (#test @eu-west-1)`.
 
 ## Sharing `~/.aws/config` With Other Tools
+
+This document writes AWS and kubectl paths the POSIX way. On Windows they are
+under your user profile just the same — `~/.aws/config` is
+`%UserProfile%\.aws\config`, `~/.kube/config` is `%UserProfile%\.kube\config` —
+which is exactly where the AWS CLI and kubectl look for them.
 
 Frost doesn't own your `~/.aws/config` file, it only owns the profiles it wrote there. Every profile Frost generates is marked with a comment:
 

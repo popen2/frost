@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
   <title>Frost</title>
+  <script>
+    // Stamped before the stylesheet is applied so the platform-specific rules
+    // below never flash the wrong chrome. Only macOS gets the frameless
+    // window (see openDashboard() in window.ts); Windows and Linux keep their
+    // native title bar, so the drag strip has to go.
+    document.documentElement.dataset.platform = frost.platform;
+  </script>
   <style>
     /* ── Colour tokens ───────────────────────────────────────────────────── */
     :root {
@@ -79,7 +88,7 @@
     body {
       display: flex;
       flex-direction: column;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", sans-serif;
       font-size: 13px;
       color: var(--text);
       background: var(--bg);
@@ -88,12 +97,28 @@
     }
 
     /* ── Title-bar strip ─────────────────────────────────────────────────── */
+    /* Only macOS hides its title bar, so only macOS needs a strip to stand in
+       for it (clearing the traffic lights and giving the window a drag
+       handle). Elsewhere the native title bar is present and this would just
+       be 36px of dead space above the real one. */
     .titlebar {
       height: 36px;
       flex-shrink: 0;
       -webkit-app-region: drag;
       background: linear-gradient(to right, var(--sidebar-bg) 178px, var(--bg) 178px);
     }
+
+    html:not([data-platform="darwin"]) .titlebar { display: none; }
+
+    /* Without the strip the sidebar starts at the very top of the client
+       area, which is too tight - and dragging the window is the native title
+       bar's job again. */
+    html:not([data-platform="darwin"]) .sidebar {
+      padding-top: 14px;
+      -webkit-app-region: no-drag;
+    }
+
+    html:not([data-platform="darwin"]) .panels { padding-top: 20px; }
 
     /* ── App layout ──────────────────────────────────────────────────────── */
     .layout {
@@ -313,7 +338,7 @@
     }
 
     code {
-      font-family: "SF Mono", "Menlo", monospace;
+      font-family: "SF Mono", "Menlo", "Cascadia Mono", Consolas, monospace;
       font-size: 11px;
       background: var(--badge-bg);
       padding: 1.5px 5px;
@@ -338,6 +363,9 @@
     }
 
     .btn:active { transform: scale(0.975); }
+
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn:disabled:active { transform: none; }
 
     .btn-primary {
       background: var(--accent);
@@ -390,7 +418,7 @@
     .status-label-sub  { font-size: 12px; color: var(--text-2); margin-top: 2px; }
 
     .error-box {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace;
       font-size: 11px;
       color: var(--error);
       background: var(--error-bg);
@@ -439,7 +467,7 @@
 
     .account-info { flex: 1; min-width: 0; }
     .account-name { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
-    .account-id { font-size: 11px; color: var(--text-2); font-family: "SF Mono", Menlo, monospace; margin-top: 1px; }
+    .account-id { font-size: 11px; color: var(--text-2); font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace; margin-top: 1px; }
 
     .account-roles { display: none; padding: 2px 16px 12px 57px; }
     .account-row.open + .account-roles { display: grid; }
@@ -458,7 +486,7 @@
     .pmap-arrow { font-size: 11px; color: var(--text-3); }
     .pmap-name {
       justify-self: start;
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace;
       font-size: 11.5px;
       font-weight: 600;
       padding: 2.5px 8px;
@@ -524,7 +552,7 @@
     }
     .eks-table tbody tr { transition: background 0.1s ease; }
     .eks-table tbody tr:hover td, .eks-table tr:hover td { background: var(--hover); }
-    .mono { font-family: "SF Mono", Menlo, monospace; font-size: 11.5px; }
+    .mono { font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace; font-size: 11.5px; }
     .region-tag { background: rgba(48,176,199,0.12); color: #1E9CB0; padding: 2.5px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
     @media (prefers-color-scheme: dark) { .region-tag { color: #64D2E0; background: rgba(100,210,224,0.14); } }
 
@@ -670,7 +698,7 @@
     }
 
     .hotkey-pill {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace;
       font-size: 12.5px;
       font-weight: 600;
       padding: 6px 16px;
@@ -909,6 +937,7 @@
         <button class="btn btn-primary" id="btn-save-settings">Save &amp; Refresh</button>
         <span class="save-notice" id="settings-notice">✓ Saved</span>
       </div>
+      <div class="error-box" id="settings-error" style="display:none;"></div>
     </div>
 
     <!-- ── Behavior ── -->
@@ -959,6 +988,14 @@
               <div class="radio-desc">Opens in your browser, so passkeys and password managers work. Frost keeps waiting for you to approve.</div>
             </div>
           </label>
+          <div class="section-row" style="display:flex;align-items:center;gap:14px;">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;margin-bottom:3px;letter-spacing:-0.1px;">Clear cookies and local storage</div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.45">The in-app window stays signed in between logins. Clear it to sign in as someone else, or to shake off a login page that gets stuck.</div>
+            </div>
+            <span class="save-notice" id="cookies-notice" style="flex-shrink:0">✓ Cleared</span>
+            <button class="btn btn-secondary" id="btn-clear-cookies" style="flex-shrink:0;white-space:nowrap">Clear Cookies</button>
+          </div>
         </div>
       </div>
 
@@ -1111,7 +1148,6 @@
 
 <script>
 'use strict';
-const { ipcRenderer } = require('electron');
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 
@@ -1194,13 +1230,35 @@ function populateLogin(state) {
 document.getElementById('btn-save-settings').addEventListener('click', async () => {
   const startUrl = document.getElementById('input-url').value.trim();
   const region   = document.getElementById('input-region').value;
+  const errEl    = document.getElementById('settings-error');
+  errEl.style.display = 'none';
   if (!startUrl || !region) return;
-  await ipcRenderer.invoke('save-settings', { startUrl, region });
+
+  // The main process is what decides whether these are usable - it is the side
+  // that hands them to the AWS clients - so show whatever it says rather than
+  // duplicating the rules here.
+  const result = await frost.saveSettings({ startUrl, region });
+  if (result && result.ok === false) {
+    errEl.textContent = result.error;
+    errEl.style.display = 'block';
+    return;
+  }
+
   dirty.login = false;
   showNotice('settings-notice');
 });
 
 // ── Credentials ─────────────────────────────────────────────────────────────
+
+// Delegated so it survives updateCredentials() replacing the list's innerHTML,
+// and so the markup carries no inline handler.
+document.getElementById('accounts-body').addEventListener('click', e => {
+  const row = e.target.closest('.account-row');
+  if (!row) return;
+  row.classList.toggle('open');
+  const roles = row.nextElementSibling;
+  if (roles) roles.style.display = row.classList.contains('open') ? 'grid' : 'none';
+});
 
 function updateCredentials(state) {
   const dot   = document.getElementById('cred-dot');
@@ -1262,7 +1320,7 @@ function updateCredentials(state) {
   let html = '';
   for (const [,a] of byId) {
     html += `
-    <div class="account-row" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'grid':'none'">
+    <div class="account-row">
       <div class="avatar">${esc(initials(a.name))}</div>
       <div class="account-info">
         <div class="account-name">${esc(a.name)}</div>
@@ -1325,6 +1383,13 @@ function showHistoryDetail(runId) {
   renderActivityDetail(run);
 }
 
+// Delegated, so it survives renderActivityList() replacing the list's innerHTML
+// and only has to be attached once.
+document.getElementById('history-list').addEventListener('click', e => {
+  const row = e.target.closest('.activity-row');
+  if (row && row.dataset.runId) showHistoryDetail(row.dataset.runId);
+});
+
 function renderActivityDetail(run) {
   const sc = scClass(run.status);
   const d = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
@@ -1381,7 +1446,12 @@ function renderActivityList() {
   for (const run of runHistory) {
     const sc = scClass(run.status);
     const d = run.endedAt ? dur(run.startedAt, run.endedAt) : null;
-    html += `<div class="activity-row" onclick="showHistoryDetail('${esc(run.runId)}')">
+    // The run id rides in a data attribute rather than an inline onclick.
+    // esc() is an HTML escaper, and an HTML attribute is decoded before its
+    // contents are parsed as JS - so `&#39;` would turn back into a quote and
+    // break out of that string argument. Harmless while runId is a local
+    // uuidv4, wrong the moment it isn't.
+    html += `<div class="activity-row" data-run-id="${esc(run.runId)}">
       <div class="step-dot ${sc}"></div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;letter-spacing:-0.1px">Credential Refresh</div>
@@ -1472,11 +1542,34 @@ function renderLogStep(step) {
 let curBehavior = { refreshMode:'auto', refreshHotkey:'CmdOrCtrl+Shift+R', historyRetentionDays: 7, loginMethod:'popup' };
 let recording   = false;
 
+// Mirrors formatHotkey() in src/hotkey.ts, which the main process uses for
+// notification bodies — keep the two in step. It can't be imported: this file
+// is copied to dist/ verbatim and never goes through the bundler.
+const HOTKEY_MAC = {
+  CommandOrControl:'⌘', CmdOrCtrl:'⌘', Command:'⌘', Cmd:'⌘',
+  Control:'⌃', Ctrl:'⌃', Option:'⌥', Alt:'⌥', Shift:'⇧', Super:'⌘', Meta:'⌘',
+};
+const HOTKEY_PC = {
+  CommandOrControl:'Ctrl', CmdOrCtrl:'Ctrl', Command:'Win', Cmd:'Win',
+  Control:'Ctrl', Option:'Alt', Super:'Win', Meta:'Win',
+};
+const IS_MAC = frost.platform === 'darwin';
+
 function fmtHotkey(a) {
-  return String(a || '')
-           .replace(/CommandOrControl/g,'⌘').replace(/CmdOrCtrl/g,'⌘')
-           .replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧')
-           .replace(/\+/g,'');
+  const parts = String(a || '').split('+');
+  return IS_MAC
+    ? parts.map(p => HOTKEY_MAC[p] || p).join('')
+    : parts.map(p => HOTKEY_PC[p] || p).join('+');
+}
+
+// The markup carries the macOS rendering of the default hotkey; correct it for
+// this platform now rather than letting the wrong glyphs sit there until the
+// first state push arrives.
+document.getElementById('hotkey-pill').textContent = fmtHotkey(curBehavior.refreshHotkey);
+
+function radioWithValue(name, value) {
+  return Array.from(document.querySelectorAll(`input[name=${name}]`))
+    .find(input => input.value === value);
 }
 
 function populateBehavior(state) {
@@ -1485,9 +1578,12 @@ function populateBehavior(state) {
   if (recording || dirty.behavior) return;
   const cfg = state.behaviorConfig || curBehavior;
   curBehavior = { ...curBehavior, ...cfg };
-  const r = document.querySelector(`input[name=refreshMode][value="${cfg.refreshMode}"]`);
+  // Match on the value rather than building a selector out of it. A stored
+  // value carrying a quote makes querySelector throw SyntaxError, which would
+  // abort apply() halfway and leave the whole dashboard blank.
+  const r = radioWithValue('refreshMode', cfg.refreshMode);
   if (r) r.checked = true;
-  const l = document.querySelector(`input[name=loginMethod][value="${curBehavior.loginMethod}"]`);
+  const l = radioWithValue('loginMethod', curBehavior.loginMethod);
   if (l) l.checked = true;
   document.getElementById('hotkey-pill').textContent = fmtHotkey(cfg.refreshHotkey);
 }
@@ -1500,23 +1596,46 @@ function populatePrivacy(state) {
 }
 
 document.getElementById('btn-test-notif').addEventListener('click', async () => {
-  await ipcRenderer.invoke('test-notification');
+  await frost.testNotification();
 });
 
 document.getElementById('btn-refresh-now').addEventListener('click', async () => {
-  await ipcRenderer.invoke('trigger-refresh');
+  await frost.triggerRefresh();
 });
 
 document.getElementById('btn-clear-history').addEventListener('click', async () => {
   if (!confirm('Delete all stored run history? This cannot be undone.')) return;
-  await ipcRenderer.invoke('clear-history');
+  await frost.clearHistory();
   showHistoryList();
   showNotice('privacy-notice');
 });
 
+document.getElementById('btn-clear-cookies').addEventListener('click', async () => {
+  if (!confirm('Clear cookies and local storage?\n\nThe next login starts from scratch, so you will be asked to sign in again. Your Frost settings are kept.')) return;
+  const btn = document.getElementById('btn-clear-cookies');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Clearing…';
+  try {
+    const result = await frost.clearBrowsingData();
+    if (result && result.ok) {
+      showNotice('cookies-notice');
+    } else {
+      alert('Could not clear cookies and local storage.\n\n' + ((result && result.error) || 'Unknown error'));
+    }
+  } catch (err) {
+    // Otherwise a rejected bridge call is an unhandled rejection, and the
+    // button just appears to have worked.
+    alert('Could not clear cookies and local storage.\n\n' + err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+});
+
 document.getElementById('btn-record').addEventListener('click', async () => {
   recording = true;
-  await ipcRenderer.invoke('set-hotkey-recording', true);
+  await frost.setHotkeyRecording(true);
   document.getElementById('hotkey-pill').textContent = 'Press keys…';
   document.getElementById('hotkey-pill').classList.add('recording');
   document.getElementById('btn-record').style.display = 'none';
@@ -1525,7 +1644,7 @@ document.getElementById('btn-record').addEventListener('click', async () => {
 
 document.getElementById('btn-cancel-record').addEventListener('click', async () => {
   recording = false;
-  await ipcRenderer.invoke('set-hotkey-recording', false);
+  await frost.setHotkeyRecording(false);
   document.getElementById('hotkey-pill').classList.remove('recording');
   document.getElementById('btn-record').style.display = '';
   document.getElementById('btn-cancel-record').style.display = 'none';
@@ -1539,7 +1658,11 @@ document.addEventListener('keydown', async e => {
   if (['Control','Meta','Alt','Shift','CapsLock'].includes(e.key)) return;
 
   const parts = [];
-  if (e.metaKey || e.ctrlKey) parts.push('CmdOrCtrl');
+  // CmdOrCtrl is Cmd on macOS and Ctrl elsewhere, so it is what either
+  // platform's primary modifier should record as. The Windows key is a
+  // separate modifier and only reaches metaKey off the Mac.
+  if (IS_MAC ? (e.metaKey || e.ctrlKey) : e.ctrlKey) parts.push('CmdOrCtrl');
+  if (!IS_MAC && e.metaKey) parts.push('Super');
   if (e.altKey)  parts.push('Alt');
   if (e.shiftKey) parts.push('Shift');
   const KEY_MAP = { ArrowUp:'Up', ArrowDown:'Down', ArrowLeft:'Left', ArrowRight:'Right', ' ':'Space', Enter:'Return' };
@@ -1549,7 +1672,7 @@ document.addEventListener('keydown', async e => {
   curBehavior.refreshHotkey = acc;
   dirty.behavior = true;
   recording = false;
-  await ipcRenderer.invoke('set-hotkey-recording', false);
+  await frost.setHotkeyRecording(false);
   document.getElementById('hotkey-pill').classList.remove('recording');
   document.getElementById('btn-record').style.display = '';
   document.getElementById('btn-cancel-record').style.display = 'none';
@@ -1561,7 +1684,7 @@ document.getElementById('btn-save-behavior').addEventListener('click', async () 
   if (r) curBehavior.refreshMode = r.value;
   const l = document.querySelector('input[name=loginMethod]:checked');
   if (l) curBehavior.loginMethod = l.value;
-  await ipcRenderer.invoke('save-behavior', curBehavior);
+  await frost.saveBehavior(curBehavior);
   dirty.behavior = false;
   showNotice('behavior-notice');
 });
@@ -1569,7 +1692,7 @@ document.getElementById('btn-save-behavior').addEventListener('click', async () 
 document.getElementById('btn-save-privacy').addEventListener('click', async () => {
   const retEl = document.getElementById('retention-days');
   if (retEl) curBehavior.historyRetentionDays = Number(retEl.value);
-  await ipcRenderer.invoke('save-behavior', curBehavior);
+  await frost.saveBehavior(curBehavior);
   dirty.privacy = false;
   showNotice('privacy-notice');
 });
@@ -1588,8 +1711,8 @@ function apply(state) {
   updateHistory(state);
 }
 
-ipcRenderer.on('state-updated', (_, s) => apply(s));
-ipcRenderer.invoke('get-state').then(apply);
+frost.onStateUpdated(apply);
+frost.getState().then(apply);
 
 setInterval(() => { if (st) updateCredentials(st); }, 30000);
 </script>

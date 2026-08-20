@@ -9,12 +9,15 @@ import {
     type BehaviorConfig,
     DEFAULT_BEHAVIOR,
 } from "./config.js";
+import { validateUserConfig } from "./user-config.js";
+import { clearBrowsingData } from "./browsing-data.js";
 import {
     runLogEmitter,
     pruneHistory,
     clearHistory,
     type RunLog,
 } from "./run-log.js";
+import { describeError, sweepOldLogs } from "./logging.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -79,30 +82,97 @@ function pushStateUpdate() {
     }, STATE_PUSH_DEBOUNCE_MS);
 }
 
+/**
+ * Whether an IPC call came from the dashboard's own top-level frame.
+ *
+ * Nothing else can reach these handlers as things stand: the login window has
+ * no preload script and runs with context isolation, so the AWS and identity
+ * provider pages it renders have no `ipcRenderer` at all. The check is here so
+ * that stays true by construction - the contextIsolation migration will add a
+ * preload bridge, and a bridge that arrives later inherits this rather than
+ * needing someone to remember it.
+ */
+function isFromDashboard(
+    event: Electron.IpcMainInvokeEvent,
+    channel: string
+): boolean {
+    const sender = event.senderFrame;
+    if (
+        dashboardWindow &&
+        !dashboardWindow.isDestroyed() &&
+        sender &&
+        sender === dashboardWindow.webContents.mainFrame
+    ) {
+        return true;
+    }
+
+    log.warn(
+        "[ipc] Ignoring %s from an unexpected frame: %s",
+        channel,
+        sender?.url ?? "<gone>"
+    );
+    return false;
+}
+
+function handleFromDashboard<A extends unknown[]>(
+    channel: string,
+    listener: (...args: A) => unknown
+) {
+    ipcMain.handle(channel, (event, ...args) => {
+        if (!isFromDashboard(event, channel)) {
+            // Thrown rather than returned: invoke() rejects in the renderer, so
+            // a caller that reads a result - save-settings answers {ok} - can
+            // never read a refusal as success.
+            throw new Error(`${channel} is not available from this window`);
+        }
+        return listener(...(args as A));
+    });
+}
+
 export function setupIpc(callbacks: IpcCallbacks) {
-    ipcMain.handle("get-state", () => {
+    handleFromDashboard("get-state", () => {
         log.debug("[get-state] Returning state to dashboard");
         return getState();
     });
 
-    ipcMain.handle(
+    handleFromDashboard(
         "save-settings",
-        (_event, settings: { startUrl: string; region: string }) => {
+        (settings: { startUrl?: unknown; region?: unknown }) => {
+            // Validate here rather than trusting the form. These two values
+            // pick the endpoint every SSO and SSO-OIDC client talks to, and a
+            // bad one otherwise surfaces several steps later as a raw SDK
+            // error in the Credentials panel.
+            const problem = validateUserConfig(settings);
+            if (problem) {
+                log.warn(
+                    "[save-settings] Rejected startUrl=%s region=%s: %s",
+                    settings.startUrl,
+                    settings.region,
+                    problem
+                );
+                return { ok: false, error: problem };
+            }
+
+            const clean: UserConfig = {
+                startUrl: (settings.startUrl as string).trim(),
+                region: settings.region as string,
+            };
             log.info(
                 "[save-settings] Saving startUrl=%s region=%s",
-                settings.startUrl,
-                settings.region
+                clean.startUrl,
+                clean.region
             );
-            callbacks.onSaveSettings(settings);
+            callbacks.onSaveSettings(clean);
+            return { ok: true };
         }
     );
 
-    ipcMain.handle("trigger-refresh", () => {
+    handleFromDashboard("trigger-refresh", () => {
         log.info("[trigger-refresh] Triggered from dashboard");
         callbacks.onTriggerRefresh();
     });
 
-    ipcMain.handle("save-behavior", (_event, behavior: BehaviorConfig) => {
+    handleFromDashboard("save-behavior", (behavior: BehaviorConfig) => {
         log.info(
             "[save-behavior] mode=%s hotkey=%s loginMethod=%s",
             behavior.refreshMode,
@@ -111,21 +181,35 @@ export function setupIpc(callbacks: IpcCallbacks) {
         );
         config.set("behaviorConfig", behavior);
         // Apply the (possibly shortened) retention period immediately rather
-        // than waiting for the next refresh to prune.
+        // than waiting for the next refresh to prune. Log files are kept for
+        // the same period, so they are swept on the same setting.
         pruneHistory();
+        sweepOldLogs();
         callbacks.onSaveBehavior(behavior);
     });
 
-    ipcMain.handle("clear-history", () => {
+    handleFromDashboard("clear-history", () => {
         log.info("[clear-history] Deleting all run history");
         clearHistory();
     });
 
-    ipcMain.handle("set-hotkey-recording", (_event, recording: boolean) => {
+    handleFromDashboard("clear-browsing-data", async () => {
+        try {
+            await clearBrowsingData();
+            return { ok: true };
+        } catch (err) {
+            // Answered rather than thrown so the dashboard can say why.
+            const described = describeError(err);
+            log.error("[clear-browsing-data] Failed: %s", described);
+            return { ok: false, error: described };
+        }
+    });
+
+    handleFromDashboard("set-hotkey-recording", (recording: boolean) => {
         callbacks.onSetHotkeyRecording(recording);
     });
 
-    ipcMain.handle("test-notification", () => {
+    handleFromDashboard("test-notification", () => {
         callbacks.onTestNotification();
     });
 
@@ -153,12 +237,26 @@ export function openDashboard() {
         minWidth: 620,
         minHeight: 500,
         title: "Frost",
-        titleBarStyle: "hiddenInset",
-        trafficLightPosition: { x: 12, y: 12 },
+        // The inset traffic lights are a macOS affordance. On Windows
+        // `hiddenInset` degrades to `hidden`, which takes the title bar away
+        // without putting the minimise/maximise/close buttons anywhere — the
+        // window ends up closable only with Alt+F4. Everywhere else keeps the
+        // native frame; dashboard.html drops its drag strip to match.
+        ...(process.platform === "darwin"
+            ? {
+                  titleBarStyle: "hiddenInset" as const,
+                  trafficLightPosition: { x: 12, y: 12 },
+              }
+            : {}),
         center: true,
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
+            // The renderer gets no Node and no direct ipcRenderer; everything
+            // it can do is the named surface in preload.cts. `.cjs` because a
+            // sandboxed preload must be CommonJS - see that file.
+            preload: path.join(__dirname, "preload.cjs"),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
         },
     });
 

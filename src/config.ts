@@ -1,6 +1,20 @@
 import Store from "electron-store";
 
 export const config = new Store({
+    /**
+     * This file holds the SSO access token - good for every account and
+     * permission set the user can reach, for about eight hours - alongside the
+     * OIDC client secret and the run history's account inventory. conf defaults
+     * to 0o666, which the usual umask turns into 0644, so on any machine with a
+     * second account those are readable by anyone logged in.
+     *
+     * conf writes through `atomically`, which chmods the temp file to exactly
+     * this mode before renaming it into place. That means the umask cannot
+     * widen it, and existing installations are corrected on the next write
+     * rather than only new ones.
+     */
+    configFileMode: 0o600,
+
     schema: {
         isWorking: {
             type: "boolean",

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Privacy Settings — Frost Documentation</title>
+  <meta name="description" content="How long Frost keeps run history and log files, and how to erase them immediately." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">Settings</p>
+      <h1>Privacy settings</h1>
+      <p class="doc-lead">Frost stores its history on your machine and nowhere else. You decide how long it lives, and you can delete it at any point.</p>
+
+      <h2 id="local">Everything is local</h2>
+      <p>
+        The Privacy page starts by saying what Frost does not do, because it is
+        the part that matters most: there is no backend, no analytics, no
+        telemetry and no crash reporting. Your access token, the accounts Frost
+        discovered and the history of its runs are written to a file on your
+        machine and nowhere else. <a href="security.html">Security &amp; privacy →</a>
+      </p>
+      <p>The two controls on this page are about how long that local data lives.</p>
+
+      <h2 id="retention">Retention period</h2>
+      <p>
+        How long Frost keeps a record of past refreshes. Runs older than this are
+        deleted automatically.
+      </p>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Option</th><th>Good for</th></tr></thead>
+          <tbody>
+            <tr><td>1 day</td><td>Keeping essentially nothing while still being able to look at today's failure.</td></tr>
+            <tr><td>3 days</td><td>Covering a long weekend.</td></tr>
+            <tr><td>7 days <em>(default)</em></td><td>Enough to spot a pattern — "it fails every morning" — without accumulating much.</td></tr>
+            <tr><td>14 / 30 days</td><td>Chasing something intermittent, or gathering evidence for a bug report.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The same period governs <strong>log files</strong>. Frost writes one log
+        file per day, and they are swept on the same schedule — so the run record
+        and the log describing it disappear together, rather than the log
+        outliving the history that pointed at it.
+      </p>
+      <p>
+        Pruning runs at startup and again the moment you save a shorter period,
+        so shortening retention takes effect at once rather than waiting for the
+        next refresh.
+      </p>
+
+      <h2 id="delete">Delete History</h2>
+      <p>
+        Erases every stored run immediately, whatever the retention period says.
+        Frost asks for confirmation first — this cannot be undone.
+      </p>
+      <p>
+        This clears the run history only. It does not sign you out, does not
+        touch your settings, and does not remove the profiles in
+        <code>~/.aws/config</code> or the contexts in <code>~/.kube/config</code>.
+        Log files are removed on their retention schedule; delete them by hand if
+        you want them gone now — the paths are in
+        <a href="files.html">files &amp; locations</a>.
+      </p>
+
+      <h2 id="what-is-kept">What a run record contains</h2>
+      <ul>
+        <li>when it started and ended, and whether it succeeded;</li>
+        <li>the accounts you could reach — names and ids — and their permission sets;</li>
+        <li>the profile names Frost generated;</li>
+        <li>the EKS clusters found, with region and profile;</li>
+        <li>error text for anything that failed, including AWS request ids.</li>
+      </ul>
+      <p>
+        The access token, the OAuth client secret and the sign-in device codes
+        are never written into the history or the logs.
+        <a href="activity.html#privacy">Activity &amp; logs →</a>
+      </p>
+
+      <h2 id="reset">Removing everything</h2>
+      <p>
+        To take Frost off a machine completely: quit it, delete the application,
+        and delete its configuration file and log directory
+        (<a href="files.html">paths here</a>). What remains afterwards is the
+        profiles it wrote in <code>~/.aws/config</code>, the token cache in
+        <code>~/.aws/sso/cache/</code> and the contexts in
+        <code>~/.kube/config</code> — all of them plain text files you can edit or
+        delete yourself.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

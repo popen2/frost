@@ -1,0 +1,25 @@
+{
+  // src/login-overlay.ts is the one file that runs in a browser rather than in
+  // the main process, and it is injected into a page as source text — so it
+  // needs its own compile. Differences from tsconfig.json that matter:
+  //
+  //   module        NodeNext would append `export {}` (this package is ESM),
+  //                 which is a syntax error in an injected classic script.
+  //                 ESNext emits the file as a plain script.
+  //   lib/types     DOM instead of Node: `document` resolves, `process` and
+  //                 `require` do not, so main-process APIs cannot leak in.
+  //   sourceMap     off: the output is read back as a string, never loaded as
+  //                 a file, so a map would only be dead weight in the bundle.
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "types": [],
+    "noImplicitAny": true,
+    "strict": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "files": ["src/login-overlay.ts"]
+}

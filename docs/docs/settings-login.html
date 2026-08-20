@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Login Settings — Frost Documentation</title>
+  <meta name="description" content="The AWS access portal URL and region that Frost needs, how they are validated, and what changing them does." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">Settings</p>
+      <h1>Login settings</h1>
+      <p class="doc-lead">Two fields, and the only ones Frost genuinely requires. Everything else it discovers from AWS.</p>
+
+      <h2 id="start-url">SSO Start URL</h2>
+      <p>
+        Your organisation's AWS access portal URL — the page you would otherwise
+        bookmark to pick an account and role. It usually looks like one of:
+      </p>
+      <pre class="code"><code>https://d-1234567890.awsapps.com/start
+https://acme.awsapps.com/start
+https://aws.acme.com/start        # a custom access portal domain</code></pre>
+      <p>
+        You can find it in the IAM Identity Center console under
+        <em>Settings → Identity Center instance</em>, or in the email your
+        administrator sent when your access was set up. If a colleague already
+        uses Frost or the AWS CLI, the value is the <code>sso_start_url</code> in
+        their <code>~/.aws/config</code>.
+      </p>
+      <p>Frost checks that it is a valid <code>https://</code> URL with a hostname before storing it:</p>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>If you enter</th><th>Frost says</th></tr></thead>
+          <tbody>
+            <tr><td>nothing</td><td>Enter your AWS access portal URL.</td></tr>
+            <tr><td>something that is not a URL</td><td>That start URL isn't a valid URL.</td></tr>
+            <tr><td><code>http://…</code></td><td>The start URL has to begin with https://.</td></tr>
+            <tr><td>a URL with no host</td><td>The start URL is missing a hostname.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Custom domains are deliberately accepted — Identity Center supports
+        custom access portal domains, and rejecting anything that is not
+        <code>*.awsapps.com</code> would lock out the organisations that use one.
+      </p>
+
+      <h2 id="region">AWS Region</h2>
+      <p>
+        The region your IAM Identity Center <em>instance</em> lives in. This is
+        not where your workloads run, and not necessarily where you spend your
+        day — it is the region shown next to your Identity Center instance in the
+        AWS console, and it is where Frost sends its sign-in and account-listing
+        calls.
+      </p>
+      <p>Ways to find it:</p>
+      <ul>
+        <li>the IAM Identity Center console shows the instance's region in the region picker;</li>
+        <li><code>sso_region</code> in a colleague's <code>~/.aws/config</code>;</li>
+        <li>the region embedded in the sign-in URL you are redirected to when using the access portal.</li>
+      </ul>
+      <p>
+        The dropdown carries the commercial regions plus GovCloud. If your region
+        is not listed but is already stored — Frost keeps whatever was saved
+        before — it is shown as an extra entry so you do not lose it by opening
+        the page.
+      </p>
+      <div class="callout callout-warn">
+        <span class="callout-icon" aria-hidden="true">⚠️</span>
+        <p>
+          Getting the region wrong is the most common setup mistake. The symptom
+          is a token step that fails with an AWS error naming an endpoint or an
+          unknown client, since a client registered in one region means nothing in
+          another. <a href="troubleshooting.html#login">Troubleshooting →</a>
+        </p>
+      </div>
+
+      <h2 id="region-vs-profile">This region versus profile regions</h2>
+      <p>
+        The region here becomes <code>sso_region</code> in every generated
+        profile, and also the default <code>region</code> for them. If some
+        accounts work in a different region, you do not change this setting —
+        you mark those accounts with an <code>@region</code> in their AWS account
+        name and Frost writes that region into their profiles instead.
+        <a href="profiles.html#region">Profile names →</a>
+      </p>
+
+      <h2 id="saving">What saving does</h2>
+      <p>
+        <strong>Save &amp; Refresh</strong> validates both fields, stores them,
+        <strong>deletes the current access token</strong> and starts a refresh
+        immediately — which means a sign-in, since there is no longer a token to
+        reuse.
+      </p>
+      <p>
+        The tray menu updates at the same moment: before Frost is configured it
+        offers <em>Get Started</em>, and afterwards <em>Settings…</em> plus
+        <em>Refresh now</em>.
+      </p>
+      <p>
+        Changing the start URL does not clean up profiles written for the old
+        one. They carry Frost's marker, so the first refresh against the new
+        portal rewrites the ones that still exist and removes those that no
+        longer do. <a href="aws-config.html#removal">The config file →</a>
+      </p>
+
+      <h2 id="editing">Editing safely</h2>
+      <p>
+        The page updates itself from Frost's state — except while you are typing.
+        Once you change either field, incoming updates leave the form alone until
+        you save, so a refresh finishing in the background cannot revert an edit
+        halfway through.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

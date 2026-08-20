@@ -1,43 +1,79 @@
 name: 🚀 Release Version
 
-# Fires when a vX.Y.Z tag is pushed. release-drafter maintains a draft
-# release on each push to main; publishing that draft from the UI creates
-# the tag (attributed to the human who clicked Publish, which is what makes
-# this workflow run). We avoid `on: release: published` because the draft
-# is owned by github-actions[bot] and bot-attributed release events don't
-# fire downstream workflows. workflow_dispatch is kept as a manual fallback.
+# Run from the Actions tab; this is the whole release.
+#
+# Immutable releases are enabled on this repository: publishing freezes a
+# release, assets included, and every later upload gets `422 Cannot upload
+# assets to an immutable release`. So the order has to be build, upload to the
+# draft, publish last - which is why this workflow publishes rather than a human
+# clicking Publish in the UI. v0.3.0 and v0.3.1 shipped with no assets at all by
+# doing it the other way round, and neither can be repaired.
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to (re)build, e.g. v0.2.15"
-        required: true
+        description: >-
+          Draft release to build and publish, e.g. v0.3.2. Empty means the
+          newest draft.
+        required: false
         type: string
+
+# The matrix jobs all upload into the same draft.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   prep:
-    name: 🔖 Resolve release version
+    name: 🔖 Resolve draft release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
-      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.draft.outputs.tag }}
+      version: ${{ steps.draft.outputs.version }}
     steps:
-      - id: v
-        name: 🔖 Strip leading v from tag
+      - name: 📥 Checkout code
+        uses: actions/checkout@v6
+
+      - id: draft
+        name: 🔖 Read the tag off the draft release
         env:
-          TAG: ${{ inputs.tag || github.ref_name }}
-        run: |
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          WANTED: ${{ inputs.tag }}
+        run: bash .github/scripts/resolve-draft-release.sh
 
   release-app:
     name: 📦 Release App
     needs:
       - prep
     uses: ./.github/workflows/build.yaml
+    permissions:
+      contents: write
     secrets: inherit
     with:
       publish: true
+      sign: true
       version: ${{ needs.prep.outputs.version }}
+
+  publish:
+    name: 🚀 Publish release
+    needs:
+      - prep
+      - release-app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v6
+
+      - name: 🚀 Publish the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prep.outputs.tag }}
+          SHA: ${{ github.sha }}
+        run: bash .github/scripts/publish-release.sh

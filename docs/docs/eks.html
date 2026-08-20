@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>EKS Cluster Discovery — Frost Documentation</title>
+  <meta name="description" content="How Frost scans every AWS region for EKS clusters after each refresh, and how the resulting kubectl contexts are named." />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../index.html">
+      <img src="../favicon.svg" alt="" width="32" height="32" />
+      <span>Frost</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Docs</a>
+      <a href="../index.html#profiles">Profiles</a>
+      <a href="../index.html#eks">EKS</a>
+      <a href="../download.html">Download</a>
+      <a href="https://github.com/popen2/frost" target="_blank" rel="noopener" class="nav-github" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.05.78 2.13v3.16c0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.73 18.27.5 12 .5z"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <div class="doc-shell">
+    <details class="doc-sidebar" id="doc-nav"></details>
+
+    <article class="doc-article">
+      <p class="doc-eyebrow">Integrations</p>
+      <h1>EKS cluster discovery</h1>
+      <p class="doc-lead">After the profiles are written, Frost looks for EKS clusters across every region and account you can reach, and keeps <code>~/.kube/config</code> in step with what it finds.</p>
+
+      <h2 id="scan">How the scan works</h2>
+      <p>
+        The EKS step runs at the end of every refresh, once the profiles exist:
+      </p>
+      <ol class="doc-steps">
+        <li>
+          <strong>List the regions</strong>
+          Frost calls <code>ec2:DescribeRegions</code> with the first generated
+          profile, so the list is the set of regions enabled for your
+          organisation rather than a hardcoded one that goes stale.
+        </li>
+        <li>
+          <strong>Try every region with every profile</strong>
+          For each region and profile pair, Frost calls
+          <code>eks:ListClusters</code>. Most pairs fail — a profile without EKS
+          access, or a region you do not use — and those failures are expected
+          and ignored.
+        </li>
+        <li>
+          <strong>Describe what it found</strong>
+          Each cluster that was listed is then described
+          (<code>eks:DescribeCluster</code>) for its API endpoint and certificate
+          authority data, which is what a kubeconfig entry needs.
+        </li>
+        <li>
+          <strong>Merge into <code>~/.kube/config</code></strong>
+          One cluster, one user and one context per discovered cluster.
+        </li>
+      </ol>
+      <p>
+        The calls run in parallel, so a scan across dozens of regions and
+        profiles takes seconds rather than minutes. Everything it found — and
+        every access error it hit — is recorded on the
+        <a href="activity.html">Activity</a> page, grouped by region.
+      </p>
+      <div class="callout">
+        <span class="callout-icon" aria-hidden="true">💡</span>
+        <p>
+          Access errors in this step are normal. A profile scoped to one team's
+          account will be denied in every region, which is exactly what should
+          happen. Only successful describes produce kubeconfig entries.
+        </p>
+      </div>
+
+      <h2 id="entries">What is written to your kubeconfig</h2>
+      <p>Each discovered cluster contributes three entries under one name:</p>
+      <pre class="code"><code>clusters:
+  - name: production
+    cluster:
+      server: https://XXXXXXXX.gr7.eu-west-1.eks.amazonaws.com
+      certificate-authority-data: LS0tLS1CRUdJTi…
+users:
+  - name: production
+    user:
+      exec:
+        apiVersion: client.authentication.k8s.io/v1
+        command: /path/to/Frost/resources/aws-iam-authenticator
+        args: ["token", "-i", "production"]
+        env:
+          - name: AWS_PROFILE
+            value: prod-admin
+        interactiveMode: Never
+contexts:
+  - name: production
+    context:
+      cluster: production
+      user: production</code></pre>
+      <p>
+        The <code>command</code> is the copy of
+        <a href="authenticator.html">aws-iam-authenticator</a> bundled inside the
+        Frost application, so <code>kubectl</code> works whether or not the AWS
+        CLI is installed. <code>AWS_PROFILE</code> pins the credentials each
+        cluster is reached with — the profile that discovered it.
+      </p>
+
+      <h2 id="names">How contexts are named</h2>
+      <p>
+        A context named after an ARN is unusable in a runbook, so Frost derives
+        the shortest name that is still unambiguous across the clusters it found:
+      </p>
+      <div class="doc-table-wrap">
+        <table class="doc-table">
+          <thead><tr><th>Situation</th><th>Context name</th></tr></thead>
+          <tbody>
+            <tr><td>One region, one permission set</td><td><code>production</code></td></tr>
+            <tr><td>Several regions, one permission set</td><td><code>production:eu-west-1</code></td></tr>
+            <tr><td>One region, several permission sets</td><td><code>production:admin</code></td></tr>
+            <tr><td>Several of each</td><td><code>production:eu-west-1:admin</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The decision is made once per scan and applied to every cluster, so all
+        your contexts share one naming scheme rather than a mix. Because it is
+        derived from cluster metadata rather than local state, everyone on the
+        team ends up with the same names:
+      </p>
+      <div class="terminal" data-variant="frost">
+        <header class="terminal-bar">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <em>kubectl</em>
+        </header>
+<pre><code><span class="t-dim">$</span> kubectl config get-contexts -o name
+production
+staging
+analytics
+
+<span class="t-dim"># a script anyone on the team can run, unchanged</span>
+<span class="t-dim">$</span> kubectl --context production rollout restart deploy/api
+deployment.apps/api restarted</code></pre>
+      </div>
+      <div class="callout callout-warn">
+        <span class="callout-icon" aria-hidden="true">⚠️</span>
+        <p>
+          Clusters that share a name across <em>accounts</em>, while also sharing
+          a region and permission set, can end up with the same context name —
+          one entry then replaces the other. If you run identically named
+          clusters in several accounts, give them distinct names, or
+          <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">open an issue</a>
+          so we can weigh disambiguating on account too.
+        </p>
+      </div>
+
+      <h2 id="merge">How the merge treats your kubeconfig</h2>
+      <p>
+        Frost reads <code>~/.kube/config</code>, replaces any cluster, user or
+        context whose name matches one it just discovered, and writes the file
+        back. Entries you added yourself — clusters from other providers, contexts
+        from <code>kind</code> or Docker Desktop — are kept, as is your current
+        context.
+      </p>
+      <div class="callout callout-warn">
+        <span class="callout-icon" aria-hidden="true">⚠️</span>
+        <p>
+          The file is re-serialized as YAML on every write, so comments and your
+          original formatting are not preserved. If you keep notes in that file,
+          keep them somewhere else — or point Frost's clusters at a separate file
+          by keeping <code>~/.kube/config</code> out of the picture with
+          <code>KUBECONFIG</code>.
+        </p>
+      </div>
+      <p>
+        The write itself is atomic and leaves the file's own properties alone:
+        the permissions you gave <code>~/.kube/config</code> are kept, a
+        <code>~/.kube/config</code> that is a symlink stays one, and an
+        interrupted refresh cannot truncate it. A file Frost has to create from
+        nothing is created <code>0600</code>.
+        <a href="security.html#permissions">Security &amp; privacy →</a>
+      </p>
+      <p>
+        Clusters are not removed when they disappear from AWS. A stale context
+        simply stops authenticating; delete it with
+        <code>kubectl config delete-context</code> if you want it gone.
+      </p>
+
+      <h2 id="permissions">Permissions</h2>
+      <p>
+        Discovery needs <code>ec2:DescribeRegions</code> on at least the first
+        profile, plus <code>eks:ListClusters</code> and
+        <code>eks:DescribeCluster</code> in the accounts you want scanned.
+        Actually reaching a cluster afterwards is a Kubernetes RBAC question:
+        your IAM principal has to be mapped inside the cluster (through EKS access
+        entries or <code>aws-auth</code>), which is configured on the cluster
+        side, not by Frost.
+      </p>
+      <p>
+        If <code>kubectl</code> reports an authentication error against a
+        discovered cluster, <a href="troubleshooting.html#kubectl">troubleshooting</a>
+        walks through the usual causes.
+      </p>
+
+      <nav class="doc-pager" id="doc-pager" aria-label="Documentation pages"></nav>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="../favicon.svg" alt="" width="20" height="20" />
+        <span>Frost</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Docs</a>
+        <a href="../download.html">Download</a>
+        <a href="https://github.com/popen2/frost" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/popen2/frost/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/popen2/frost/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+      </div>
+      <div class="footer-meta">
+        Made with care · Open source forever
+      </div>
+    </div>
+  </footer>
+
+  <script src="docs-nav.js"></script>
+</body>
+</html>

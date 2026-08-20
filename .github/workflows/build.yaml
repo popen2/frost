@@ -3,16 +3,31 @@ name: Build
 # Reusable build matrix shared by ci.yaml (PR validation) and release.yaml
 # (release publish). Callers should pass `secrets: inherit` so this workflow
 # can read MAC_CERTS, APPLE_API_*, and GITHUB_TOKEN without re-declaring them.
+#
+# Anything longer than a one-liner lives in .github/scripts/, invoked as `bash
+# .github/scripts/<name>.sh` with its inputs passed through `env:`. Explicitly
+# through `bash` so it does not depend on the executable bit surviving checkout
+# on the Windows runner.
 
 on:
   workflow_call:
     inputs:
       publish:
         description: >-
-          If true, run `electron-forge publish` (release). If false, run
-          `electron-forge make` and upload the distributables as artifacts.
+          If true, upload the distributables to the `v<version>` draft release
+          (release.yaml publishes it once every job has). If false, upload them
+          as workflow artifacts instead. Either way the build itself is the
+          same `electron-forge make`.
         type: boolean
         default: false
+      sign:
+        description: >-
+          If true, import the Developer ID into the runner keychain and let
+          Forge sign and notarize. Callers set this false for pull request
+          validation, which runs code from the pull request in the same job -
+          see the "Add MacOS Certificates" step.
+        type: boolean
+        default: true
       version:
         description: >-
           If set, run `npm version --no-git-tag-version <version>` before
@@ -29,19 +44,59 @@ jobs:
     name: 📦 Build (${{ matrix.os.name }} ${{ matrix.arch.name }})
     strategy:
       fail-fast: false
+      # Spelled out as `include` entries rather than an os × arch product,
+      # because `arch.aws` is not a pure function of `arch` on Windows (see
+      # below) and `exclude` does not match reliably against object-valued
+      # matrix dimensions anyway.
+      #
+      # In `os`: `name` is the Electron platform (and what artifacts are named
+      # after), `aws` is how the aws-iam-authenticator release spells the same
+      # OS, and `exe` is the suffix carried by that asset and ours. In `arch`:
+      # `electron` is the package we build, `aws` is the authenticator build
+      # bundled into it — normally the same architecture.
+      #
+      # Windows/arm64 is the exception: aws-iam-authenticator publishes no
+      # windows_arm64 build, so it takes the amd64 one. That costs nothing
+      # real — the authenticator is a short-lived helper process kubectl
+      # invokes, and Windows on ARM emulates x64 processes transparently —
+      # while the app itself, which is where the CPU and battery actually go,
+      # stays native.
+      #
+      # `authenticator_sha256` pins the exact bytes of the aws-iam-authenticator
+      # asset for that row. GitHub release assets are mutable, and this binary is
+      # bundled into a signed, notarized app and written into every user's
+      # kubeconfig as the exec credential plugin - so kubectl runs it with their
+      # AWS profile in the environment. A tag alone is not a strong enough pin.
+      #
+      # To refresh after bumping AWS_IAM_AUTHENTICATOR_VERSION:
+      #
+      #   V=0.7.16
+      #   for t in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64 windows_amd64.exe; do
+      #     curl -fsSL "https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${V}/aws-iam-authenticator_${V}_${t}" \
+      #       | shasum -a 256 | sed "s/-/${t}/"
+      #   done
+      #
+      # win32/arm64 shares the windows_amd64 asset, so it shares its checksum.
       matrix:
-        os:
-          - name: darwin
-            runs-on: macos-latest
-          - name: linux
-            runs-on: ubuntu-latest
-        arch:
-          - name: x86_64
-            aws: amd64
-            electron: x64
-          - name: arm64
-            aws: arm64
-            electron: arm64
+        include:
+          - os: { name: darwin, runs-on: macos-latest, aws: darwin, exe: "" }
+            arch: { name: x86_64, aws: amd64, electron: x64 }
+            authenticator_sha256: 6a3472a37747551a3b9ad7d3cfdb029862088e7dd21f8d282fe5e7120dd1f85e
+          - os: { name: darwin, runs-on: macos-latest, aws: darwin, exe: "" }
+            arch: { name: arm64, aws: arm64, electron: arm64 }
+            authenticator_sha256: 7f0703556b9453150218fd115676ede45d8545cb118ecbe9b7c3adab6a51a411
+          - os: { name: linux, runs-on: ubuntu-latest, aws: linux, exe: "" }
+            arch: { name: x86_64, aws: amd64, electron: x64 }
+            authenticator_sha256: c9586953372361f4760cc5cb33bc2a0c7992efd15d6028c2bde45d46a724b369
+          - os: { name: linux, runs-on: ubuntu-latest, aws: linux, exe: "" }
+            arch: { name: arm64, aws: arm64, electron: arm64 }
+            authenticator_sha256: 829f48f0d71da8aa43d5ee252f9458c9c51dfeb4089c14cf4f19bcb1838f87e2
+          - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
+            arch: { name: x86_64, aws: amd64, electron: x64 }
+            authenticator_sha256: 1fb1a49bbcc5ad3ee4da8796d03fe9cd90777c5be9e812a95c83ce165e35618f
+          - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
+            arch: { name: arm64, aws: amd64, electron: arm64 }
+            authenticator_sha256: 1fb1a49bbcc5ad3ee4da8796d03fe9cd90777c5be9e812a95c83ce165e35618f
     runs-on: ${{ matrix.os.runs-on }}
     steps:
       - name: 📥 Checkout code
@@ -67,47 +122,59 @@ jobs:
           npm run build
 
       - name: ⬇️ Download aws-iam-authenticator
-        run: |
-          URL="https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${{ matrix.os.name }}_${{ matrix.arch.aws }}"
-          TARGET="aws-iam-authenticator"
-          curl -L "${URL}" -o "${TARGET}"
-          chmod a+x "${TARGET}"
+        shell: bash
+        env:
+          OS_AWS: ${{ matrix.os.aws }}
+          ARCH_AWS: ${{ matrix.arch.aws }}
+          EXE: ${{ matrix.os.exe }}
+          EXPECTED: ${{ matrix.authenticator_sha256 }}
+        run: bash .github/scripts/download-authenticator.sh
 
+      # Deliberately after `npm ci` and `npm run build` in the file, but gated
+      # so it never runs in the same job as pull request code. A postinstall
+      # script from a compromised dependency would otherwise be running
+      # alongside the Developer ID certificate and the notarization key.
       - name: 🔐 Add MacOS Certificates
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && inputs.sign
         env:
           MAC_CERTS: ${{ secrets.MAC_CERTS }}
           MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-        run: |
-          KEY_CHAIN=build.keychain
-          MACOS_CERT_P12_FILE=certificate.p12
-          echo $MAC_CERTS | base64 --decode > $MACOS_CERT_P12_FILE
-          security create-keychain -p actions $KEY_CHAIN
-          security default-keychain -s $KEY_CHAIN
-          security unlock-keychain -p actions $KEY_CHAIN
-          security import $MACOS_CERT_P12_FILE -k $KEY_CHAIN -P $MAC_CERTS_PASSWORD -T /usr/bin/codesign;
-          security set-key-partition-list -S apple-tool:,apple: -s -k actions $KEY_CHAIN
-          rm -rf *.p12
+          APPLE_API_AUTHKEY_BASE64: ${{ secrets.APPLE_API_AUTHKEY_BASE64 }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: bash .github/scripts/add-macos-certificates.sh
 
-          mkdir -p ~/private_keys
-          echo "${{ secrets.APPLE_API_AUTHKEY_BASE64 }}" | base64 -d > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
-
+      # npx rather than ./node_modules/.bin/electron-forge: the latter is a
+      # shell script with no extension, which PowerShell on the Windows runner
+      # cannot execute.
+      # FROST_SIGN is what forge.config.js keys osxSign/osxNotarize off. With it
+      # unset the package is left unsigned rather than half-configured, because
+      # @electron/osx-sign fails outright when asked to sign with an identity
+      # that is not in the keychain.
+      #
+      # Releases build the same way; only the upload step below differs.
       - name: 🛠️ Make app (sign + notarize)
-        if: ${{ !inputs.publish }}
         env:
+          FROST_SIGN: ${{ inputs.sign }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          ./node_modules/.bin/electron-forge make --arch ${{ matrix.arch.electron }}
+          npx --no-install electron-forge make --arch ${{ matrix.arch.electron }}
 
-      - name: 🚀 Publish app
+      # The GitHub CLI rather than `electron-forge publish`, which cannot work
+      # here: @electron-forge/publisher-github hand-sets a `content-length` on
+      # its Octokit upload, Node's fetch appends its own on top, and the undici
+      # that `electron-forge publish` installs as the global dispatcher (via
+      # @electron/get 5's initializeProxy) rejects the combined "<n>, <n>"
+      # before the request leaves the machine. That took down every job of the
+      # v0.3.0 release matrix, and all three pieces are upstream.
+      - name: 🚀 Upload to draft release
         if: ${{ inputs.publish }}
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: |
-          ./node_modules/.bin/electron-forge publish --arch ${{ matrix.arch.electron }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v${{ inputs.version }}
+        run: bash .github/scripts/upload-release-assets.sh
 
       - name: 📤 Upload distributables
         if: ${{ !inputs.publish }}

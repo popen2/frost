@@ -1,0 +1,470 @@
+/* Documentation pages (docs/docs/*.html).
+   Layered on top of style.css — the tokens, header, footer and buttons all
+   come from there; everything here is the docs shell and long-form typography. */
+
+.doc-shell {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1.25rem, 5vw, 3rem) clamp(3rem, 7vw, 5rem);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+
+.doc-sidebar {
+  position: sticky;
+  top: 5.5rem;
+  align-self: start;
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.doc-sidebar > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.doc-sidebar > summary::-webkit-details-marker {
+  display: none;
+}
+
+.doc-sidebar > summary::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-right: 2px solid var(--text-faint);
+  border-bottom: 2px solid var(--text-faint);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.15s ease;
+}
+
+.doc-sidebar[open] > summary::after {
+  transform: rotate(-135deg) translate(-2px, -2px);
+}
+
+.doc-nav-group {
+  margin-bottom: 1.5rem;
+}
+
+.doc-nav-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.doc-nav-group a {
+  display: block;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.93rem;
+  color: var(--text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.doc-nav-group a:hover {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.doc-nav-group a[aria-current="page"] {
+  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ── Article ─────────────────────────────────────────────────────────────── */
+
+.doc-article {
+  max-width: 46rem;
+  min-width: 0;
+}
+
+.doc-eyebrow {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--brand-soft);
+  margin: 0 0 0.6rem;
+}
+
+.doc-article h1 {
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 0 0 0.85rem;
+}
+
+.doc-lead {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin: 0 0 2.5rem;
+}
+
+.doc-article h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin: 3rem 0 0.85rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+
+.doc-article h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 2rem 0 0.6rem;
+}
+
+.doc-article h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.4rem;
+}
+
+.doc-article p,
+.doc-article li {
+  color: var(--text-muted);
+  line-height: 1.72;
+}
+
+.doc-article p {
+  margin: 0 0 1rem;
+}
+
+.doc-article ul,
+.doc-article ol {
+  margin: 0 0 1.25rem;
+  padding-left: 1.35rem;
+}
+
+.doc-article li {
+  margin-bottom: 0.4rem;
+}
+
+.doc-article li > strong {
+  color: var(--text);
+}
+
+.doc-article a:not(.btn):not(.doc-pager-link):not(.doc-card) {
+  color: var(--brand-soft);
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+.doc-article a:not(.btn):not(.doc-pager-link):not(.doc-card):hover {
+  border-bottom-color: var(--brand-soft);
+}
+
+.doc-article pre.config,
+.doc-article pre.code {
+  margin: 0 0 1.25rem;
+}
+
+.doc-article .terminal {
+  margin: 0 0 1.25rem;
+}
+
+.doc-article figure {
+  margin: 0 0 1.25rem;
+}
+
+.doc-article figcaption {
+  color: var(--text-faint);
+  font-size: 0.86rem;
+  margin-top: 0.5rem;
+}
+
+.doc-article kbd {
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.82em;
+  padding: 0.1em 0.45em;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+
+.doc-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-sm);
+}
+
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.doc-table th,
+.doc-table td {
+  text-align: left;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--text-muted);
+}
+
+.doc-table thead th {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.doc-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.doc-table td:first-child {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ── Callouts ────────────────────────────────────────────────────────────── */
+
+.callout {
+  display: flex;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  margin: 0 0 1.5rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-sm);
+}
+
+.callout p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.callout p + p {
+  margin-top: 0.6rem;
+}
+
+.callout-icon {
+  flex-shrink: 0;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.callout-warn {
+  border-left-color: #ff9900;
+}
+
+.callout-security {
+  border-left-color: #10b981;
+}
+
+/* ── Key/step lists ──────────────────────────────────────────────────────── */
+
+.doc-steps {
+  list-style: none;
+  counter-reset: doc-step;
+  padding: 0;
+  margin: 0 0 1.75rem;
+}
+
+.doc-steps > li {
+  position: relative;
+  counter-increment: doc-step;
+  padding: 0 0 1.25rem 2.75rem;
+  border-left: 1px solid var(--border);
+  margin-left: 0.9rem;
+}
+
+.doc-steps > li:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+
+.doc-steps > li::before {
+  content: counter(doc-step);
+  position: absolute;
+  left: -0.9rem;
+  top: 0;
+  width: 1.8rem;
+  height: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-feature-settings: "tnum";
+  box-shadow: 0 4px 12px -4px rgba(2, 23, 187, 0.45);
+}
+
+.doc-steps > li > strong {
+  display: block;
+  color: var(--text);
+  font-size: 1.02rem;
+  margin-bottom: 0.2rem;
+}
+
+/* ── Card grids (hub page, related links) ────────────────────────────────── */
+
+.doc-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+}
+
+.doc-card {
+  display: block;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.doc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
+
+.doc-card strong {
+  display: block;
+  font-size: 1.02rem;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.doc-card span {
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* ── Prev / next pager ───────────────────────────────────────────────────── */
+
+.doc-pager {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 3.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+.doc-pager-link {
+  display: block;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.doc-pager-link:hover {
+  border-color: var(--brand-soft);
+  transform: translateY(-1px);
+}
+
+.doc-pager-link small {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 0.2rem;
+}
+
+.doc-pager-link span {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.doc-pager-next {
+  text-align: right;
+}
+
+/* ── Landing-page "read more" links ──────────────────────────────────────── */
+
+.section-more {
+  margin-top: 1.75rem;
+  text-align: center;
+  font-size: 0.98rem;
+}
+
+.section-more a {
+  color: var(--brand-soft);
+  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+.section-more a:hover {
+  border-bottom-color: var(--brand-soft);
+}
+
+.section-more + .section-more {
+  margin-top: 0.5rem;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .doc-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .doc-sidebar {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .doc-article {
+    max-width: none;
+  }
+}
+
+@media (min-width: 901px) {
+  .doc-sidebar > summary {
+    display: none;
+  }
+}

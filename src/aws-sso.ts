@@ -22,12 +22,16 @@ import { refreshProfiles } from "./profiles.js";
 import { writeSsoConfig } from "./aws-config.js";
 import { updateTrayIcon } from "./tray.js";
 import { updateKubeConfig } from "./aws-eks.js";
+import { attachLoginIndicator } from "./login-indicator.js";
+import { formatHotkey } from "./hotkey.js";
 import {
     startRun,
     completeRun,
     startTokenStep,
     completeTokenStep,
 } from "./run-log.js";
+import { describeError } from "./logging.js";
+import { decryptSecret, encryptSecret } from "./secrets.js";
 import {
     LoginAbortedError,
     nextRefreshDelayMs,
@@ -101,7 +105,10 @@ export async function refresh() {
         return;
     }
 
-    startRun();
+    // The run id is what ties these lines to the entry the user is looking at
+    // in the Activity panel when they send a log in.
+    const { runId } = startRun();
+    log.info("[refresh] Run %s started", runId);
 
     try {
         config.set("isWorking", true);
@@ -114,7 +121,7 @@ export async function refresh() {
             log.info("[refresh] Successfully got new token");
             completeTokenStep("success");
         } catch (tokenErr) {
-            completeTokenStep("error", `${tokenErr}`);
+            completeTokenStep("error", describeError(tokenErr));
             throw tokenErr;
         }
 
@@ -125,16 +132,18 @@ export async function refresh() {
         await updateKubeConfig(profiles);
 
         completeRun("success");
+        log.info("[refresh] Run %s completed", runId);
     } catch (err) {
-        log.error("[refresh] Error: %s", err);
+        const described = describeError(err);
+        log.error("[refresh] Run %s failed: %s", runId, described);
         if (err instanceof Error && err.name == "InvalidClientException") {
             config.delete("ssoClient");
             log.error(
                 "[refresh] Got InvalidClientException error, deleted ssoClient from config"
             );
         }
-        config.set("lastError", `${err}`);
-        completeRun("error", `${err}`);
+        config.set("lastError", described);
+        completeRun("error", described);
 
         // A failed run leaves `expiresAt` in the past, so scheduling off it would
         // retry in MIN_REFRESH_DELAY_MS and start a whole new login every half
@@ -169,7 +178,14 @@ async function getNewToken(
         })
     );
 
-    log.debug("[getNewToken] startDeviceAuthorization: %s", startAuth);
+    // Never log the response itself: it carries `deviceCode`, `userCode` and
+    // `verificationUriComplete`, and anything holding those plus the client
+    // credentials can redeem a token of its own for as long as the code lives.
+    log.debug(
+        "[getNewToken] startDeviceAuthorization: expiresIn=%ss interval=%ss",
+        startAuth.expiresIn,
+        startAuth.interval
+    );
     const tokenExpires = moment().add(startAuth.expiresIn, "seconds");
 
     const behavior =
@@ -177,14 +193,12 @@ async function getNewToken(
         DEFAULT_BEHAVIOR;
 
     if (behavior.refreshMode === "notify") {
-        const displayKey = behavior.refreshHotkey
-            .replace("CmdOrCtrl", "⌘/Ctrl")
-            .replace("Shift", "⇧")
-            .replace("Alt", "⌥");
         log.info("[getNewToken] Notify mode: showing notification");
         const note = new Notification({
             title: "Frost — AWS Credentials Renewal",
-            body: `Press ${displayKey} to open the AWS login browser.`,
+            body: `Press ${formatHotkey(
+                behavior.refreshHotkey
+            )} to open the AWS login browser.`,
         });
         note.on("click", () => triggerPendingAuth());
         note.show();
@@ -224,6 +238,11 @@ async function getNewToken(
             },
         });
 
+        // Before loadURL, so the very first document gets the overlay that
+        // shows when the page is waiting for a security key or passkey. The
+        // default-browser path needs nothing: the browser has its own UI.
+        attachLoginIndicator(window);
+
         window.on("close", () => {
             log.warn("[getNewToken] Login window closed");
             windowOpen = false;
@@ -236,15 +255,6 @@ async function getNewToken(
         while (moment().isBefore(tokenExpires)) {
             log.debug("[getNewToken] Sleeping for %ss", startAuth.interval!);
             await delay(startAuth.interval! * 1000);
-
-            // Closing the window means "I'm not logging in now". Give up here
-            // rather than waiting for a non-pending token error, which may
-            // never come — the run would then hold `isWorking` (and block every
-            // new refresh) until the device code expires.
-            if (!windowOpen) {
-                log.warn("[getNewToken] User closed login window, aborting");
-                throw new LoginAbortedError("Login window closed");
-            }
 
             try {
                 log.debug("[getNewToken] Trying to get token");
@@ -266,8 +276,26 @@ async function getNewToken(
                         "Login page expired before it was approved"
                     );
                 } else {
-                    log.warn("[getNewToken] Failed getting token: %s", err);
+                    log.warn(
+                        "[getNewToken] Failed getting token: %s",
+                        describeError(err)
+                    );
                 }
+            }
+
+            // Closing the window means "I'm not logging in now". Give up here
+            // rather than waiting for a non-pending token error, which may
+            // never come — the run would then hold `isWorking` (and block every
+            // new refresh) until the device code expires.
+            //
+            // This has to come *after* the poll above, not before it. AWS tells
+            // the user to close the window as soon as they approve, so between
+            // the approval and the next poll the window is usually already
+            // gone — and checking first threw away a token that was waiting to
+            // be collected.
+            if (!windowOpen) {
+                log.warn("[getNewToken] User closed login window, aborting");
+                throw new LoginAbortedError("Login window closed");
             }
         }
         throw new LoginAbortedError("Login timed out");
@@ -287,8 +315,10 @@ async function saveToken(
     newToken: CreateTokenCommandOutput
 ) {
     const expiresAt = moment().add(newToken.expiresIn!, "seconds");
-    config.set("accessToken", newToken.accessToken!);
+    config.set("accessToken", encryptSecret(newToken.accessToken!));
     config.set("expiresAt", expiresAt.toISOString());
+    // Plaintext here, deliberately: this is the AWS CLI's own cache format and
+    // the CLI has to be able to read it. See the note in secrets.ts.
     await writeSsoConfig(
         userConfig,
         newToken.accessToken!,
@@ -304,8 +334,28 @@ export interface RegisteredClient {
     expiresAt: number;
 }
 
+/**
+ * The stored client with its secret decrypted, or null if there isn't one - or
+ * if the secret was encrypted with a key this machine no longer has (a copied
+ * profile directory, a reset keychain). Re-registering is cheap and is the only
+ * way forward, so both cases look the same to the caller.
+ */
+function storedSsoClient(): RegisteredClient | null {
+    const stored = config.get("ssoClient") as RegisteredClient | undefined;
+    if (!stored) {
+        return null;
+    }
+
+    const clientSecret = decryptSecret(stored.clientSecret);
+    if (!clientSecret) {
+        log.warn("[getSsoClient] Stored client secret unreadable");
+        return null;
+    }
+    return { ...stored, clientSecret };
+}
+
 async function getSsoClient(userConfig: UserConfig): Promise<RegisteredClient> {
-    let registeredClient = config.get("ssoClient") as RegisteredClient;
+    let registeredClient = storedSsoClient();
 
     if (!registeredClient) {
         log.info(`[getSsoClient] Registering new client`);
@@ -350,6 +400,10 @@ async function registerSsoClient(
         expiresAt: res.clientSecretExpiresAt!,
     };
 
-    config.set("ssoClient", registeredClient);
+    // Encrypted on the way to disk; the caller gets the usable secret back.
+    config.set("ssoClient", {
+        ...registeredClient,
+        clientSecret: encryptSecret(registeredClient.clientSecret),
+    });
     return registeredClient;
 }
