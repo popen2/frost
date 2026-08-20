@@ -8,6 +8,7 @@ import {
     StartDeviceAuthorizationCommand,
     CreateTokenCommand,
     AuthorizationPendingException,
+    ExpiredTokenException,
     type CreateTokenCommandOutput,
 } from "@aws-sdk/client-sso-oidc";
 import { v4 as uuidv4 } from "uuid";
@@ -27,6 +28,11 @@ import {
     startTokenStep,
     completeTokenStep,
 } from "./run-log.js";
+import {
+    LoginAbortedError,
+    nextRefreshDelayMs,
+    retryDelayMsAfterError,
+} from "./schedule.js";
 
 let timeoutId: NodeJS.Timeout | undefined;
 let pendingAuthResolve: (() => void) | null = null;
@@ -46,7 +52,11 @@ function waitForUserTrigger(timeoutMs: number): Promise<void> {
     return new Promise((resolve, reject) => {
         const tid = setTimeout(() => {
             pendingAuthResolve = null;
-            reject(new Error("Timed out waiting for user to trigger auth"));
+            reject(
+                new LoginAbortedError(
+                    "Timed out waiting for user to trigger auth"
+                )
+            );
         }, timeoutMs);
         pendingAuthResolve = () => {
             clearTimeout(tid);
@@ -55,7 +65,7 @@ function waitForUserTrigger(timeoutMs: number): Promise<void> {
     });
 }
 
-export function setNextTokenRefresh() {
+export function setNextTokenRefresh(delayMs?: number) {
     log.info("[setNextTokenRefresh] Setting new timeout");
 
     if (timeoutId) {
@@ -63,13 +73,10 @@ export function setNextTokenRefresh() {
         clearTimeout(timeoutId);
     }
 
-    const now = moment();
     const expiresAtConfig = config.get("expiresAt") as string | undefined;
     log.debug("[setNextTokenRefresh] Config expiresAt=%s", expiresAtConfig);
-    const expiresAt = expiresAtConfig
-        ? moment(expiresAtConfig, moment.ISO_8601)
-        : now;
-    const timeoutMs = Math.max(expiresAt.diff(now), 500);
+    const timeoutMs =
+        delayMs ?? nextRefreshDelayMs(expiresAtConfig, Date.now());
 
     timeoutId = setTimeout(refresh, timeoutMs);
     log.info("[setNextTokenRefresh] New timeout set to %sms", timeoutMs);
@@ -128,7 +135,19 @@ export async function refresh() {
         }
         config.set("lastError", `${err}`);
         completeRun("error", `${err}`);
-        setNextTokenRefresh();
+
+        // A failed run leaves `expiresAt` in the past, so scheduling off it would
+        // retry in MIN_REFRESH_DELAY_MS and start a whole new login every half
+        // second. Retry on a fixed delay, and not at all when the reason we failed
+        // is that nobody completed the login.
+        const retryDelayMs = retryDelayMsAfterError(err);
+        if (retryDelayMs === undefined) {
+            log.warn(
+                "[refresh] Login was not completed, waiting for a manual refresh"
+            );
+        } else {
+            setNextTokenRefresh(retryDelayMs);
+        }
     } finally {
         config.set("isWorking", false);
         updateTrayIcon();
@@ -177,9 +196,21 @@ async function getNewToken(
     let windowOpen = true;
     let window: BrowserWindow | undefined;
 
+    const verificationUrl = startAuth.verificationUriComplete;
+    if (!verificationUrl) {
+        throw new Error("Missing verification URL from device authorization");
+    }
+
     if (behavior.loginMethod === "default_browser") {
         log.debug("[getNewToken] Opening login in default browser");
-        await shell.openExternal(startAuth.verificationUriComplete!);
+        try {
+            await shell.openExternal(verificationUrl);
+        } catch (err) {
+            throw new Error(
+                `Failed opening login page in browser: ${err}`,
+                { cause: err }
+            );
+        }
     } else {
         log.debug("[getNewToken] Opening login window");
         if (app.dock) await app.dock.show();
@@ -198,7 +229,7 @@ async function getNewToken(
             windowOpen = false;
         });
 
-        window.loadURL(startAuth.verificationUriComplete!);
+        window.loadURL(verificationUrl);
     }
 
     try {
@@ -212,7 +243,7 @@ async function getNewToken(
             // new refresh) until the device code expires.
             if (!windowOpen) {
                 log.warn("[getNewToken] User closed login window, aborting");
-                throw new Error("Login window closed");
+                throw new LoginAbortedError("Login window closed");
             }
 
             try {
@@ -229,12 +260,17 @@ async function getNewToken(
             } catch (err) {
                 if (isAuthorizationPendingException(err)) {
                     log.debug("[getNewToken] Authorization pending...");
+                } else if (err instanceof ExpiredTokenException) {
+                    // The device code is dead, so there is nothing left to poll for.
+                    throw new LoginAbortedError(
+                        "Login page expired before it was approved"
+                    );
                 } else {
                     log.warn("[getNewToken] Failed getting token: %s", err);
                 }
             }
         }
-        throw new Error("Login timed out");
+        throw new LoginAbortedError("Login timed out");
     } finally {
         if (window && !window.isDestroyed()) {
             window.close();
