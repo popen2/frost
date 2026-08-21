@@ -4,7 +4,7 @@ import { app, shell, Menu, Tray } from "electron";
 import log from "electron-log/main";
 import moment from "moment";
 import { config } from "./config.js";
-import { refresh } from "./aws-sso.js";
+import { getNextRefreshAt, refresh } from "./aws-sso.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -54,19 +54,29 @@ export function updateTrayIcon(onOpenDashboard?: () => void) {
     log.debug("[updateTrayIcon] Updating tray icon");
     const refreshItems = [] as Electron.MenuItemConstructorOptions[];
 
-    const expiresAt = config.get("expiresAt");
-    if (expiresAt) {
-        const timeUntil = moment(
-            expiresAt as string,
-            moment.ISO_8601
-        ).fromNow();
-        refreshItems.push({
-            label: `Next refresh ${timeUntil}`,
-            enabled: false,
-        });
-    }
-
     if (config.get("userConfig")) {
+        // The scheduled time, not the token expiry: after an abandoned login
+        // there is deliberately nothing scheduled (#83), and reading
+        // `expiresAt` here would claim a refresh was due hours ago instead of
+        // saying that Frost is waiting for the user.
+        const nextRefreshAt = getNextRefreshAt();
+        if (nextRefreshAt !== null) {
+            refreshItems.push({
+                label: `Next refresh ${moment(nextRefreshAt).fromNow()}`,
+                enabled: false,
+            });
+        } else if (config.get("isWorking")) {
+            refreshItems.push({
+                label: "Refreshing…",
+                enabled: false,
+            });
+        } else {
+            refreshItems.push({
+                label: "Sign-in needed",
+                enabled: false,
+            });
+        }
+
         refreshItems.push({
             label: "Refresh now",
             click() {

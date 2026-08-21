@@ -103,7 +103,8 @@
       <p>
         The trade-off is that Frost has no window to watch: it keeps polling
         until you approve or until the device code expires, so abandoning a
-        sign-in leaves the run waiting rather than failing fast.
+        sign-in leaves the run waiting rather than failing fast. It gives up
+        once, quietly, when the code expires — it does not open a second tab.
       </p>
       <p><a href="settings-behavior.html#login-page">Behavior settings →</a></p>
 
@@ -155,16 +156,24 @@
           <thead><tr><th>What you do</th><th>What Frost does</th></tr></thead>
           <tbody>
             <tr><td>Approve the sign-in</td><td>Collects the token on the next poll and continues the run</td></tr>
-            <tr><td>Close the login window</td><td>Aborts the run, records "Login window closed", reschedules</td></tr>
+            <tr><td>Close the login window</td><td>Aborts the run at once and records "Login window closed"</td></tr>
             <tr><td>Ignore it (in-app window)</td><td>Polls until AWS expires the device code, then records "Login timed out"</td></tr>
+            <tr><td>Ignore it (default browser)</td><td>The same — Frost has no window to watch, so it polls the code out</td></tr>
             <tr><td>Ignore the notification (notify mode)</td><td>Waits for the hotkey or a click until the device code expires, then gives up</td></tr>
+            <tr><td>Refuse the sign-in at your identity provider</td><td>Ends the run as soon as AWS reports it, rather than polling on</td></tr>
           </tbody>
         </table>
       </div>
       <p>
         In every case the failure is recorded on the
-        <a href="activity.html">Activity</a> page and the next refresh is
-        rescheduled — a cancelled sign-in never leaves Frost wedged.
+        <a href="activity.html">Activity</a> page — and then Frost waits for you.
+        A sign-in nobody completed is not retried on a timer: the retry would
+        open another login page with nobody there to finish it, and by morning
+        you would have one for every few minutes you were away. The tray menu
+        says <em>Sign-in needed</em>, and a notification says so once — unless
+        you closed the window or refused the sign-in yourself, in which case you
+        already know. The next attempt is the one you start, from the tray, the
+        Credentials page or the hotkey.
       </p>
 
       <h2 id="client">The OAuth client registration</h2>

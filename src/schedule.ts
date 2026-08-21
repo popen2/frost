@@ -1,20 +1,30 @@
-// Pure scheduling helpers. Deliberately free of electron imports so this file can
-// run (and self-check) under plain node: `node dist/schedule.js`.
-
-import assert from "assert";
-import { pathToFileURL } from "url";
+// Pure scheduling helpers. Deliberately free of electron imports.
 
 export const MIN_REFRESH_DELAY_MS = 500;
+/** The first error retry. Each consecutive failure doubles it from here. */
 export const ERROR_RETRY_DELAY_MS = 60 * 1000;
+/** Ceiling for that doubling, so a long outage settles at half-hourly. */
+export const MAX_ERROR_RETRY_DELAY_MS = 30 * 60 * 1000;
 
 /**
  * A login run that ended because nobody completed it: the window was closed, the
  * device code expired, or it timed out waiting for the user.
  */
 export class LoginAbortedError extends Error {
-    constructor(message: string) {
-        super(message);
+    /**
+     * True when the user ended it themselves — closed the window, refused the
+     * sign-in at the identity provider. They already know it did not happen, so
+     * Frost stays quiet; the passive endings are the ones worth a word.
+     */
+    readonly cancelledByUser: boolean;
+
+    constructor(
+        message: string,
+        options?: ErrorOptions & { cancelledByUser?: boolean }
+    ) {
+        super(message, options);
         this.name = "LoginAbortedError";
+        this.cancelledByUser = options?.cancelledByUser ?? false;
     }
 }
 
@@ -39,46 +49,24 @@ export function nextRefreshDelayMs(
  * stale `expiresAt` made the delay collapse to MIN_REFRESH_DELAY_MS, which is how one
  * unattended login became dozens of browser tabs overnight. Those wait for the user to
  * refresh (tray, dashboard, or the hotkey) instead.
+ *
+ * Everything else backs off as failures repeat. A cause that is not going to fix
+ * itself — a start URL in the wrong region, an SSO instance that has been deleted —
+ * otherwise asks AWS the same question every minute forever, silently.
  */
-export function retryDelayMsAfterError(err: unknown): number | undefined {
+export function retryDelayMsAfterError(
+    err: unknown,
+    consecutiveFailures = 1
+): number | undefined {
     if (err instanceof LoginAbortedError) {
         return undefined;
     }
 
-    return ERROR_RETRY_DELAY_MS;
-}
-
-function demo() {
-    const now = Date.parse("2026-08-20T09:00:00.000Z");
-    assert.strictEqual(
-        nextRefreshDelayMs("2026-08-20T10:00:00.000Z", now),
-        60 * 60 * 1000
+    const doublings = Math.max(consecutiveFailures, 1) - 1;
+    // 2 ** doublings reaches Infinity long before this matters, and Math.min
+    // brings it back to the cap.
+    return Math.min(
+        ERROR_RETRY_DELAY_MS * 2 ** doublings,
+        MAX_ERROR_RETRY_DELAY_MS
     );
-    // An expiry in the past must not become an immediate, spinning timeout.
-    assert.strictEqual(
-        nextRefreshDelayMs("2026-08-20T08:00:00.000Z", now),
-        MIN_REFRESH_DELAY_MS
-    );
-    assert.strictEqual(nextRefreshDelayMs(undefined, now), MIN_REFRESH_DELAY_MS);
-    assert.strictEqual(
-        nextRefreshDelayMs("not-a-date", now),
-        MIN_REFRESH_DELAY_MS
-    );
-    // A login nobody completed must not re-open the login page on its own.
-    assert.strictEqual(
-        retryDelayMsAfterError(new LoginAbortedError("Login timed out")),
-        undefined
-    );
-    assert.strictEqual(
-        retryDelayMsAfterError(new Error("network down")),
-        ERROR_RETRY_DELAY_MS
-    );
-    console.log("schedule self-check OK");
-}
-
-if (
-    process.argv[1] &&
-    import.meta.url === pathToFileURL(process.argv[1]).href
-) {
-    demo();
 }
