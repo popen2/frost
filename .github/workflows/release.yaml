@@ -35,7 +35,7 @@ jobs:
       version: ${{ steps.draft.outputs.version }}
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - id: draft
         name: 🔖 Read the tag off the draft release
@@ -68,7 +68,7 @@ jobs:
       contents: write
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: 🚀 Publish the draft
         env:
