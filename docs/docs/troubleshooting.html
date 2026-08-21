@@ -171,6 +171,27 @@
 
       <h2 id="kubectl">kubectl cannot reach a cluster</h2>
 
+      <h4>Contexts you did not get from Frost disappeared after a refresh</h4>
+      <p>
+        Versions up to v0.3.2 merged into <code>~/.kube/config</code> through a
+        parser that rejected the whole file over one entry it did not like — most
+        often a context with no cluster, which is what
+        <code>kubectl config set-context <em>name</em> --namespace=<em>ns</em></code>
+        writes. The rejection was swallowed, and the file was then written from
+        what little had loaded, taking your users, your contexts and your
+        <code>current-context</code> with it. <code>kubectl</code> falls back to
+        <code>localhost:8080</code> with no current context, which is the
+        "connection to the server localhost:8080 was refused" you are probably
+        looking at.
+      </p>
+      <p>
+        Later versions edit the file in place and leave one they cannot parse
+        alone. There is nothing to recover from Frost — it keeps no copy — so
+        rebuild the entries you lost (<code>aws eks update-kubeconfig</code> for
+        EKS clusters you reach another way, or your provider's own command) and
+        run a refresh; Frost's own contexts come back on their own.
+      </p>
+
       <h4>"executable … not found" or a path error</h4>
       <p>
         The kubeconfig entry points at the authenticator inside the Frost
