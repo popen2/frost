@@ -69,9 +69,12 @@ npm only (`package-lock.json`; CI runs `npm ci`). Do not add a `yarn.lock`.
 
 - `npm run build` — `tsc`, then copies the tray icons and `dashboard.html`.
 - `npm run lint` — oxlint, configured by `.oxlintrc.json`.
+- `npm run check:overlay` — drives the login window's credential overlay
+  through a real WebAuthn wait. Needs `npm run build` first, and a display:
+  `xvfb-run -a npm run check:overlay -- --no-sandbox`.
 - `npm start` / `npm run package` / `npm run make` — Electron Forge.
 
-Build and lint both run in CI. Neither proves the app launches; see
+All three run in CI. Build and lint alone do not prove the app launches; see
 "Verification limits".
 
 ## ESM
@@ -90,10 +93,30 @@ for a security key looks broken. `src/login-indicator.ts` fills that gap, wired
 up before `loadURL` and only for the in-app window; the default-browser mode
 gets the browser's own prompts.
 
-- `src/login-overlay.ts` is compiled separately, read off disk, and injected on
-  every `dom-ready` — the main frame plus sub-frames reached through
-  `frame-created`, since injecting on the `WebContents` only reaches the top
-  frame. It re-injects safely; a `window` flag makes it a no-op.
+- `src/login-overlay.ts` is compiled separately, read off disk, and injected
+  into every document the login window loads. It wraps
+  `navigator.credentials.{get,create}` and draws a toast while a request is
+  pending. It re-injects safely; a `window` flag makes it a no-op.
+- **It has to be running before the page's own scripts are.** A page that asks
+  for the key as it boots — Google's security-key challenge does — has already
+  called `navigator.credentials.get()` by `dom-ready`, and a wrapper installed
+  after the call sees nothing: no toast, no title, no log line, just the silent
+  window the overlay exists to prevent. So `attachLoginIndicator()` registers
+  it through the `WebContents` debugger with
+  `Page.addScriptToEvaluateOnNewDocument`, which runs it at document start in
+  the page's own world. Three details there all fail silently:
+    - `Page.enable` first, or the registration resolves and does nothing.
+    - There has to be a renderer to talk to. On a window that has loaded
+      nothing the command never resolves — no error, a hung promise — which is
+      why `attachLoginIndicator()` loads `about:blank` first, is `async`, and
+      must be awaited before `loadURL`.
+    - It reaches the top document — across the cross-origin hop to the identity
+      provider, which changes renderer process — and frames sharing its
+      process, but not a cross-origin `<iframe>`, which has its own CDP target.
+  Injecting on `dom-ready`, the main frame plus sub-frames reached through
+  `frame-created` (injecting on the `WebContents` only reaches the top frame),
+  stays as the fallback for those and for a debugger that would not attach.
+  Being attached is also why the login window cannot open DevTools.
 - Its compile differs deliberately: `module: ESNext` (NodeNext would append an
   export statement, a syntax error in an injected classic script), `lib: DOM`
   with no Node types, and no source map. It must stay import-free — an import
@@ -113,6 +136,17 @@ gets the browser's own prompts.
   once on every path, and unregister using the `Session` captured while the
   window was alive — reaching through the destroyed `WebContents` throws, which
   Electron shows as a modal dialog on close.
+
+`npm run check:overlay` is the regression test for all of that: it drives the
+real `attachLoginIndicator()` on a real `BrowserWindow` against pages that ask
+for a key before and after `dom-ready`, and asserts the wait reached the main
+process. No key needed — only the start of the request matters, and that is
+signalled the moment the page asks. CI runs it.
+
+The overlay's drawing can also be checked on its own, since it is import-free
+browser code: `new Function("window", source)` over the built
+`dist/login-overlay.js` with a stub `window`, or a Playwright page — the only
+way to try it against a strict CSP or hostile `!important` CSS.
 
 ## `~/.aws/config` ownership
 
@@ -408,8 +442,15 @@ cannot be validated locally.
 
 Headless, you can run build, lint, isolated Node checks of individual modules,
 and — with network access to the Electron downloads — `package`/`make` **for
-linux**. You **cannot** launch the app or validate macOS signing. Say so rather
-than claiming the app works.
+linux**.
+
+You *can* also launch it, given those same downloads and `xvfb`:
+`xvfb-run -a ./node_modules/electron/dist/electron --no-sandbox .` boots the
+whole app, and `npm run check:overlay` uses that to drive a real
+`BrowserWindow`. That is how the overlay's document-start bug was found; build
+and lint could not have. What it does **not** give you is a real desktop: no
+tray interaction, no dock, no security key, no keychain, no macOS signing. Say
+so rather than claiming the app works.
 
 Windows packaging cannot be exercised either: the maker needs a Windows host,
 and even plain packaging shells out to `rcedit`, which needs Wine off Windows.

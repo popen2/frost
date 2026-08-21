@@ -48,6 +48,16 @@ jobs:
         run: |
           npm run lint
 
+      # The login window's credential overlay fails silently when it breaks -
+      # no error, just a sign-in page that shows nothing while it waits for a
+      # security key. This drives a real BrowserWindow through a real WebAuthn
+      # wait and asserts the overlay reported it. It needs a display (xvfb) and
+      # --no-sandbox, because the runner's Electron has no setuid sandbox
+      # helper; it needs no security key.
+      - name: 🔑 Check the login overlay
+        run: |
+          xvfb-run -a npm run check:overlay -- --no-sandbox
+
   build:
     needs: lint
     uses: ./.github/workflows/build.yaml

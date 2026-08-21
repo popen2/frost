@@ -40,6 +40,95 @@ interface ScriptTarget {
 
 let overlaySource: string | null | undefined;
 
+/**
+ * Run the overlay at document start, before the page's own scripts.
+ *
+ * `dom-ready` is far too late for a page that starts listening for the key as
+ * it boots — Google's security-key challenge calls
+ * `navigator.credentials.get()` from its boot script, so by the time
+ * `dom-ready` fires the request is already pending and wrapping
+ * `navigator.credentials` no longer sees it. The page then sits there silently,
+ * which is exactly the symptom the overlay exists to remove (issue #17).
+ *
+ * `Page.addScriptToEvaluateOnNewDocument` is the only hook early enough: it
+ * runs our source in the page's own world before any script the page ships,
+ * and it keeps doing so across the cross-origin hop from AWS to the identity
+ * provider — which moves the page to a different renderer process. It needs the
+ * debugger, so the login window cannot open DevTools while it is attached — no
+ * loss for a window that only ever shows a sign-in page.
+ *
+ * It covers the top-level document and any frame sharing its process. A
+ * cross-origin <iframe> gets its own process and its own CDP target, which this
+ * registration does not reach; those are left to the `dom-ready` injection
+ * below, which is in time for anything but a request the frame makes as it
+ * boots.
+ *
+ * Two things about this are easy to get wrong, and silently:
+ *
+ *  - The `Page` domain has to be enabled first. Without it the registration
+ *    still resolves, and still does nothing at all.
+ *  - There has to be a renderer to talk to. On a window that has not loaded
+ *    anything yet the command never resolves — not an error, just a promise
+ *    that hangs — which is why the caller loads about:blank first.
+ *
+ * Best effort: when it cannot be armed the `dom-ready` injection below is still
+ * there, and still covers every page that asks for the key after it has loaded.
+ */
+async function injectAtDocumentStart(
+    contents: Electron.WebContents,
+    source: string
+): Promise<void> {
+    try {
+        if (!contents.debugger.isAttached()) {
+            contents.debugger.attach("1.3");
+        }
+        await contents.debugger.sendCommand("Page.enable");
+        await contents.debugger.sendCommand(
+            "Page.addScriptToEvaluateOnNewDocument",
+            {
+                source,
+                // The window is sitting on about:blank right now, and the login
+                // page is the *next* document, so this only covers about:blank
+                // itself. Harmless, and it keeps the hook honest if that ever
+                // stops being true.
+                runImmediately: true,
+            }
+        );
+        log.debug("[loginIndicator] Overlay armed at document start");
+    } catch (err) {
+        log.warn(
+            "[loginIndicator] Could not arm the overlay at document start, " +
+                "falling back to dom-ready: %s",
+            err
+        );
+    }
+}
+
+/**
+ * Give the window a renderer for the debugger to reach, without showing the
+ * user anything it would not have shown anyway: a new BrowserWindow is blank
+ * until the login page loads either way.
+ */
+async function loadBlank(contents: Electron.WebContents): Promise<boolean> {
+    try {
+        await contents.loadURL("about:blank");
+        return !contents.isDestroyed();
+    } catch (err) {
+        log.warn("[loginIndicator] Could not load about:blank: %s", err);
+        return false;
+    }
+}
+
+function detachDebugger(contents: Electron.WebContents) {
+    try {
+        if (!contents.isDestroyed() && contents.debugger.isAttached()) {
+            contents.debugger.detach();
+        }
+    } catch (err) {
+        log.debug("[loginIndicator] Could not detach the debugger: %s", err);
+    }
+}
+
 function loadOverlaySource(): string | null {
     if (overlaySource === undefined) {
         try {
@@ -88,7 +177,7 @@ function describeAccount(
  * account picker is a session-wide event, and it is unregistered when the
  * window closes so it can never outlive the sign-in it belongs to.
  */
-export function attachLoginIndicator(window: BrowserWindow) {
+export async function attachLoginIndicator(window: BrowserWindow) {
     const contents = window.webContents;
     // Held on to now, while the window is alive: by the time `closed` fires,
     // the WebContents is gone and even reading `contents.session` off it
@@ -96,6 +185,19 @@ export function attachLoginIndicator(window: BrowserWindow) {
     // window, so the listener below can still be removed from it.
     const session = contents.session;
     const source = loadOverlaySource();
+
+    // First, and awaited: the overlay is only useful if it is running before
+    // the login page's own scripts are, and both steps below need to finish
+    // before the caller loads that page. Everything after this is wired up
+    // synchronously.
+    if (source && (await loadBlank(contents))) {
+        await injectAtDocumentStart(contents, source);
+    }
+
+    if (window.isDestroyed()) {
+        log.warn("[loginIndicator] Window went away while arming the overlay");
+        return;
+    }
 
     if (source) {
         const inject = (target: ScriptTarget, where: string) => {
@@ -108,12 +210,16 @@ export function attachLoginIndicator(window: BrowserWindow) {
             });
         };
 
+        // Injecting again once the document is up covers the case where the
+        // document-start hook could not be armed. The overlay no-ops when it
+        // lands in a document twice, so the two cannot collide.
         contents.on("dom-ready", () => inject(contents, contents.getURL()));
 
         // A sign-in page may delegate WebAuthn to a cross-origin <iframe> (an
-        // identity provider embedded by the AWS page), and executeJavaScript
-        // on the WebContents only reaches the top frame — so follow sub-frames
-        // as they appear. The overlay no-ops if it lands in a frame twice.
+        // identity provider embedded by the AWS page). Those run in their own
+        // process, out of reach of both executeJavaScript on the WebContents
+        // and the document-start hook, so follow sub-frames as they appear. The
+        // overlay no-ops if it lands in a frame twice.
         contents.on("frame-created", (_event, details) => {
             const frame = details.frame;
             if (!frame || frame === contents.mainFrame) return;
@@ -241,6 +347,10 @@ export function attachLoginIndicator(window: BrowserWindow) {
     };
 
     session.on("select-webauthn-account", selectAccount);
+
+    // `close`, not `closed`: the debugger has to be let go while the
+    // WebContents it is attached to is still there to let go of.
+    window.on("close", () => detachDebugger(contents));
 
     window.on("closed", () => {
         stopWaiting();
