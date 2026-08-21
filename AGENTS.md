@@ -189,9 +189,13 @@ Each platform branch exists for a reason.
   never reassign their continuation token.
 - **js-yaml v5** ships its own types; `@types/js-yaml` was dropped. `@types/ini`
   is still needed.
-- **TypeScript stays on 6.x.** `typescript-eslint` 8 declares a peer range
-  below 7, so installing TS 7 fails `npm install` and takes lint — a CI gate —
-  down with it. Revisit when typescript-eslint supports TS 7.
+- **TypeScript 7 and 6 are both installed.** `tsc` is the TS 7 native compiler,
+  but `typescript-eslint` 8 throws on TS >= 7, so lint still needs the TS 6 API.
+  npm aliases keep both: `@typescript/native` is TS 7 and provides `tsc`, while
+  `typescript` is `@typescript/typescript6`, so `import "typescript"` lands on
+  the TS 6 API. Neither alias name is a real package. TS 7's emit here is
+  byte-identical to TS 6's. Collapse to a plain `^7` once typescript-eslint
+  supports it.
 - **No `overrides` block.** The former entries are resolved by upgrading
   parents. Prefer that over adding an override, and re-check `npm audit` with
   the block empty first.
