@@ -54,16 +54,28 @@
       <h4>"Login window closed"</h4>
       <p>
         The login window was closed before AWS confirmed the approval. Frost
-        treats that as "not now", aborts the run and reschedules. Trigger a
-        refresh from the tray or the Credentials page when you are ready.
+        treats that as "not now" and aborts the run. It does not start another
+        one on its own — trigger a refresh from the tray or the Credentials page
+        when you are ready.
       </p>
 
       <h4>"Login timed out"</h4>
       <p>
-        The device code AWS issued expired before the sign-in was approved. Start
-        another refresh; if this happens repeatedly in notify mode, you may
-        simply not be getting the notification —
+        The device code AWS issued expired before the sign-in was approved. Frost
+        stops there and the tray menu shows <em>Sign-in needed</em>; start
+        another refresh when you are back. If this happens repeatedly in notify
+        mode, you may simply not be getting the notification —
         <a href="#notifications">see below</a>.
+      </p>
+
+      <h4>A pile of login tabs or windows waiting for me</h4>
+      <p>
+        Fixed in the version after 0.1.0. A failed sign-in used to be retried
+        twice a second from the moment the token expired, and in
+        <strong>Default browser</strong> mode each attempt opened a tab, so a
+        machine left alone overnight collected one every few minutes. Frost now
+        waits for you after a sign-in nobody completed, and only retries by
+        itself for failures that never put anything on your screen.
       </p>
 
       <h4>An AWS error naming the client or the endpoint</h4>
