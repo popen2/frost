@@ -68,7 +68,7 @@ framework, not type-checked or linted.
 npm only (`package-lock.json`; CI runs `npm ci`). Do not add a `yarn.lock`.
 
 - `npm run build` — `tsc`, then copies the tray icons and `dashboard.html`.
-- `npm run lint` — ESLint, flat config.
+- `npm run lint` — oxlint, configured by `.oxlintrc.json`.
 - `npm start` / `npm run package` / `npm run make` — Electron Forge.
 
 Build and lint both run in CI. Neither proves the app launches; see
@@ -81,7 +81,7 @@ Build and lint both run in CI. Neither proves the app launches; see
 - Relative imports carry a `.js` extension even though the source is `.ts`.
 - No `__dirname`/`__filename`; derive it from `import.meta.url`.
 - `tsconfig` needs an explicit `rootDir`.
-- `forge.config.js` and `eslint.config.js` are ESM; no `require`.
+- `forge.config.js` is ESM; no `require`.
 
 ## Login window WebAuthn overlay
 
@@ -184,18 +184,32 @@ Each platform branch exists for a reason.
   **uuid v14**: pure ESM. The k8s client has no default export. It does not
   declare `@types/ws` but its types reach `ws` through `isomorphic-ws`, so
   `@types/ws` must stay a devDependency or `tsc` fails.
-- **ESLint 10**: flat config only, via the `typescript-eslint` umbrella package
-  and `@eslint/js`. Its `no-unassigned-vars` rule catches pagination loops that
-  never reassign their continuation token.
+- **oxlint, not ESLint.** oxlint has its own parser and never loads the
+  TypeScript compiler API, which is what lets this repo hold a single
+  TypeScript — see the TypeScript note below. `eslint`, `typescript-eslint` and
+  `@eslint/js` are gone; don't reintroduce them without reading that note.
+  `.oxlintrc.json` **pins the rule set**: `categories.correctness` is off and
+  `plugins` is just `["typescript"]`, so the 68 listed rules are all that run —
+  a faithful port of what `js.configs.recommended` plus
+  `tseslint.configs.recommended` enforced, and immune to a new oxlint release
+  widening it. Enabling a category is a real decision; make it deliberately,
+  with the new findings fixed. Only `no-octal` had no equivalent, and it is
+  unreachable: octal literals are a syntax error in an ES module, so `tsc`
+  rejects them first. `no-unassigned-vars` still catches pagination loops that
+  never reassign their continuation token. Type-aware rules are available but
+  off — `oxlint --type-aware` with `oxlint-tsgolint`, which runs on TS 7 — and
+  currently report a dozen findings worth fixing on their own terms.
 - **js-yaml v5** ships its own types; `@types/js-yaml` was dropped. `@types/ini`
   is still needed.
-- **TypeScript 7 and 6 are both installed.** `tsc` is the TS 7 native compiler,
-  but `typescript-eslint` 8 throws on TS >= 7, so lint still needs the TS 6 API.
-  npm aliases keep both: `@typescript/native` is TS 7 and provides `tsc`, while
-  `typescript` is `@typescript/typescript6`, so `import "typescript"` lands on
-  the TS 6 API. Neither alias name is a real package. TS 7's emit here is
-  byte-identical to TS 6's. Collapse to a plain `^7` once typescript-eslint
-  supports it.
+- **TypeScript 7, and only one of it.** TS 7's package exports `version` and
+  `versionMajorMinor` from its main entry and nothing else — the TS 6 compiler
+  API moved behind `typescript/unstable/*` in a different shape. So **any** tool
+  doing `import ts from "typescript"` needs a TypeScript 6 alongside TS 7; that
+  is not an eslint quirk, and ts-jest, ts-node and ts-morph are in the same
+  position. The linter was the only such tool here, which is why it is oxlint.
+  Before adding a dependency that reaches for the compiler API, grep
+  `node_modules` for `require("typescript")` — if the answer stops being "none",
+  the single-TypeScript property is what you are trading away.
 - **No `overrides` block.** The former entries are resolved by upgrading
   parents. Prefer that over adding an override, and re-check `npm audit` with
   the block empty first.

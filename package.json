@@ -16,7 +16,7 @@
     "build:overlay": "tsc -p tsconfig.overlay.json",
     "build": "tsc && npm run build:icons && npm run build:html && npm run build:overlay",
     "watch": "tsc -w",
-    "lint": "eslint src",
+    "lint": "oxlint src",
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make"
@@ -25,16 +25,13 @@
     "@electron-forge/cli": "8.0.0-alpha.10",
     "@electron-forge/maker-squirrel": "8.0.0-alpha.10",
     "@electron-forge/maker-zip": "8.0.0-alpha.10",
-    "@eslint/js": "^10.0.1",
     "@types/electron-prompt": "^1.6.5",
     "@types/ini": "^4.1.1",
     "@types/ws": "^8.18.1",
-    "@typescript/native": "npm:typescript@^7.0.2",
     "copyfiles": "^2.4.1",
     "electron": "^43.4.1",
-    "eslint": "^10.8.1",
-    "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "^8.67.0"
+    "oxlint": "^1.80.0",
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.1115.0",

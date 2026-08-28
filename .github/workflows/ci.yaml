@@ -44,7 +44,7 @@ jobs:
         run: |
           npm run build
 
-      - name: 🧹 Run eslint
+      - name: 🧹 Run oxlint
         run: |
           npm run lint
 
