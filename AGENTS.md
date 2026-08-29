@@ -210,6 +210,14 @@ Each platform branch exists for a reason.
   Before adding a dependency that reaches for the compiler API, grep
   `node_modules` for `require("typescript")` — if the answer stops being "none",
   the single-TypeScript property is what you are trading away.
+- **Electron 44 requires macOS 13.** Chromium dropped Monterey. Nothing in
+  `src/` used the APIs 44 removed (renderer `clipboard`, `app.isUnityRunning`,
+  `setProgressBar`/`setBadgeCount`, `net.request`, the
+  `select-client-certificate` signature) and the build matrix was already
+  64-bit only, so the OS floor is the whole of the breaking change. `README.md`
+  and `docs/docs/platforms.html` say so, because the in-place updater does not
+  check the OS version before installing.
+
 - **No `overrides` block.** The former entries are resolved by upgrading
   parents. Prefer that over adding an override, and re-check `npm audit` with
   the block empty first.

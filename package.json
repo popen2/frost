@@ -29,7 +29,7 @@
     "@types/ini": "^4.1.1",
     "@types/ws": "^8.18.1",
     "copyfiles": "^2.4.1",
-    "electron": "^43.4.1",
+    "electron": "^44.0.0",
     "oxlint": "^1.80.0",
     "typescript": "^7.0.2"
   },

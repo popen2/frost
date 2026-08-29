@@ -44,6 +44,10 @@ Frost runs on macOS, Windows and Linux.
 Grab a build from the
 [downloads page](https://popen2.github.io/frost/download.html).
 
+**macOS 13 (Ventura) or later is required.** Frost 0.1 and earlier ran on
+Monterey; Electron 44 dropped it, so macOS 12 machines should stay on the last
+release built against Electron 43 rather than updating.
+
 Frost updates itself in place on macOS and Windows. Electron's `autoUpdater`
 has no Linux implementation, so **Linux builds do not self-update** — check the
 downloads page and replace the app to upgrade.
