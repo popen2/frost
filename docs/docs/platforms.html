@@ -75,6 +75,17 @@
         <a href="../download.html">downloads page</a> reads the latest GitHub
         release and highlights the build matching the device you are on.
       </p>
+      <div class="callout callout-warn">
+        <span class="callout-icon" aria-hidden="true">⚠️</span>
+        <p>
+          <strong>macOS 13 (Ventura) or later is required.</strong> Electron 44
+          dropped macOS 12, so a Monterey machine cannot run current builds.
+          Frost updates itself in place and the updater does not check the OS
+          version, so stay on the last release built against Electron 43 rather
+          than letting a Monterey install update itself into a build that will
+          not launch.
+        </p>
+      </div>
 
       <h2 id="updates">Automatic updates</h2>
       <p>
