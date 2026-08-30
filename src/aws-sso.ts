@@ -349,10 +349,22 @@ async function getNewToken(
                 event.preventDefault()
             );
 
-            // Before loadURL, so the very first document gets the overlay that
-            // shows when the page is waiting for a security key or passkey. The
+            // Awaited, and before loadURL, so the very first document gets
+            // the overlay that shows when the page is waiting for a security
+            // key or passkey — a sign-in page that starts listening as it boots
+            // asks for the key before any later hook could wrap the call. The
             // default-browser path needs nothing: the browser has its own UI.
-            attachLoginIndicator(window);
+            await attachLoginIndicator(window);
+
+            // Arming the overlay is asynchronous, and the user can close the
+            // window while it happens. Nothing below survives a destroyed
+            // window, and this is the same "I'm not logging in now" the close
+            // handler reports.
+            if (window.isDestroyed()) {
+                throw new LoginAbortedError("Login window closed", {
+                    cancelledByUser: true,
+                });
+            }
 
             window.on("close", () => {
                 log.warn("[getNewToken] Login window closed");
