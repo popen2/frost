@@ -133,6 +133,39 @@ hand. `mergeAwsConfig()` is pure.
 - Writes go through `writeFilePreservingMode()` and are skipped when the merged
   contents are unchanged.
 
+## `~/.kube/config` ownership
+
+`src/kubeconfig.ts` merges into the user's file for the same reason
+`aws-config.ts` does: most of it is theirs. `mergeKubeconfig()` is pure.
+
+- The parsed YAML document is **edited in place**, never rebuilt from a model of
+  a kubeconfig. Everything Frost does not write — `current-context`,
+  `preferences`, per-entry `extensions`, impersonation keys, `token-file` — is
+  in the document it was loaded from and goes back out untouched.
+- That is what `@kubernetes/client-node` got wrong, and why it is gone. Its
+  model carried only the fields it knew, so a round trip dropped the rest, and
+  its loader **throws** on an entry it dislikes — a context with no cluster,
+  which is what `kubectl config set-context x --namespace=y` writes. The throw
+  was caught at `debug` and the half-loaded config overwrote the file, taking
+  every user, every context and `current-context` with it.
+- One cluster, one user and one context per discovered cluster, named by
+  `getNamePattern()`. A same-named entry is updated **in place and by merge**,
+  so a namespace the user set on one of Frost's contexts survives a refresh.
+- A file that does not parse is **left alone**, logged at `error`. Skipping an
+  update beats replacing a file we could not read.
+- Unchanged contents skip the write. `yaml.dump` runs with `lineWidth: -1`: the
+  default 80 folds certificate data and the authenticator path across lines,
+  which is legal but unlike what `aws eks update-kubeconfig` writes.
+- Writes go through `writeFilePreservingMode()`.
+
+`getNamePattern()` picks the shortest context name that still tells the
+discovered clusters apart (`docs/docs/eks.html` has the table users see). Its
+`uniqueClusters` test compares distinct cluster **names** against distinct
+cluster **ids** (`name:account:region`) — one cluster reached through several
+profiles is one of each; two clusters sharing a name are two ids and one name.
+Comparing the two lists' lengths, as it did originally, is always true, and two
+clusters sharing a name then collapse onto one context with one of them lost.
+
 ## Cross-platform
 
 Each platform branch exists for a reason.
@@ -180,10 +213,12 @@ Each platform branch exists for a reason.
 - **electron-log v5**: import `electron-log/main` in the main process; error
   catching moved to `log.errorHandler`.
 - **update-electron-app v3**: named export.
-- **@kubernetes/client-node v2**, **electron-store v11**, **delay v7**,
-  **uuid v14**: pure ESM. The k8s client has no default export. It does not
-  declare `@types/ws` but its types reach `ws` through `isomorphic-ws`, so
-  `@types/ws` must stay a devDependency or `tsc` fails.
+- **electron-store v11**, **delay v7**, **uuid v14**: pure ESM.
+- **@kubernetes/client-node is gone, and should not come back.** It was a lossy
+  YAML shuttle for a file the app never talks to a cluster about — see
+  "`~/.kube/config` ownership". Dropping it also dropped `@types/ws`, a
+  devDependency only because the client's types reach `ws` through
+  `isomorphic-ws`.
 - **oxlint, not ESLint.** oxlint has its own parser and never loads the
   TypeScript compiler API, which is what lets this repo hold a single
   TypeScript — see the TypeScript note below. `eslint`, `typescript-eslint` and
@@ -411,6 +446,11 @@ Worth doing headlessly, since nothing else covers it:
   another directory — assert the link survives and the target changed.
 - **`src/aws-config.ts`**: the merge is pure and importable, so exercise it
   with a throwaway script (stub the logging import). Include a CRLF case.
+- **`src/kubeconfig.ts`**: `mergeKubeconfig` is pure and exported, so exercise
+  it the same way and run a real `kubectl --kubeconfig` over the output. Point
+  `AWS_IAM_AUTHENTICATOR_PATH` at a stub that prints an `ExecCredential` and
+  kubectl walks the whole exec path with no AWS account. Cover an existing
+  config carrying an entry the old loader rejected — a context with no cluster.
 - **`src/schedule.ts`**: pure and electron-free, so its delay arithmetic can be
   exercised directly.
 

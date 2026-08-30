@@ -167,11 +167,20 @@ deployment.apps/api restarted</code></pre>
 
       <h2 id="merge">How the merge treats your kubeconfig</h2>
       <p>
-        Frost reads <code>~/.kube/config</code>, replaces any cluster, user or
+        Frost reads <code>~/.kube/config</code>, updates any cluster, user or
         context whose name matches one it just discovered, and writes the file
         back. Entries you added yourself — clusters from other providers, contexts
         from <code>kind</code> or Docker Desktop — are kept, as is your current
         context.
+      </p>
+      <p>
+        Only the keys Frost owns are rewritten, and matched entries stay where
+        they are in the file. A namespace you set on one of Frost's contexts with
+        <code>kubectl config set-context --namespace</code> is still there after
+        the next refresh. If the file cannot be parsed at all, Frost leaves it
+        untouched and records the reason on the
+        <a href="activity.html">Activity &amp; Logs</a> page rather than writing
+        over something it could not read.
       </p>
       <div class="callout callout-warn">
         <span class="callout-icon" aria-hidden="true">⚠️</span>
