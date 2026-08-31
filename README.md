@@ -73,8 +73,8 @@ everything in one place:
     get started.
 -   **Behavior** — whether Frost refreshes credentials automatically or just
     notifies you, whether the AWS login page opens in a Frost window or in your
-    default browser (where passkeys and password managers work), plus the global
-    refresh hotkey (`⌘⇧R` on macOS, `Ctrl+Shift+R` elsewhere, rebindable). A
+    default browser (where passkeys and password managers work), whether Frost
+    approves the sign-in for you (see below), plus the global refresh hotkey (`⌘⇧R` on macOS, `Ctrl+Shift+R` elsewhere, rebindable). A
     **Test** button fires a sample notification, which is also how you grant
     Frost notification permission on macOS the first time, and **Clear
     Cookies** wipes the cookies and local storage the in-app login window keeps
@@ -91,6 +91,27 @@ everything in one place:
 Frost has no backend. Your token, profiles, and run history are stored in a
 local configuration file and nothing is transmitted anywhere — no analytics, no
 telemetry, no crash reporting.
+
+## Automatic Approval
+
+AWS SSO's approval is a multi-step affair: confirm the request, sign in, grant
+access. None of those steps needs anything you have to type — they are buttons
+on pages that say what they are about to do — so Frost clicks them itself.
+
+The login page is loaded in a window that stays off screen, and when your
+identity provider session is still live the refresh finishes without anything
+appearing at all: no window, no browser tab, no Dock icon. The window comes up
+only when the page needs *you* — a password, a one-time code, a security key to
+touch — or when anything is off the expected path: a page Frost cannot read, a
+button AWS has renamed, a load that fails, a flow that stops progressing. In
+default-browser mode that same moment opens your browser instead.
+
+Frost clicks only on the AWS access portal's own approval pages, never on your
+identity provider's, and only controls it recognises by AWS's id or by an exact
+label ("Confirm and continue", "Allow access"). Anything that reads like a
+refusal is never clicked. Turn the whole thing off with **Approve
+automatically** under Behavior, and every sign-in shows its window from the
+start.
 
 ## Security Keys and Passkeys
 

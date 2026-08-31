@@ -65,6 +65,46 @@
         </p>
       </div>
 
+      <h2 id="auto-approve">Automatic approval</h2>
+      <p>
+        The approval itself is more than one step. The verification page first
+        asks you to confirm the request, then — once your identity provider has
+        signed you in — asks you to grant access, and only then is the token
+        Frost is waiting for issued. Neither step asks for anything you have to
+        supply: they are two buttons on two pages that say what they are about
+        to do.
+      </p>
+      <p>
+        So Frost clicks them. The login page is loaded in a window that stays
+        off screen, a script Frost injects clicks through the approval steps as
+        they appear, and if your identity provider session is still live the
+        whole refresh finishes without anything appearing at all — no window, no
+        browser tab, no Dock icon.
+      </p>
+      <p>
+        The window comes up the moment the page needs <em>you</em>: a password
+        or one-time code to type, a security key to touch, a passkey to pick.
+        It also comes up if anything is off the script — a page Frost cannot
+        read, a button AWS has renamed, a load that fails, or a flow that simply
+        stops making progress — so a sign-in never sits invisibly waiting for
+        someone. In default-browser mode the same moment opens your browser
+        instead, which is where your passkeys and saved passwords live.
+      </p>
+      <p>
+        Frost only ever clicks on the AWS access portal's own approval pages,
+        never on your identity provider's, and only controls it recognises — by
+        AWS's own id, or by an exact label such as <em>Confirm and continue</em>
+        or <em>Allow access</em>. A control that reads like a refusal is never
+        clicked, whatever else about it matches. Anything unrecognised is left
+        alone for you to answer.
+      </p>
+      <p>
+        Turn it off with <strong>Approve automatically</strong> on the Behavior
+        page and every sign-in shows its window from the start, as it did
+        before.
+        <a href="settings-behavior.html#auto-approve">Behavior settings →</a>
+      </p>
+
       <h2 id="where">Where the login page opens</h2>
       <p>
         The <strong>Login Page</strong> setting on the Behavior page picks

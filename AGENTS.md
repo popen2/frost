@@ -7,11 +7,16 @@ or the release pipeline.
 
 Frost is an Electron tray app (an AWS SSO credentials refresher) for macOS,
 Windows and Linux. There is no bundler; almost every `src/*.ts` runs in the
-main process. Two exceptions:
+main process. Three exceptions:
 
-- `src/login-overlay.ts` is browser code injected into the login page. It has
-  its own compile (`tsconfig.overlay.json`); the main `tsconfig.json` excludes
-  it.
+- `src/login-overlay.ts` is browser code injected into the login page (the
+  WebAuthn toast). It has its own compile (`tsconfig.overlay.json`); the main
+  `tsconfig.json` excludes it.
+- `src/approve-overlay.ts` is the same kind of thing under the same compile —
+  the driver that clicks the AWS approval steps. Neither may import anything:
+  an import makes the output a module, which is not injectable as a classic
+  script, and is why each signal constant is duplicated in its main-process
+  counterpart rather than shared.
 - `src/dashboard.html` is copied verbatim by `build:html` and is neither
   type-checked nor linted.
 
@@ -40,6 +45,13 @@ missing one fails at runtime only.
   failure *after* the token was renewed keeps the expiry schedule rather than
   an error retry, which would reopen the login page for an unrelated failure.
   No electron imports.
+- **`src/page-script.ts`** — `loadPageScript()` / `injectIntoEveryFrame()`,
+  used by both injected scripts. Injection follows sub-frames because
+  `executeJavaScript` on a `WebContents` reaches the top frame only, and a
+  sign-in page routinely puts the interesting part in a cross-origin `<iframe>`.
+- **`src/auto-approve.ts`** — the main-process half of automatic approval (see
+  its own section). Its timers are what guarantee a hidden login window always
+  ends up in front of the user.
 - **`src/browsing-data.ts`** — `clearBrowsingData()`. The login window takes no
   partition, so it clears `session.defaultSession`: `clearData()` plus
   `clearAuthCache()`, which that does not cover. Settings are left alone.
@@ -113,10 +125,10 @@ gets the browser's own prompts.
     - It reaches the top document — across the cross-origin hop to the identity
       provider, which changes renderer process — and frames sharing its
       process, but not a cross-origin `<iframe>`, which has its own CDP target.
-  Injecting on `dom-ready`, the main frame plus sub-frames reached through
-  `frame-created` (injecting on the `WebContents` only reaches the top frame),
-  stays as the fallback for those and for a debugger that would not attach.
-  Being attached is also why the login window cannot open DevTools.
+  Injecting on `dom-ready`, main frame plus sub-frames
+  (`src/page-script.ts`), stays as the fallback for those and for a debugger
+  that would not attach. Being attached is also why the login window cannot
+  open DevTools.
 - Its compile differs deliberately: `module: ESNext` (NodeNext would append an
   export statement, a syntax error in an injected classic script), `lib: DOM`
   with no Node types, and no source map. It must stay import-free — an import
@@ -137,6 +149,11 @@ gets the browser's own prompts.
   window was alive — reaching through the destroyed `WebContents` throws, which
   Electron shows as a modal dialog on close.
 
+`attachLoginIndicator()` takes an optional `onUserNeeded` callback and calls it
+when a credential request starts and before the account picker opens. Under
+automatic approval the window may not be on screen yet, and a modal sheet on a
+window nobody can see is a prompt nobody can answer.
+
 `npm run check:overlay` is the regression test for all of that: it drives the
 real `attachLoginIndicator()` on a real `BrowserWindow` against pages that ask
 for a key before and after `dom-ready`, and asserts the wait reached the main
@@ -147,6 +164,43 @@ The overlay's drawing can also be checked on its own, since it is import-free
 browser code: `new Function("window", source)` over the built
 `dist/login-overlay.js` with a stub `window`, or a Playwright page — the only
 way to try it against a strict CSP or hostile `!important` CSS.
+
+## Automatic approval
+
+AWS SSO's device authorization is a multi-step approval — confirm the request,
+sign in, grant access — and none of the approval steps carry anything the user
+has to supply. `src/approve-overlay.ts` clicks them, `src/auto-approve.ts`
+watches, and `getNewToken()` keeps the window hidden (`show: false`) until one
+of them says the user is needed (issue #1). Keep these true:
+
+- **The login always ends up somewhere.** `auto-approve.ts` runs a stall timer
+  (reset by navigations, loads and clicks) and an absolute one, and hands over
+  on a failed load or an unreadable script. Every exit from the silent attempt
+  reaches `onUserNeeded`, which becomes `window.show()` — or, in
+  default-browser mode, `shell.openExternal`, destroying the hidden probe only
+  once the browser is up. A new way for the flow to end without arriving there
+  is a refresh that hangs invisibly until the device code expires.
+- **`backgroundThrottling: false` on the window.** Chromium throttles timers in
+  a window that is not visible, and the driver's scan loop is a timer.
+- **Clicking is deliberately narrow.** Only on the device-authorization hosts
+  (`*.awsapps.com`, `device.sso.<region>.amazonaws.com`), only controls matched
+  by AWS's own ids or an *exact* label, never one whose label reads like a
+  refusal, and a few per document at most. Anything else stalls, and stalling
+  shows the window — the safe failure. The buttons next to the ones we want
+  deny the request.
+- **"The user is needed" is an empty visible field.** The device page's own
+  code field arrives prefilled from `verificationUriComplete`; an empty one is
+  a password, a username or a one-time code. Scanning continues after the user
+  takes over, so the approval steps after their sign-in are still clicked.
+- The console signal is forgeable by the page, exactly like the overlay's, so
+  it may only ever decide whether to show a window.
+
+`approve-overlay.ts` is import-free browser code, so it is checked the same way
+the overlay's drawing is: `new Function("window", source)` over the built
+`dist/approve-overlay.js` with a stub `window` whose `document.querySelectorAll`
+answers the two selectors it uses, asserting which stub controls were clicked
+and what it logged. That covers every page shape — confirm, allow, sign-in,
+approved, unrecognised — without a browser.
 
 ## `~/.aws/config` ownership
 

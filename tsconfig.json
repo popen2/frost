@@ -13,9 +13,10 @@
   "include": [
     "src/**/*"
   ],
-  // Built separately by tsconfig.overlay.json — it is browser code, and this
-  // project's ESM output would not be injectable.
+  // Built separately by tsconfig.overlay.json — these are browser code, and
+  // this project's ESM output would not be injectable.
   "exclude": [
-    "src/login-overlay.ts"
+    "src/login-overlay.ts",
+    "src/approve-overlay.ts"
   ]
 }
