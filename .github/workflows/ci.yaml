@@ -52,6 +52,10 @@ jobs:
         run: |
           xvfb-run -a npm run check:overlay -- --no-sandbox
 
+      - name: ✅ Check automatic approval
+        run: |
+          xvfb-run -a npm run check:auto-approve -- --no-sandbox
+
   build:
     needs: lint
     uses: ./.github/workflows/build.yaml

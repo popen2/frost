@@ -84,9 +84,12 @@ npm only (`package-lock.json`; CI runs `npm ci`). Do not add a `yarn.lock`.
 - `npm run check:overlay` — drives the login window's credential overlay
   through a real WebAuthn wait. Needs `npm run build` first, and a display:
   `xvfb-run -a npm run check:overlay -- --no-sandbox`.
+- `npm run check:auto-approve` — drives a whole `refresh()` against a stubbed
+  AWS SSO, end to end. Same requirements, same shape:
+  `xvfb-run -a npm run check:auto-approve -- --no-sandbox`.
 - `npm start` / `npm run package` / `npm run make` — Electron Forge.
 
-All three run in CI. Build and lint alone do not prove the app launches; see
+All of those run in CI. Build and lint alone do not prove the app launches; see
 "Verification limits".
 
 ## ESM
@@ -195,12 +198,37 @@ of them says the user is needed (issue #1). Keep these true:
 - The console signal is forgeable by the page, exactly like the overlay's, so
   it may only ever decide whether to show a window.
 
-`approve-overlay.ts` is import-free browser code, so it is checked the same way
-the overlay's drawing is: `new Function("window", source)` over the built
-`dist/approve-overlay.js` with a stub `window` whose `document.querySelectorAll`
-answers the two selectors it uses, asserting which stub controls were clicked
-and what it logged. That covers every page shape — confirm, allow, sign-in,
-approved, unrecognised — without a browser.
+`npm run check:auto-approve` (`tools/check-auto-approve.js`) is the regression
+test, and it is end to end: it drives the real `refresh()` — the entry point
+the tray, the hotkey and the timer all use — against a stub of AWS SSO, and
+asserts on what the user would have seen.
+
+Two interceptions make that possible without the app knowing it is under test,
+and both are worth keeping:
+
+- `AWS_ENDPOINT_URL_SSO_OIDC` / `AWS_ENDPOINT_URL_SSO` are an AWS SDK feature,
+  so the device authorization, the polling and its
+  AuthorizationPendingException are the real client talking a real protocol to
+  a stub service over HTTP.
+- `session.protocol.handle("https", ...)` serves the verification pages at
+  their real names, so the renderer sees `https://d-….awsapps.com`, a secure
+  context, and a genuine cross-origin redirect to the identity provider. Served
+  from localhost it would prove nothing: the host rule is the point.
+
+`HOME` and the electron-store move to a temp directory, so a run touches
+nothing of yours. The three scenarios are the three outcomes: a live session
+finishes with **no window ever shown**; a page asking for a password shows the
+window and then finishes the approval after the check signs in on the page; and
+a page with nothing recognisable — including a refusal wearing
+`cli_login_button`'s id — is not clicked at all, and the window comes up.
+
+It is a real test, not a smoke test: disabling the host rule fails the two
+approval scenarios, and disabling the refusal rule fails the third by clicking
+the trap. Confirm that with a mutation before trusting a change to the matching
+rules. The matching rules alone can also be exercised without a browser —
+`approve-overlay.ts` is import-free, so `new Function("window", source)` over
+the built file with a stub `window` runs them — which is the quicker loop while
+writing them.
 
 ## `~/.aws/config` ownership
 
@@ -500,9 +528,11 @@ linux**.
 
 You *can* also launch it, given those same downloads and `xvfb`:
 `xvfb-run -a ./node_modules/electron/dist/electron --no-sandbox .` boots the
-whole app, and `npm run check:overlay` uses that to drive a real
-`BrowserWindow`. That is how the overlay's document-start bug was found; build
-and lint could not have. What it does **not** give you is a real desktop: no
+whole app, and `npm run check:overlay` and `npm run check:auto-approve` use
+that to drive a real `BrowserWindow` — the latter running a whole `refresh()`
+against a stubbed AWS SSO, so the login path can be exercised end to end
+without an AWS account. That is how the overlay's document-start bug was found;
+build and lint could not have. What it does **not** give you is a real desktop: no
 tray interaction, no dock, no security key, no keychain, no macOS signing. Say
 so rather than claiming the app works.
 

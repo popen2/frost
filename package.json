@@ -18,6 +18,7 @@
     "watch": "tsc -w",
     "lint": "oxlint src",
     "check:overlay": "electron tools/check-login-overlay.js",
+    "check:auto-approve": "electron tools/check-auto-approve.js",
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make"
