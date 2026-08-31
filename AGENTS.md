@@ -195,37 +195,58 @@ of them says the user is needed (issue #1). Keep these true:
   code field arrives prefilled from `verificationUriComplete`; an empty one is
   a password, a username or a one-time code. Scanning continues after the user
   takes over, so the approval steps after their sign-in are still clicked.
+- **The hand-over goes to the surface the settings ask for**, which includes
+  notify mode: with automatic approval on, the notification moves from the
+  start of every refresh to the hand-over, and nothing opens until the user
+  answers it (`triggerPendingAuth()`, the same trigger the hotkey uses). The
+  wait is cancelled when the run ends, or `hasPendingAuth()` would keep saying
+  yes and swallow the next hotkey press.
 - The console signal is forgeable by the page, exactly like the overlay's, so
   it may only ever decide whether to show a window.
 
 `npm run check:auto-approve` (`tools/check-auto-approve.js`) is the regression
 test, and it is end to end: it drives the real `refresh()` — the entry point
 the tray, the hotkey and the timer all use — against a stub of AWS SSO, and
-asserts on what the user would have seen.
-
-Two interceptions make that possible without the app knowing it is under test,
-and both are worth keeping:
+asserts on what the user would have seen. Three interceptions make that
+possible without the app knowing it is under test, and all three are worth
+keeping:
 
 - `AWS_ENDPOINT_URL_SSO_OIDC` / `AWS_ENDPOINT_URL_SSO` are an AWS SDK feature,
   so the device authorization, the polling and its
   AuthorizationPendingException are the real client talking a real protocol to
-  a stub service over HTTP.
-- `session.protocol.handle("https", ...)` serves the verification pages at
-  their real names, so the renderer sees `https://d-….awsapps.com`, a secure
-  context, and a genuine cross-origin redirect to the identity provider. Served
-  from localhost it would prove nothing: the host rule is the point.
+  a stub service over HTTP. The token only becomes redeemable when the stub's
+  approval page is actually fetched, so nothing passes without a real click.
+- `session.protocol.handle("https", ...)` serves the pages at their real names,
+  so the renderer sees `https://d-….awsapps.com`, a secure context, and a
+  genuine cross-origin redirect to the identity provider. Served from localhost
+  it would prove nothing: the host rule is the point.
+- `Notification.prototype.show` and `shell.openExternal` are recorded rather
+  than performed — "what was the user told" and "where were they sent" are the
+  assertions, and a CI container has neither a notification daemon nor a
+  browser. `Notification` itself is a non-configurable export, so the patch has
+  to go on the prototype.
 
 `HOME` and the electron-store move to a temp directory, so a run touches
-nothing of yours. The three scenarios are the three outcomes: a live session
-finishes with **no window ever shown**; a page asking for a password shows the
-window and then finishes the approval after the check signs in on the page; and
-a page with nothing recognisable — including a refusal wearing
-`cli_login_button`'s id — is not clicked at all, and the window comes up.
+nothing of yours. Eight scenarios, ~27s, one per outcome:
 
-It is a real test, not a smoke test: disabling the host rule fails the two
-approval scenarios, and disabling the refusal rule fails the third by clicking
-the trap. Confirm that with a mutation before trusting a change to the matching
-rules. The matching rules alone can also be exercised without a browser —
+| Scenario | What must be true |
+| --- | --- |
+| Portal session is live | Token collected, **no window ever shown**, no notification |
+| Federated, IdP session is live | Same, and the cross-origin hop happened |
+| Federated, IdP wants a password | Window shown; after the check signs in, the driver finishes the approval |
+| The same in notify mode | **Notification first, nothing shown** until `triggerPendingAuth()`; then the window |
+| The same in default-browser mode | `openExternal` gets the verification URL, no window shown |
+| Automatic approval off | Window visible from the start, nothing driven |
+| IdP page with an "Allow access" button | Never clicked — it is not our host |
+| AWS page nothing recognises | Nothing clicked, including a refusal wearing `cli_login_button`'s id; window comes up |
+
+It is a real test, not a smoke test, and each mutation fails exactly one
+scenario: the host rule returning `false` fails both approval scenarios and
+returning `true` fails the identity-provider one; dropping the refusal rule
+fails the unrecognised-page one; skipping the notify branch of the hand-over
+fails the notify one. Confirm with a mutation before trusting a change here.
+
+The matching rules alone can also be exercised without a browser —
 `approve-overlay.ts` is import-free, so `new Function("window", source)` over
 the built file with a stub `window` runs them — which is the quicker loop while
 writing them.

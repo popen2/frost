@@ -11,27 +11,32 @@
 // wrong is quiet — a button that is never found (the refresh hangs until the
 // device code expires), a button that should not have been clicked (the request
 // is denied), a hand-over that never happens (the user waits in front of
-// nothing). None of that shows up in a type-check or a unit test of the
+// nothing). None of that shows up in a type-check or in a unit test of the
 // matching rules, because what makes it work is the whole path: the real device
-// flow, a real page at a real AWS origin, a real hidden window, the real poll
-// loop collecting the token afterwards.
+// flow, real pages at real AWS and identity provider origins, a real hidden
+// window, and the real poll loop collecting the token afterwards.
 //
 // So this drives `refresh()` itself — the same entry point the tray, the hotkey
-// and the timer use — against a stub of AWS SSO. Two interceptions make that
-// possible, neither of which asks the app to know it is being tested:
+// and the timer use — against a stub of AWS SSO, and asserts on what the user
+// would have seen. Three interceptions make that possible, none of which asks
+// the app to know it is being tested:
 //
 //   - `AWS_ENDPOINT_URL_SSO_OIDC` / `AWS_ENDPOINT_URL_SSO`, an AWS SDK feature,
 //     point the SDK clients at the stub's HTTP server. The device
 //     authorization, the polling and its AuthorizationPendingException are the
 //     real client talking a real protocol to a stub service.
-//   - `session.protocol.handle("https", ...)` serves the verification pages
-//     from memory at their real names. The renderer sees
-//     `https://d-1234567890.awsapps.com`, a secure context, and a genuine
-//     cross-origin navigation to the identity provider — which is what the
-//     driver's host rule is written against.
+//   - `session.protocol.handle("https", ...)` serves the pages from memory at
+//     their real names. The renderer sees `https://d-1234567890.awsapps.com`, a
+//     secure context, and a genuine cross-origin redirect to the identity
+//     provider — which is what the driver's host rule is written against.
+//     Served from localhost this would prove nothing.
+//   - `Notification` and `shell.openExternal` are recorded rather than
+//     performed, because "what was the user told" and "where were they sent"
+//     are the assertions, and neither a CI container nor a developer's desktop
+//     should have to grow a notification daemon or a browser window for them.
 //
-// `~/.aws`, `~/.kube` and the electron-store all move into a temp directory for
-// the duration, so a run touches nothing of the user's.
+// `HOME` and the electron-store move into a temp directory for the duration, so
+// a run touches nothing of yours.
 
 import assert from "assert";
 import fs from "fs";
@@ -39,32 +44,41 @@ import http from "http";
 import os from "os";
 import path from "path";
 import { createRequire } from "module";
-import { app, BrowserWindow, session } from "electron";
+import { app, BrowserWindow, session, shell } from "electron";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json");
 
-/** The account portal, and the identity provider it hands off to. */
+/** The account portal, and the identity provider it federates to. */
 const PORTAL = "https://d-1234567890.awsapps.com";
 const IDP = "https://idp.example.test";
 
 const USER_CODE = "ABCD-EFGH";
 
-/** Long enough that nothing here races the device code expiring. */
+/** Long enough that nothing races the device code expiring. */
 const DEVICE_CODE_LIFETIME_SEC = 120;
 
 /**
- * A scenario is done when its promise settles; this is the backstop. It has to
- * clear the driver's stall timer (12s), which is what the third scenario is
- * waiting for.
+ * For scenarios that end with nobody completing the login: the run finishes
+ * when the code expires. Long enough to outlast the driver's 12s stall timer,
+ * which is what the unrecognised-page scenario is waiting for.
  */
-const CASE_TIMEOUT_MS = 45000;
+const STALLING_DEVICE_CODE_LIFETIME_SEC = 16;
+
+/**
+ * For scenarios that hand over immediately and then have nothing left to wait
+ * for. Nothing here depends on the stall timer, so the code can be short.
+ */
+const SHORT_DEVICE_CODE_LIFETIME_SEC = 6;
+
+const CASE_TIMEOUT_MS = 60000;
+const POLL_MS = 100;
 
 // ── The pages ───────────────────────────────────────────────────────────────
 //
 // Close enough to the real ones to exercise the rules that matter: the device
 // page carries its code already filled in (the thing that must *not* read as
-// "the user has to type something"), and every page carries a control the
+// "the user has to type something"), and every page carries something the
 // driver must leave alone.
 
 const STYLE = "<style>button{font-size:16px;padding:8px 16px}</style>";
@@ -83,7 +97,7 @@ const DEVICE_PAGE = page(
      <button id="cli_verification_btn" onclick="location.href='/next'">
         Confirm and continue
      </button>
-     <button onclick="location.href='/cancelled'">Cancel</button>`
+     <button onclick="location.href='/clicked-cancel'">Cancel</button>`
 );
 
 /** Step two: "Allow access". Its neighbour is the one that must never be hit. */
@@ -111,11 +125,25 @@ const SIGNIN_PAGE = page(
 );
 
 /**
+ * An identity provider page wearing the portal's clothes: the very label the
+ * driver is looking for, on a host that is not AWS. Clicking it would be
+ * clicking a stranger's button. The password field beside it is what brings the
+ * window up, so the check does not have to wait out the stall timer to see the
+ * answer.
+ */
+const IDP_TRAP_PAGE = page(
+    "Sign in to continue",
+    `<button onclick="location.href='/clicked-idp-allow'">Allow access</button>
+     <form action="/submit" method="get">
+        <input type="password" name="password" placeholder="Password">
+     </form>`
+);
+
+/**
  * A page the driver has no business touching. Three traps: a label it does not
  * know, a plain refusal, and — the one that matters most — a refusal wearing
- * the id of the button it is looking for, which is what AWS reusing an id on a
- * "are you sure?" page would look like. The right outcome is that it clicks
- * none of them and the window comes up.
+ * the id of the button it wants, which is what AWS reusing an id on an "are you
+ * sure?" page would look like.
  */
 const UNKNOWN_PAGE = page(
     "Something else entirely",
@@ -133,37 +161,49 @@ const UNKNOWN_PAGE = page(
 /** Reset for each scenario; the assertions read it afterwards. */
 let run = null;
 
-function newRun(name, options) {
+function newRun(name, options = {}) {
     run = {
         name,
-        // Which page the portal serves once the request is confirmed.
-        needsSignIn: options.needsSignIn === true,
+        // What the portal does once the request is confirmed: go straight to
+        // consent, or federate to the identity provider — which either carries
+        // the user through on a session it already has, asks them to sign in,
+        // or tries to get Frost to click something of its own.
+        idp: options.idp || "none",
         firstPage: options.firstPage || DEVICE_PAGE,
+        lifetimeSec: options.lifetimeSec || DEVICE_CODE_LIFETIME_SEC,
         approved: false,
-        // Every page request and every OIDC call, in order, for the assertions
-        // and for the failure message when one of them does not hold.
+        // Every page request, API call, notification and browser hand-off, in
+        // order: the assertions read it, and it is printed when one fails.
         trail: [],
-        windowsShown: 0,
+        // Sampled rather than taken from the `show` event, so it holds whether
+        // the window was created hidden and shown later or created visible.
+        everVisible: false,
+        notifications: [],
+        browserOpens: [],
         tokenPolls: 0,
     };
     return run;
 }
 
 function note(what) {
-    run.trail.push(what);
+    if (run) run.trail.push(what);
 }
 
 function json(body, status = 200, headers = {}) {
-    return [status, { "Content-Type": "application/json", ...headers }, JSON.stringify(body)];
+    return [
+        status,
+        { "Content-Type": "application/json", ...headers },
+        JSON.stringify(body),
+    ];
 }
 
 /**
- * The AWS SSO-OIDC and SSO endpoints the refresh actually calls. Only the three
+ * The AWS SSO-OIDC and SSO endpoints a refresh actually calls. Only the three
  * device-flow operations and the account listing are needed: with no accounts
  * there are no profiles, and with no profiles the EKS scan returns before it
  * asks for a region.
  */
-function handleApi(method, url, body) {
+function handleApi(method, url) {
     if (method === "POST" && url === "/client/register") {
         note("oidc:register");
         return json({
@@ -181,9 +221,9 @@ function handleApi(method, url, body) {
             userCode: USER_CODE,
             verificationUri: `${PORTAL}/start/#/device`,
             verificationUriComplete: `${PORTAL}/start/?user_code=${USER_CODE}#/device`,
-            expiresIn: DEVICE_CODE_LIFETIME_SEC,
-            // The poll interval. One second keeps the check quick without
-            // changing anything about the loop being tested.
+            expiresIn: run.lifetimeSec,
+            // One second keeps the check quick without changing anything about
+            // the loop under test.
             interval: 1,
         });
     }
@@ -231,8 +271,7 @@ function startApiStub() {
             req.on("end", () => {
                 const [status, headers, payload] = handleApi(
                     req.method,
-                    req.url,
-                    body
+                    req.url
                 );
                 res.writeHead(status, headers);
                 res.end(payload);
@@ -246,20 +285,21 @@ function startApiStub() {
 }
 
 /**
- * Serve the verification pages under their real names. The driver only clicks
- * on the AWS portal's own hosts, so a check served from localhost would prove
- * nothing at all.
+ * Serve the pages under their real names. The driver only clicks on the AWS
+ * portal's own hosts, so where these come from is part of what is being tested.
  */
 function interceptPages() {
     session.defaultSession.protocol.handle("https", (request) => {
         const url = new URL(request.url);
-        const where = `${url.origin}${url.pathname}`;
-        note(`page:${where}`);
+        note(`page:${url.origin}${url.pathname}`);
 
         const html = (body) =>
             new Response(body, {
                 status: 200,
-                headers: { "Content-Type": "text/html", "Cache-Control": "no-store" },
+                headers: {
+                    "Content-Type": "text/html",
+                    "Cache-Control": "no-store",
+                },
             });
 
         const redirect = (to) =>
@@ -270,19 +310,18 @@ function interceptPages() {
                 case "/start/":
                     return html(run.firstPage);
                 case "/next":
-                    // What the portal does with a confirmed request: send the
-                    // user to the identity provider if it has to, otherwise
-                    // straight on to consent. The redirect is the real shape of
-                    // this hop, and it is the one that moves the page to
-                    // another origin — and another renderer process.
-                    return run.needsSignIn
-                        ? redirect(`${IDP}/signin`)
-                        : html(ALLOW_PAGE);
+                    // A confirmed request either goes straight to consent or
+                    // federates out. The redirect is the real shape of that
+                    // hop, and it moves the page to another origin — and
+                    // another renderer process.
+                    return run.idp === "none"
+                        ? html(ALLOW_PAGE)
+                        : redirect(`${IDP}/signin`);
                 case "/allow":
                     return html(ALLOW_PAGE);
                 case "/approved":
                     // The moment that makes the device code redeemable, which
-                    // is why the token only appears after a real click.
+                    // is why no token appears without a real click.
                     run.approved = true;
                     return html(APPROVED_PAGE);
                 default:
@@ -294,6 +333,8 @@ function interceptPages() {
             // Signed in; back to the portal for the consent step, which is the
             // driver's again.
             if (url.pathname === "/submit") return redirect(`${PORTAL}/allow`);
+            if (run.idp === "live") return redirect(`${PORTAL}/allow`);
+            if (run.idp === "trap") return html(IDP_TRAP_PAGE);
             return html(SIGNIN_PAGE);
         }
 
@@ -301,37 +342,90 @@ function interceptPages() {
     });
 }
 
-// ── Watching the window ─────────────────────────────────────────────────────
+// ── Watching what the user would have seen ──────────────────────────────────
 
-let onWindowShown = null;
+let sampler = null;
 
-function watchWindows() {
-    app.on("browser-window-created", (_event, window) => {
-        window.on("show", () => {
-            run.windowsShown += 1;
-            note("window:shown");
-            if (onWindowShown) onWindowShown(window);
-        });
-    });
+/**
+ * Sampled, not taken from the window's `show` event: "was anything ever put in
+ * front of the user" has to hold for a window created visible as much as for
+ * one revealed later, and the scenarios need both.
+ */
+function sampleWindows() {
+    sampler = setInterval(() => {
+        if (!run || run.everVisible) return;
+        const visible = BrowserWindow.getAllWindows().some(
+            (window) => !window.isDestroyed() && window.isVisible()
+        );
+        if (visible) {
+            run.everVisible = true;
+            note("window:visible");
+        }
+    }, POLL_MS);
 }
 
-/** The login window, whether or not it has been shown. */
-function loginWindow() {
-    return BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
+function visibleWindow() {
+    return BrowserWindow.getAllWindows().find(
+        (window) => !window.isDestroyed() && window.isVisible()
+    );
 }
 
-// ── Scenarios ───────────────────────────────────────────────────────────────
+/**
+ * Record what the user is told instead of telling them.
+ *
+ * On the prototype, not by swapping the class: `Notification` is a
+ * non-configurable export of the electron module, and every `new
+ * Notification(...)` in the app reaches this either way. Nothing is passed
+ * through to the real `show()` — a CI container has no notification daemon,
+ * and the assertion is that Frost said something, not that a desktop drew it.
+ */
+function recordNotifications() {
+    const { Notification } = require("electron");
+    Notification.prototype.show = function () {
+        note(`notification:${this.title}`);
+        if (run) run.notifications.push({ title: this.title, body: this.body });
+    };
+    return typeof Notification.prototype.show === "function";
+}
+
+/** Record where the user would have been sent, without opening a browser. */
+function recordBrowserOpens() {
+    shell.openExternal = async (url) => {
+        note(`browser:${url}`);
+        if (run) run.browserOpens.push(url);
+    };
+}
+
+// ── Waiting ─────────────────────────────────────────────────────────────────
 
 function describe() {
-    return `${run.name}\n     trail: ${run.trail.join("\n            ")}`;
+    return `${run.name}\n         trail: ${run.trail.join("\n                ")}`;
 }
 
-async function withTimeout(promise, what) {
+function fail(what) {
+    return new Error(`${what}\n       ${describe()}`);
+}
+
+function check(condition, what) {
+    assert.ok(condition, fail(what).message);
+}
+
+async function waitFor(predicate, what, timeoutMs = CASE_TIMEOUT_MS) {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+        const value = predicate();
+        if (value) return value;
+        if (Date.now() > deadline) throw fail(`timed out waiting for ${what}`);
+        await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    }
+}
+
+async function withTimeout(promise, what, timeoutMs = CASE_TIMEOUT_MS) {
     let timer;
     const timeout = new Promise((_resolve, reject) => {
         timer = setTimeout(
-            () => reject(new Error(`timed out waiting for ${what}\n  ${describe()}`)),
-            CASE_TIMEOUT_MS
+            () => reject(fail(`timed out waiting for ${what}`)),
+            timeoutMs
         );
     });
     try {
@@ -341,105 +435,267 @@ async function withTimeout(promise, what) {
     }
 }
 
-/**
- * A live identity provider session: the whole thing happens with nothing on
- * screen. This is the case the feature exists for.
- */
-async function checkSilentApproval(frost) {
-    newRun("a refresh nobody has to see", {});
-
-    await withTimeout(frost.refresh(), "the refresh to finish");
-
-    assert.ok(run.approved, `the request was never approved\n  ${describe()}`);
-    assert.strictEqual(
-        run.windowsShown,
-        0,
-        `the login window was shown\n  ${describe()}`
-    );
-    assert.ok(
-        frost.hasToken(),
-        `no token was stored\n  ${describe()}`
-    );
-    assert.ok(
-        run.trail.includes(`page:${PORTAL}/approved`),
-        `the approval page was never reached\n  ${describe()}`
-    );
-    console.log("  ok   silent approval: token collected, nothing shown");
+/** Stand in for the user at the identity provider's sign-in form. */
+async function signInOnPage(window) {
+    await window.webContents.executeJavaScript(`
+        (function () {
+            var text = document.querySelector('input[type=text]');
+            if (text) text.value = "someone@example.com";
+            var password = document.querySelector('input[type=password]');
+            if (password) password.value = "hunter2";
+            document.querySelector('form').submit();
+        })();
+    `);
 }
 
 /**
- * The page asks for a password. Frost has to give up and show the window — and
- * then pick the flow back up once the user has signed in.
+ * Give up the way the user does. `close()`, not `destroy()`: closing is what
+ * tells the poll loop nobody is signing in, and it is the path that has to
+ * survive a remote page's `beforeunload`.
  */
-async function checkSignInHandOver(frost) {
-    newRun("a refresh that needs the user", { needsSignIn: true });
+function closeVisibleWindow() {
+    const window = visibleWindow();
+    if (window) window.close();
+}
 
-    onWindowShown = async (window) => {
-        // Stand in for the user: fill the form in and submit it. What happens
-        // after that is the driver's job again.
-        try {
-            await window.webContents.executeJavaScript(`
-                document.querySelector('input[type=text]').value = "someone@example.com";
-                document.querySelector('input[type=password]').value = "hunter2";
-                document.querySelector('form').submit();
-            `);
-        } catch (err) {
-            console.error("  could not sign in on the page:", err);
-        }
-    };
+// ── Scenarios ───────────────────────────────────────────────────────────────
+
+/**
+ * The case the feature exists for: a portal session that carries the user
+ * through, and a refresh that finishes with nothing on screen.
+ */
+async function silentApproval(frost) {
+    newRun("a refresh nobody has to see");
 
     await withTimeout(frost.refresh(), "the refresh to finish");
-    onWindowShown = null;
 
-    assert.ok(
-        run.windowsShown > 0,
-        `the window stayed hidden while the page asked for a password\n  ${describe()}`
+    check(run.approved, "the request was never approved");
+    check(!run.everVisible, "the login window was shown");
+    check(frost.hasToken(), "no token was stored");
+    check(
+        run.notifications.length === 0,
+        "the user was notified about a refresh that needed nothing from them"
     );
-    assert.ok(
+}
+
+/**
+ * The same, the long way round: AWS federates to the identity provider, which
+ * still has a session and hands the user straight back. A cross-origin hop is
+ * not by itself a reason to show anybody anything.
+ */
+async function silentApprovalThroughIdp(frost) {
+    newRun("a federated refresh nobody has to see", { idp: "live" });
+
+    await withTimeout(frost.refresh(), "the refresh to finish");
+
+    check(
         run.trail.includes(`page:${IDP}/signin`),
-        `the sign-in page was never reached\n  ${describe()}`
+        "the identity provider was never reached"
     );
-    assert.ok(frost.hasToken(), `no token was stored\n  ${describe()}`);
-    console.log(
-        "  ok   sign-in needed: window shown, approval finished afterwards"
+    check(run.approved, "the request was never approved");
+    check(!run.everVisible, "the login window was shown");
+    check(frost.hasToken(), "no token was stored");
+}
+
+/**
+ * The identity provider wants a password. That is the user's to answer, so the
+ * window has to come up — and the approval steps after they sign in are Frost's
+ * again.
+ */
+async function signInShowsTheWindow(frost) {
+    newRun("a federated refresh that needs the user", { idp: "signin" });
+
+    const refreshing = frost.refresh();
+    const window = await waitFor(visibleWindow, "the login window to be shown");
+
+    check(
+        run.trail.includes(`page:${IDP}/signin`),
+        "the window came up before the sign-in page did"
     );
+
+    await signInOnPage(window);
+    await withTimeout(refreshing, "the refresh to finish");
+
+    check(run.approved, "the request was never approved");
+    check(frost.hasToken(), "no token was stored");
+}
+
+/**
+ * Notify mode is a promise not to put a login page in front of the user
+ * unannounced. Under automatic approval that means a notification at the moment
+ * the sign-in turns out to need them — and nothing on screen until they say so.
+ */
+async function notifyModeAsksFirst(frost) {
+    newRun("a refresh that needs the user, in notify mode", { idp: "signin" });
+
+    const refreshing = frost.refresh();
+    await waitFor(frost.hasPendingAuth, "Frost to ask before showing the login");
+
+    check(!run.everVisible, "the login window was shown without asking");
+    check(
+        run.notifications.some((options) => /sign-in/i.test(options.title)),
+        "no sign-in notification was raised"
+    );
+
+    // The user presses the hotkey, or clicks the notification.
+    frost.triggerPendingAuth();
+
+    const window = await waitFor(
+        visibleWindow,
+        "the login window after the go-ahead"
+    );
+    await signInOnPage(window);
+    await withTimeout(refreshing, "the refresh to finish");
+
+    check(frost.hasToken(), "no token was stored");
+}
+
+/**
+ * Someone who picked the default browser picked it because that is where their
+ * passkeys and saved passwords are. The silent attempt is only a probe: the
+ * moment it needs them, the browser gets the login and the probe goes away.
+ */
+async function defaultBrowserHandsOver(frost) {
+    newRun("a refresh that needs the user, in default-browser mode", {
+        idp: "signin",
+        lifetimeSec: SHORT_DEVICE_CODE_LIFETIME_SEC,
+    });
+
+    const refreshing = frost.refresh();
+    await waitFor(
+        () => run.browserOpens.length > 0,
+        "the login to be handed to the browser"
+    );
+
+    check(
+        run.browserOpens[0].includes(USER_CODE),
+        `the browser was sent somewhere unexpected: ${run.browserOpens[0]}`
+    );
+    check(
+        !run.everVisible,
+        "a window was shown to someone who asked for their browser"
+    );
+
+    // Nobody finishes it over there, so the run ends with the device code.
+    await withTimeout(refreshing, "the refresh to give up");
+    check(!frost.hasToken(), "a token appeared from nowhere");
+}
+
+/**
+ * With the setting off, nothing is driven and nothing is hidden: the login
+ * window is on screen from the start, exactly as it was before the feature.
+ */
+async function settingOffShowsEverything(frost) {
+    newRun("a refresh with automatic approval switched off", {
+        lifetimeSec: SHORT_DEVICE_CODE_LIFETIME_SEC,
+    });
+
+    const refreshing = frost.refresh();
+    await waitFor(visibleWindow, "the login window to be shown");
+
+    // Long enough that a driver, if one were attached, would have clicked.
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    check(
+        !run.trail.includes(`page:${PORTAL}/next`),
+        "something confirmed the request with the setting off"
+    );
+    check(!run.approved, "the request was approved anyway");
+
+    closeVisibleWindow();
+    await withTimeout(refreshing, "the refresh to end after the window closed");
+    check(!frost.hasToken(), "a token appeared from nowhere");
+}
+
+/**
+ * The identity provider's pages are not Frost's to drive, however familiar
+ * their buttons look. This one offers exactly the label the driver wants.
+ */
+async function identityProviderIsNotOursToClick(frost) {
+    newRun("an identity provider offering a button of our own name", {
+        idp: "trap",
+        lifetimeSec: SHORT_DEVICE_CODE_LIFETIME_SEC,
+    });
+
+    const refreshing = frost.refresh();
+    await waitFor(visibleWindow, "the login window to be shown");
+
+    check(
+        !run.trail.some((entry) => entry.includes("/clicked-idp-allow")),
+        "the driver clicked a button on the identity provider"
+    );
+    check(!run.approved, "the request was approved");
+
+    closeVisibleWindow();
+    await withTimeout(refreshing, "the refresh to end after the window closed");
+    check(!frost.hasToken(), "a token appeared from nowhere");
 }
 
 /**
  * A page with nothing the driver recognises, and two refusals next to it — one
- * of them carrying the id of the button it wants. Clicking any of them denies
- * the request; the right answer is to touch nothing and let the user look at
- * it.
+ * carrying the id of the button it wants. Clicking any of them denies the
+ * request; the right answer is to touch nothing and let the user look at it.
  */
-async function checkUnknownPageHandsOver(frost) {
+async function unknownPageHandsOver(frost) {
     newRun("a page the driver does not recognise", {
         firstPage: UNKNOWN_PAGE,
+        lifetimeSec: STALLING_DEVICE_CODE_LIFETIME_SEC,
     });
 
-    // Ending the run as the user would, so the check does not sit through the
-    // device code's whole lifetime.
-    onWindowShown = (window) => {
-        setTimeout(() => {
-            if (!window.isDestroyed()) window.close();
-        }, 250);
-    };
-
-    await withTimeout(frost.refresh(), "the refresh to finish");
-    onWindowShown = null;
-
-    assert.ok(
-        run.windowsShown > 0,
-        `the window never came up for a page nobody could drive\n  ${describe()}`
+    const refreshing = frost.refresh();
+    await waitFor(
+        visibleWindow,
+        "the login window to be shown for a page nobody could drive"
     );
-    assert.ok(
+
+    check(
         !run.trail.some((entry) => entry.includes("/clicked-")),
-        `the driver clicked something it should not have\n  ${describe()}`
+        "the driver clicked something it should not have"
     );
-    assert.ok(!run.approved, `the request was approved\n  ${describe()}`);
-    console.log(
-        "  ok   unrecognised page: nothing clicked, not even the id trap, window shown"
-    );
+    check(!run.approved, "the request was approved");
+
+    closeVisibleWindow();
+    await withTimeout(refreshing, "the refresh to end after the window closed");
+    check(!frost.hasToken(), "a token appeared from nowhere");
 }
+
+const CHECKS = [
+    ["silent approval: token collected, nothing shown", silentApproval, {}],
+    [
+        "federated session: the identity provider hop stays silent too",
+        silentApprovalThroughIdp,
+        {},
+    ],
+    [
+        "sign-in needed: window shown, approval finished afterwards",
+        signInShowsTheWindow,
+        {},
+    ],
+    [
+        "notify mode: notified first, shown only on the go-ahead",
+        notifyModeAsksFirst,
+        { refreshMode: "notify" },
+    ],
+    [
+        "default browser: handed over there, no window shown",
+        defaultBrowserHandsOver,
+        { loginMethod: "default_browser" },
+    ],
+    [
+        "setting off: window shown from the start, nothing driven",
+        settingOffShowsEverything,
+        { autoApprove: false },
+    ],
+    [
+        "identity provider: its buttons are never clicked",
+        identityProviderIsNotOursToClick,
+        {},
+    ],
+    [
+        "unrecognised page: nothing clicked, not even the id trap, window shown",
+        unknownPageHandsOver,
+        {},
+    ],
+];
 
 // ── Wiring ──────────────────────────────────────────────────────────────────
 
@@ -466,24 +722,33 @@ async function main() {
     await app.whenReady();
 
     // The app quits by default once the last window closes, and every scenario
-    // here closes one — src/main.ts holds the app open with the same handler.
+    // here closes one — src/main.ts holds it open with the same handler.
     app.on("window-all-closed", () => {});
 
     interceptPages();
-    watchWindows();
+    sampleWindows();
+    recordBrowserOpens();
+    assert.ok(
+        recordNotifications(),
+        "could not record notifications; the check cannot tell what the user was told"
+    );
 
-    // Imported after the paths are redirected: the store is constructed on
-    // import, and it would otherwise land in the real profile directory.
+    // Imported after the paths are redirected and the recorders are in place:
+    // the store is constructed on import, and the app's modules capture
+    // `Notification` as they are evaluated.
     const { config } = await import("../dist/config.js");
-    const { refresh, cancelTokenRefresh } = await import("../dist/aws-sso.js");
+    const { refresh, cancelTokenRefresh, hasPendingAuth, triggerPendingAuth } =
+        await import("../dist/aws-sso.js");
 
     const frost = {
         refresh,
+        hasPendingAuth,
+        triggerPendingAuth,
         hasToken: () => {
             const expiresAt = config.get("expiresAt");
             return Boolean(expiresAt) && Date.parse(expiresAt) > Date.now();
         },
-        reset: () => {
+        reset: (behavior) => {
             cancelTokenRefresh();
             config.set("isWorking", false);
             config.delete("accessToken");
@@ -499,40 +764,40 @@ async function main() {
                 historyRetentionDays: 7,
                 loginMethod: "popup",
                 autoApprove: true,
+                ...behavior,
             });
         },
     };
 
-    const checks = [
-        checkSilentApproval,
-        checkSignInHandOver,
-        checkUnknownPageHandsOver,
-    ];
-
     let failures = 0;
-    for (const check of checks) {
-        frost.reset();
+    for (const [label, scenario, behavior] of CHECKS) {
+        frost.reset(behavior);
+        const startedAt = Date.now();
         try {
-            await check(frost);
+            await scenario(frost);
+            console.log(
+                `  ok   ${label} (${((Date.now() - startedAt) / 1000).toFixed(1)}s)`
+            );
         } catch (err) {
             failures += 1;
-            console.error(`  FAIL ${err.message}`);
+            console.error(`  FAIL ${label}\n       ${err.message}`);
         }
         for (const window of BrowserWindow.getAllWindows()) {
             if (!window.isDestroyed()) window.destroy();
         }
     }
 
+    clearInterval(sampler);
     cancelTokenRefresh();
     server.close();
     fs.rmSync(home, { recursive: true, force: true });
 
     if (failures) {
-        console.error(`\n${failures} failing`);
+        console.error(`\n${failures} of ${CHECKS.length} failing`);
         app.exit(1);
         return;
     }
-    console.log("auto-approve end-to-end check OK");
+    console.log(`auto-approve end-to-end check OK (${CHECKS.length} scenarios)`);
     app.exit(0);
 }
 
