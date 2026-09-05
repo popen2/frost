@@ -106,6 +106,11 @@ touch — or when anything is off the expected path: a page Frost cannot read, a
 button AWS has renamed, a load that fails, a flow that stops progressing. In
 default-browser mode that same moment opens your browser instead.
 
+Which surface you get follows your settings: the Frost window, your default
+browser, or — in *Notification + hotkey* mode — a notification saying the
+sign-in needs you, with nothing opening until you press the hotkey or click it.
+The interruption arrives only for the refresh that could not finish on its own.
+
 Frost clicks only on the AWS access portal's own approval pages, never on your
 identity provider's, and only controls it recognises by AWS's id or by an exact
 label ("Confirm and continue", "Allow access"). Anything that reads like a

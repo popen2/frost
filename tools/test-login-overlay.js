@@ -1,10 +1,10 @@
-// Self-check for the login window's credential overlay.
+// End-to-end test for the login window's credential overlay.
 //
-//     npm run build && npx electron tools/check-login-overlay.js
+//     npm run build && npx electron tools/test-login-overlay.js
 //
 // Headless (CI, a container): wrap it in a display —
 //
-//     xvfb-run -a npx electron --no-sandbox tools/check-login-overlay.js
+//     xvfb-run -a npx electron --no-sandbox tools/test-login-overlay.js
 //
 // Why this exists: every part of the overlay can look right and still show the
 // user nothing, and the failure is silent — no error, no log line, just a login
@@ -14,7 +14,7 @@
 // key as it boots (Google's security-key challenge does) had already called
 // `navigator.credentials.get()` by the time there was anything to wrap.
 //
-// So the check drives the real thing — the real `attachLoginIndicator()` on a
+// So the test drives the real thing — the real `attachLoginIndicator()` on a
 // real BrowserWindow — against both orderings, and asserts the wait actually
 // reached the main process. It needs no security key: only the *start* of the
 // request is interesting, and that is signalled the moment the page asks.
@@ -167,13 +167,13 @@ async function check() {
 app.on("window-all-closed", () => {});
 
 app.whenReady().then(async () => {
-    console.log(`login overlay self-check (Frost ${version})`);
+    console.log(`login overlay test (Frost ${version})`);
     try {
         await check();
-        console.log("login overlay self-check OK");
+        console.log("login overlay test passed");
         app.exit(0);
     } catch (err) {
-        console.error(`login overlay self-check FAILED\n${err}`);
+        console.error(`login overlay test FAILED\n${err}`);
         app.exit(1);
     }
 });

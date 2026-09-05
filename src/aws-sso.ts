@@ -45,22 +45,35 @@ let timeoutId: NodeJS.Timeout | undefined;
 let nextRefreshAt: number | null = null;
 let consecutiveFailures = 0;
 let pendingAuthResolve: (() => void) | null = null;
+let pendingAuthCancel: (() => void) | null = null;
 
 export function hasPendingAuth(): boolean {
     return pendingAuthResolve !== null;
 }
 
 export function triggerPendingAuth() {
-    if (pendingAuthResolve) {
-        pendingAuthResolve();
-        pendingAuthResolve = null;
-    }
+    pendingAuthResolve?.();
+}
+
+/**
+ * Drop a trigger the user never answered, when the run that was waiting on it
+ * has ended. Without this `hasPendingAuth()` keeps saying yes, and the next
+ * hotkey press resolves a dead wait instead of starting the refresh the user
+ * was asking for.
+ */
+function cancelPendingAuth() {
+    pendingAuthCancel?.();
 }
 
 function waitForUserTrigger(timeoutMs: number): Promise<void> {
     return new Promise((resolve, reject) => {
-        const tid = setTimeout(() => {
+        const done = () => {
+            clearTimeout(tid);
             pendingAuthResolve = null;
+            pendingAuthCancel = null;
+        };
+        const tid = setTimeout(() => {
+            done();
             reject(
                 new LoginAbortedError(
                     "Timed out waiting for user to trigger auth"
@@ -68,8 +81,12 @@ function waitForUserTrigger(timeoutMs: number): Promise<void> {
             );
         }, timeoutMs);
         pendingAuthResolve = () => {
-            clearTimeout(tid);
+            done();
             resolve();
+        };
+        pendingAuthCancel = () => {
+            done();
+            reject(new LoginAbortedError("The login ended before you answered"));
         };
     });
 }
@@ -291,7 +308,17 @@ async function getNewToken(
         (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
         DEFAULT_BEHAVIOR;
 
-    if (behavior.refreshMode === "notify") {
+    const notifyMode = behavior.refreshMode === "notify";
+    const useBrowser = behavior.loginMethod === "default_browser";
+    const silent = behavior.autoApprove !== false;
+
+    // Notify mode is a promise not to put a login page in front of the user
+    // unannounced. When Frost is about to open one either way, that promise is
+    // kept here, before anything opens. Under automatic approval there is
+    // nothing to announce yet — most refreshes ask the user for nothing at all
+    // — so the notification moves to the moment one turns out to need them, in
+    // `handOverToUser()` below.
+    if (notifyMode && !silent) {
         log.info("[getNewToken] Notify mode: showing notification");
         const note = new Notification({
             title: "Frost — AWS Credentials Renewal",
@@ -308,9 +335,6 @@ async function getNewToken(
     if (!verificationUrl) {
         throw new Error("Missing verification URL from device authorization");
     }
-
-    const useBrowser = behavior.loginMethod === "default_browser";
-    const silent = behavior.autoApprove !== false;
 
     // In default-browser mode there is no window to watch, so windowOpen stays
     // true and the poll loop runs until the device code expires.
@@ -350,26 +374,62 @@ async function getNewToken(
         }
     };
 
+    /** What is left of the device code's life. After it there is nothing to show. */
+    const remainingMs = () => Math.max(tokenExpires.diff(moment()), 0);
+
+    /**
+     * Notify mode, under automatic approval: say that this refresh needs a
+     * person, and wait for them to say when. Nothing opens until they do.
+     */
+    const askToContinue = async () => {
+        log.info("[getNewToken] Notify mode: asking before showing the login");
+        const note = new Notification({
+            title: "Frost — Sign-in Needed",
+            body: `Your AWS sign-in needs you. Press ${formatHotkey(
+                behavior.refreshHotkey
+            )} or click here to continue.`,
+        });
+        note.on("click", () => triggerPendingAuth());
+        note.show();
+        await waitForUserTrigger(remainingMs());
+    };
+
     /**
      * The page needs the user. Give them whichever surface they asked for: the
      * window that has been driving itself so far, or — for someone who picked
      * the default browser, presumably because that is where their passkeys and
      * saved passwords live — that browser, with the silent attempt dropped.
+     * In notify mode, only after they have said they are ready.
      */
     const handOverToUser = (reason: string) => {
-        if (!useBrowser) {
-            showLoginWindow(reason);
-            return;
-        }
-
-        // Once, however many things notice the page needs the user: every call
-        // after the first would be another browser tab.
+        // Once, however many things notice the page needs the user: a second
+        // notification, or a second browser tab, helps nobody.
         if (handedOver) return;
         handedOver = true;
-        log.info("[getNewToken] Handing the login to the browser: %s", reason);
+        log.info("[getNewToken] The login needs the user: %s", reason);
 
-        openInBrowser().then(
-            () => {
+        void (async () => {
+            if (notifyMode && silent) {
+                try {
+                    await askToContinue();
+                } catch (err) {
+                    // Nobody answered. The run ends on the device code, and
+                    // the failure path says a sign-in is needed.
+                    log.warn(
+                        "[getNewToken] The sign-in notice went unanswered: %s",
+                        describeError(err)
+                    );
+                    return;
+                }
+            }
+
+            if (!useBrowser) {
+                showLoginWindow(reason);
+                return;
+            }
+
+            try {
+                await openInBrowser();
                 // Only now that the browser is up. Closing the probe first and
                 // then failing to open anything would leave the run polling
                 // with nothing on screen to sign in with.
@@ -377,12 +437,11 @@ async function getNewToken(
                     closingForBrowser = true;
                     window.destroy();
                 }
-            },
-            (err: unknown) => {
+            } catch (err) {
                 log.error("[getNewToken] %s", describeError(err));
                 showLoginWindow("the browser could not be opened");
             }
-        );
+        })();
     };
 
     // Opening the login page happens inside the try: each attempt starts its
@@ -519,6 +578,7 @@ async function getNewToken(
             }
             throw new LoginAbortedError("Login timed out");
     } finally {
+        cancelPendingAuth();
         // destroy(), not close(): cleanup must not depend on the remote page
         // agreeing to unload.
         if (window && !window.isDestroyed()) {

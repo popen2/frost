@@ -81,12 +81,18 @@ npm only (`package-lock.json`; CI runs `npm ci`). Do not add a `yarn.lock`.
 
 - `npm run build` — `tsc`, then copies the tray icons and `dashboard.html`.
 - `npm run lint` — oxlint, configured by `.oxlintrc.json`.
-- `npm run check:overlay` — drives the login window's credential overlay
+- `npm run test:overlay` — drives the login window's credential overlay
   through a real WebAuthn wait. Needs `npm run build` first, and a display:
-  `xvfb-run -a npm run check:overlay -- --no-sandbox`.
+  `xvfb-run -a npm run test:overlay -- --no-sandbox`.
+- `npm run test:auto-approve` — drives a whole `refresh()` against a stubbed
+  AWS SSO, end to end. Same requirements, same shape:
+  `xvfb-run -a npm run test:auto-approve -- --no-sandbox`.
 - `npm start` / `npm run package` / `npm run make` — Electron Forge.
 
-All three run in CI. Build and lint alone do not prove the app launches; see
+All of those run in CI. The two `test:` scripts run as their own job
+(**🧪 End-to-end tests**) rather than inside the lint job: they boot the real
+app and are the likeliest reason a pull request is red, so they report under a
+name that says so. Build and lint alone do not prove the app launches; see
 "Verification limits".
 
 ## ESM
@@ -154,7 +160,7 @@ when a credential request starts and before the account picker opens. Under
 automatic approval the window may not be on screen yet, and a modal sheet on a
 window nobody can see is a prompt nobody can answer.
 
-`npm run check:overlay` is the regression test for all of that: it drives the
+`npm run test:overlay` is the regression test for all of that: it drives the
 real `attachLoginIndicator()` on a real `BrowserWindow` against pages that ask
 for a key before and after `dom-ready`, and asserts the wait reached the main
 process. No key needed — only the start of the request matters, and that is
@@ -192,15 +198,61 @@ of them says the user is needed (issue #1). Keep these true:
   code field arrives prefilled from `verificationUriComplete`; an empty one is
   a password, a username or a one-time code. Scanning continues after the user
   takes over, so the approval steps after their sign-in are still clicked.
+- **The hand-over goes to the surface the settings ask for**, which includes
+  notify mode: with automatic approval on, the notification moves from the
+  start of every refresh to the hand-over, and nothing opens until the user
+  answers it (`triggerPendingAuth()`, the same trigger the hotkey uses). The
+  wait is cancelled when the run ends, or `hasPendingAuth()` would keep saying
+  yes and swallow the next hotkey press.
 - The console signal is forgeable by the page, exactly like the overlay's, so
   it may only ever decide whether to show a window.
 
-`approve-overlay.ts` is import-free browser code, so it is checked the same way
-the overlay's drawing is: `new Function("window", source)` over the built
-`dist/approve-overlay.js` with a stub `window` whose `document.querySelectorAll`
-answers the two selectors it uses, asserting which stub controls were clicked
-and what it logged. That covers every page shape — confirm, allow, sign-in,
-approved, unrecognised — without a browser.
+`npm run test:auto-approve` (`tools/test-auto-approve.js`) is the regression
+test, and it is end to end: it drives the real `refresh()` — the entry point
+the tray, the hotkey and the timer all use — against a stub of AWS SSO, and
+asserts on what the user would have seen. Three interceptions make that
+possible without the app knowing it is under test, and all three are worth
+keeping:
+
+- `AWS_ENDPOINT_URL_SSO_OIDC` / `AWS_ENDPOINT_URL_SSO` are an AWS SDK feature,
+  so the device authorization, the polling and its
+  AuthorizationPendingException are the real client talking a real protocol to
+  a stub service over HTTP. The token only becomes redeemable when the stub's
+  approval page is actually fetched, so nothing passes without a real click.
+- `session.protocol.handle("https", ...)` serves the pages at their real names,
+  so the renderer sees `https://d-….awsapps.com`, a secure context, and a
+  genuine cross-origin redirect to the identity provider. Served from localhost
+  it would prove nothing: the host rule is the point.
+- `Notification.prototype.show` and `shell.openExternal` are recorded rather
+  than performed — "what was the user told" and "where were they sent" are the
+  assertions, and a CI container has neither a notification daemon nor a
+  browser. `Notification` itself is a non-configurable export, so the patch has
+  to go on the prototype.
+
+`HOME` and the electron-store move to a temp directory, so a run touches
+nothing of yours. Eight scenarios, ~27s, one per outcome:
+
+| Scenario | What must be true |
+| --- | --- |
+| Portal session is live | Token collected, **no window ever shown**, no notification |
+| Federated, IdP session is live | Same, and the cross-origin hop happened |
+| Federated, IdP wants a password | Window shown; after the check signs in, the driver finishes the approval |
+| The same in notify mode | **Notification first, nothing shown** until `triggerPendingAuth()`; then the window |
+| The same in default-browser mode | `openExternal` gets the verification URL, no window shown |
+| Automatic approval off | Window visible from the start, nothing driven |
+| IdP page with an "Allow access" button | Never clicked — it is not our host |
+| AWS page nothing recognises | Nothing clicked, including a refusal wearing `cli_login_button`'s id; window comes up |
+
+It is a real test, not a smoke test, and each mutation fails exactly one
+scenario: the host rule returning `false` fails both approval scenarios and
+returning `true` fails the identity-provider one; dropping the refusal rule
+fails the unrecognised-page one; skipping the notify branch of the hand-over
+fails the notify one. Confirm with a mutation before trusting a change here.
+
+The matching rules alone can also be exercised without a browser —
+`approve-overlay.ts` is import-free, so `new Function("window", source)` over
+the built file with a stub `window` runs them — which is the quicker loop while
+writing them.
 
 ## `~/.aws/config` ownership
 
@@ -500,9 +552,11 @@ linux**.
 
 You *can* also launch it, given those same downloads and `xvfb`:
 `xvfb-run -a ./node_modules/electron/dist/electron --no-sandbox .` boots the
-whole app, and `npm run check:overlay` uses that to drive a real
-`BrowserWindow`. That is how the overlay's document-start bug was found; build
-and lint could not have. What it does **not** give you is a real desktop: no
+whole app, and `npm run test:overlay` and `npm run test:auto-approve` use
+that to drive a real `BrowserWindow` — the latter running a whole `refresh()`
+against a stubbed AWS SSO, so the login path can be exercised end to end
+without an AWS account. That is how the overlay's document-start bug was found;
+build and lint could not have. What it does **not** give you is a real desktop: no
 tray interaction, no dock, no security key, no keychain, no macOS signing. Say
 so rather than claiming the app works.
 

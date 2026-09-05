@@ -17,7 +17,8 @@
     "build": "tsc && npm run build:icons && npm run build:html && npm run build:overlay",
     "watch": "tsc -w",
     "lint": "oxlint src",
-    "check:overlay": "electron tools/check-login-overlay.js",
+    "test:overlay": "electron tools/test-login-overlay.js",
+    "test:auto-approve": "electron tools/test-auto-approve.js",
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make"

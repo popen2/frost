@@ -68,6 +68,14 @@
         you ask for it.
       </p>
       <p>
+        With <a href="#auto-approve">Approve automatically</a> on — the default —
+        the notification moves to where it is worth having. Frost works through
+        the approval off screen first, and only tells you when the sign-in turns
+        out to need you: a password, a one-time code, a security key. A refresh
+        your identity provider session covers passes in silence, with no
+        notification and nothing to press.
+      </p>
+      <p>
         The cost is that credentials stay expired until you act — commands fail
         with <code>ExpiredToken</code> in the meantime — and if you never act, the
         run gives up when AWS expires the device code and tries again later.
@@ -118,6 +126,12 @@
         appears — in the Frost window, or in your browser if that is the mode
         you picked — as soon as it asks for something only you can give, or if
         the flow stops making progress.
+      </p>
+      <p>
+        In <a href="#mode">notify mode</a> it also decides what you are told:
+        instead of a notification before every refresh, you get one only when a
+        sign-in needs you, and nothing opens until you press the hotkey or click
+        it.
       </p>
       <p>
         Turn it off to watch every sign-in happen. Nothing else about the flow
