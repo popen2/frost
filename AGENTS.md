@@ -81,16 +81,16 @@ npm only (`package-lock.json`; CI runs `npm ci`). Do not add a `yarn.lock`.
 
 - `npm run build` — `tsc`, then copies the tray icons and `dashboard.html`.
 - `npm run lint` — oxlint, configured by `.oxlintrc.json`.
-- `npm run check:overlay` — drives the login window's credential overlay
+- `npm run test:overlay` — drives the login window's credential overlay
   through a real WebAuthn wait. Needs `npm run build` first, and a display:
-  `xvfb-run -a npm run check:overlay -- --no-sandbox`.
-- `npm run check:auto-approve` — drives a whole `refresh()` against a stubbed
+  `xvfb-run -a npm run test:overlay -- --no-sandbox`.
+- `npm run test:auto-approve` — drives a whole `refresh()` against a stubbed
   AWS SSO, end to end. Same requirements, same shape:
-  `xvfb-run -a npm run check:auto-approve -- --no-sandbox`.
+  `xvfb-run -a npm run test:auto-approve -- --no-sandbox`.
 - `npm start` / `npm run package` / `npm run make` — Electron Forge.
 
-All of those run in CI. The two `check:` scripts run as their own job
-(**🧪 End-to-end checks**) rather than inside the lint job: they boot the real
+All of those run in CI. The two `test:` scripts run as their own job
+(**🧪 End-to-end tests**) rather than inside the lint job: they boot the real
 app and are the likeliest reason a pull request is red, so they report under a
 name that says so. Build and lint alone do not prove the app launches; see
 "Verification limits".
@@ -160,7 +160,7 @@ when a credential request starts and before the account picker opens. Under
 automatic approval the window may not be on screen yet, and a modal sheet on a
 window nobody can see is a prompt nobody can answer.
 
-`npm run check:overlay` is the regression test for all of that: it drives the
+`npm run test:overlay` is the regression test for all of that: it drives the
 real `attachLoginIndicator()` on a real `BrowserWindow` against pages that ask
 for a key before and after `dom-ready`, and asserts the wait reached the main
 process. No key needed — only the start of the request matters, and that is
@@ -207,7 +207,7 @@ of them says the user is needed (issue #1). Keep these true:
 - The console signal is forgeable by the page, exactly like the overlay's, so
   it may only ever decide whether to show a window.
 
-`npm run check:auto-approve` (`tools/check-auto-approve.js`) is the regression
+`npm run test:auto-approve` (`tools/check-auto-approve.js`) is the regression
 test, and it is end to end: it drives the real `refresh()` — the entry point
 the tray, the hotkey and the timer all use — against a stub of AWS SSO, and
 asserts on what the user would have seen. Three interceptions make that
@@ -552,7 +552,7 @@ linux**.
 
 You *can* also launch it, given those same downloads and `xvfb`:
 `xvfb-run -a ./node_modules/electron/dist/electron --no-sandbox .` boots the
-whole app, and `npm run check:overlay` and `npm run check:auto-approve` use
+whole app, and `npm run test:overlay` and `npm run test:auto-approve` use
 that to drive a real `BrowserWindow` — the latter running a whole `refresh()`
 against a stubbed AWS SSO, so the login path can be exercised end to end
 without an AWS account. That is how the overlay's document-start bug was found;

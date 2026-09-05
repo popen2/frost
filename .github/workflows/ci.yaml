@@ -2,8 +2,8 @@ name: 🔍 Build
 
 # Validates the full release build (all platforms, including macOS signing and
 # notarization) on pull requests and on every push to main, so we can confirm
-# everything works before drafting a release. Lints and runs the checks that
-# drive the real app, then delegates the matrix build to build.yaml in "make"
+# everything works before drafting a release. Lints and runs the end-to-end
+# tests that drive the real app, then delegates the matrix build to build.yaml in "make"
 # mode (signs, notarizes, zips, uploads artifacts; never tags or publishes). On
 # pushes to main, also updates the draft release notes that release.yaml will
 # pick up when published.
@@ -51,11 +51,11 @@ jobs:
 
   # Separate from linting, and named for what it is: these boot the real app
   # under xvfb and drive it — a login window against a WebAuthn request, and a
-  # whole refresh against a stubbed AWS SSO. They are the checks most likely to
+  # whole refresh against a stubbed AWS SSO. They are the tests most likely to
   # be the reason a pull request is red, so they report under their own name
   # rather than inside a job called "lint". Do not fold them back in.
-  check:
-    name: 🧪 End-to-end checks
+  e2e:
+    name: 🧪 End-to-end tests
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout sources
@@ -77,14 +77,14 @@ jobs:
 
       - name: 🔑 Login window credential overlay
         run: |
-          xvfb-run -a npm run check:overlay -- --no-sandbox
+          xvfb-run -a npm run test:overlay -- --no-sandbox
 
       - name: ✅ Automatic approval, end to end
         run: |
-          xvfb-run -a npm run check:auto-approve -- --no-sandbox
+          xvfb-run -a npm run test:auto-approve -- --no-sandbox
 
   build:
-    needs: [lint, check]
+    needs: [lint, e2e]
     uses: ./.github/workflows/build.yaml
     # Read-only for pull request validation. The publish path declares its own
     # contents: write in release.yaml.
