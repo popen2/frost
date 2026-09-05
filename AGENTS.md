@@ -89,7 +89,10 @@ npm only (`package-lock.json`; CI runs `npm ci`). Do not add a `yarn.lock`.
   `xvfb-run -a npm run check:auto-approve -- --no-sandbox`.
 - `npm start` / `npm run package` / `npm run make` — Electron Forge.
 
-All of those run in CI. Build and lint alone do not prove the app launches; see
+All of those run in CI. The two `check:` scripts run as their own job
+(**🧪 End-to-end checks**) rather than inside the lint job: they boot the real
+app and are the likeliest reason a pull request is red, so they report under a
+name that says so. Build and lint alone do not prove the app launches; see
 "Verification limits".
 
 ## ESM
