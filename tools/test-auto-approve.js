@@ -1,10 +1,10 @@
-// End-to-end check for automatic approval.
+// End-to-end tests for automatic approval.
 //
-//     npm run build && npx electron tools/check-auto-approve.js
+//     npm run build && npx electron tools/test-auto-approve.js
 //
 // Headless (CI, a container): wrap it in a display —
 //
-//     xvfb-run -a npx electron --no-sandbox tools/check-auto-approve.js
+//     xvfb-run -a npx electron --no-sandbox tools/test-auto-approve.js
 //
 // Why this exists: automatic approval is a script clicking buttons on pages
 // Frost does not own, in a window the user cannot see. Every way it can be
@@ -32,7 +32,7 @@
 //     Served from localhost this would prove nothing.
 //   - `Notification` and `shell.openExternal` are recorded rather than
 //     performed, because "what was the user told" and "where were they sent"
-//     are the assertions, and neither a CI container nor a developer's desktop
+//     are the assertions, and neither a CI runner nor a developer's desktop
 //     should have to grow a notification daemon or a browser window for them.
 //
 // `HOME` and the electron-store move into a temp directory for the duration, so
@@ -128,7 +128,7 @@ const SIGNIN_PAGE = page(
  * An identity provider page wearing the portal's clothes: the very label the
  * driver is looking for, on a host that is not AWS. Clicking it would be
  * clicking a stranger's button. The password field beside it is what brings the
- * window up, so the check does not have to wait out the stall timer to see the
+ * window up, so the test does not have to wait out the stall timer to see the
  * answer.
  */
 const IDP_TRAP_PAGE = page(
@@ -658,7 +658,7 @@ async function unknownPageHandsOver(frost) {
     check(!frost.hasToken(), "a token appeared from nowhere");
 }
 
-const CHECKS = [
+const TESTS = [
     ["silent approval: token collected, nothing shown", silentApproval, {}],
     [
         "federated session: the identity provider hop stays silent too",
@@ -700,7 +700,7 @@ const CHECKS = [
 // ── Wiring ──────────────────────────────────────────────────────────────────
 
 async function main() {
-    console.log(`auto-approve end-to-end check (Frost ${version})`);
+    console.log(`auto-approve end-to-end tests (Frost ${version})`);
 
     // Everything the app writes goes here, and is thrown away at the end.
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "frost-check-"));
@@ -730,7 +730,7 @@ async function main() {
     recordBrowserOpens();
     assert.ok(
         recordNotifications(),
-        "could not record notifications; the check cannot tell what the user was told"
+        "could not record notifications; the tests cannot tell what the user was told"
     );
 
     // Imported after the paths are redirected and the recorders are in place:
@@ -770,7 +770,7 @@ async function main() {
     };
 
     let failures = 0;
-    for (const [label, scenario, behavior] of CHECKS) {
+    for (const [label, scenario, behavior] of TESTS) {
         frost.reset(behavior);
         const startedAt = Date.now();
         try {
@@ -793,11 +793,11 @@ async function main() {
     fs.rmSync(home, { recursive: true, force: true });
 
     if (failures) {
-        console.error(`\n${failures} of ${CHECKS.length} failing`);
+        console.error(`\n${failures} of ${TESTS.length} failing`);
         app.exit(1);
         return;
     }
-    console.log(`auto-approve end-to-end check OK (${CHECKS.length} scenarios)`);
+    console.log(`auto-approve end-to-end tests passed (${TESTS.length} scenarios)`);
     app.exit(0);
 }
 

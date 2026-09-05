@@ -207,7 +207,7 @@ of them says the user is needed (issue #1). Keep these true:
 - The console signal is forgeable by the page, exactly like the overlay's, so
   it may only ever decide whether to show a window.
 
-`npm run test:auto-approve` (`tools/check-auto-approve.js`) is the regression
+`npm run test:auto-approve` (`tools/test-auto-approve.js`) is the regression
 test, and it is end to end: it drives the real `refresh()` — the entry point
 the tray, the hotkey and the timer all use — against a stub of AWS SSO, and
 asserts on what the user would have seen. Three interceptions make that
