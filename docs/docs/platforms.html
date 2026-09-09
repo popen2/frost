@@ -168,9 +168,11 @@
         Frost yourself.
       </p>
       <p>
-        On Windows the login item deliberately points at Squirrel's
-        <code>Update.exe</code> rather than the executable directly, because the
-        executable lives in a versioned directory that moves on every update.
+        On Windows the login item points at Squirrel's stable
+        <code>Frost.exe</code> launcher rather than the versioned application
+        executable, which moves on every update. This keeps the entry valid
+        while Windows identifies it as Frost instead of Squirrel's generic
+        <code>Update.exe</code>.
       </p>
 
       <h2 id="single-instance">One instance at a time</h2>

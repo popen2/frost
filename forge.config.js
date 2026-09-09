@@ -9,9 +9,43 @@ const BUNDLE_ID = "frost";
 // --no-git-tag-version`) before invoking Forge, so this is the version being
 // built. Used to name the Windows installer, which Squirrel does not version
 // for us.
-const { version } = JSON.parse(
+const packageMetadata = JSON.parse(
     readFileSync(new URL("./package.json", import.meta.url), "utf8")
 );
+const { version, repository } = packageMetadata;
+
+function githubOwner(repositoryMetadata) {
+    const repositoryUrl =
+        typeof repositoryMetadata === "string"
+            ? repositoryMetadata
+            : repositoryMetadata?.url;
+    if (typeof repositoryUrl !== "string") {
+        throw new Error(
+            "Windows publisher metadata requires a GitHub repository URL in package.json"
+        );
+    }
+
+    const scpMatch = /^git@github\.com:([^/\s]+)\//i.exec(repositoryUrl);
+    if (scpMatch) {
+        return scpMatch[1];
+    }
+
+    try {
+        const url = new URL(repositoryUrl.replace(/^git\+/, ""));
+        const owner = url.pathname.split("/").filter(Boolean)[0];
+        if (url.hostname.toLowerCase() === "github.com" && owner) {
+            return owner;
+        }
+    } catch {
+        // The error below identifies the invalid repository metadata.
+    }
+
+    throw new Error(
+        "Windows publisher metadata requires a GitHub repository URL in package.json"
+    );
+}
+
+const GITHUB_OWNER = githubOwner(repository);
 
 // Signing is opt-in through the environment, the same way windowsSign is below.
 // Pull request validation builds deliberately run without the Developer ID in
@@ -107,6 +141,13 @@ export default {
         appBundleId: BUNDLE_ID,
         extraResource,
         out: "./out",
+        // Squirrel's stable launcher copies these resource values from
+        // Frost.exe. Task Manager uses them for the startup item's identity.
+        win32metadata: {
+            CompanyName: GITHUB_OWNER,
+            FileDescription: "Frost",
+            ProductName: "Frost",
+        },
         ...macSigning,
         extendInfo: {
             LSUIElement: true,
@@ -133,6 +174,12 @@ export default {
                 // step.
                 name: squirrelPackageName(arch),
                 exe: "Frost.exe",
+                // Squirrel uses this for the stable Frost.exe launcher it
+                // creates next to Update.exe. That is the launcher Windows
+                // Startup Apps should invoke, so keep its publisher aligned
+                // with the GitHub owner rather than the upstream updater.
+                authors: GITHUB_OWNER,
+                owners: GITHUB_OWNER,
                 setupExe: `Frost-win32-${arch}-${version}.exe`,
                 setupIcon: "./src/icons/AppIcon.ico",
                 // Shown next to the entry in Add/Remove Programs. Squirrel
