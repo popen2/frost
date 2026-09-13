@@ -38,13 +38,17 @@ missing one fails at runtime only.
 - **`src/run-log.ts`** — the per-run step log behind the Activity panel. One
   run at a time; `refresh()` guards on `isWorking` because a second run would
   overwrite the current-run slot.
-- **`src/schedule.ts`** — every delay `setNextTokenRefresh()` may use. Three
-  rules: a retry delay is never derived from the stored token expiry (after a
-  failure it is in the past, which collapses to the floor and reopens the login
-  page in a loop); a login nobody completed is not retried on a timer; a
-  failure *after* the token was renewed keeps the expiry schedule rather than
-  an error retry, which would reopen the login page for an unrelated failure.
-  No electron imports.
+- **`src/schedule.ts`** — every delay `setNextTokenRefresh()` may use, plus
+  `loginRetryAction()`, the decision behind the retry of a login nobody
+  finished. Four rules: a retry delay is never derived from the stored token
+  expiry (after a failure it is in the past, which collapses to the floor and
+  reopens the login page in a loop, #83); a failure *after* the token was
+  renewed keeps the expiry schedule rather than an error retry, which would
+  reopen the login page for an unrelated failure; only the user ending a login
+  themselves (`cancelledByUser`) stops the retries; and a login nobody finished
+  is retried on its own slower backoff — what keeps that from piling up login
+  pages is the attempts being *silent* while nobody is at the machine, not
+  their absence. No electron imports.
 - **`src/page-script.ts`** — `loadPageScript()` / `injectIntoEveryFrame()`,
   used by both injected scripts. Injection follows sub-frames because
   `executeJavaScript` on a `WebContents` reaches the top frame only, and a
@@ -180,6 +184,14 @@ of them says the user is needed (issue #1). Keep these true:
   default-browser mode, `shell.openExternal`, destroying the hidden probe only
   once the browser is up. A new way for the flow to end without arriving there
   is a refresh that hangs invisibly until the device code expires.
+- **Unattended, "somewhere" is the retry, not the screen.** When nobody is at
+  the machine (`powerMonitor.getSystemIdleTime()`, see `AWAY_IDLE_SEC`), the
+  same `onUserNeeded` ends the attempt instead of showing anything, and
+  `scheduleAfterFailure()` comes back later or as soon as the user does. A login
+  page opened into an empty room is dead in ten minutes, which is what made an
+  overnight refresh a morning of expired credentials. The silent attempt itself
+  still runs unattended — that is what recovers a refresh beaten by a slow
+  identity provider, with nobody the wiser.
 - **`backgroundThrottling: false` on the window.** Chromium throttles timers in
   a window that is not visible, and the driver's scan loop is a timer.
 - **Clicking is deliberately narrow.** Only on the device-authorization hosts
@@ -546,8 +558,12 @@ Worth doing headlessly, since nothing else covers it:
   `AWS_IAM_AUTHENTICATOR_PATH` at a stub that prints an `ExecCredential` and
   kubectl walks the whole exec path with no AWS account. Cover an existing
   config carrying an entry the old loader rejected — a context with no cluster.
-- **`src/schedule.ts`**: pure and electron-free, so its delay arithmetic can be
-  exercised directly.
+- **`src/schedule.ts`**: pure and electron-free, so its delay arithmetic and
+  `loginRetryAction()` can be exercised directly. The behaviour around it —
+  which refreshes are unattended, what an unattended one is allowed to put on
+  screen, when a retry fires — needs `dist/aws-sso.js` loaded against stubbed
+  `electron` (including `powerMonitor.getSystemIdleTime`), a faked SSO OIDC
+  client and a fake clock, driving a whole night in a second.
 
 Windows behaviour — Squirrel install and update events, the tray icon, toast
 notifications, the login item — needs a real Windows machine. CI proves the

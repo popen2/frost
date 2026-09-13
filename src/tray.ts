@@ -4,7 +4,7 @@ import { app, shell, Menu, Tray } from "electron";
 import log from "electron-log/main";
 import moment from "moment";
 import { config } from "./config.js";
-import { getNextRefreshAt, refresh } from "./aws-sso.js";
+import { getLoginRetryAt, getNextRefreshAt, refresh } from "./aws-sso.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,12 +55,26 @@ export function updateTrayIcon(onOpenDashboard?: () => void) {
     const refreshItems = [] as Electron.MenuItemConstructorOptions[];
 
     if (config.get("userConfig")) {
-        // The scheduled time, not the token expiry: after an abandoned login
-        // there is deliberately nothing scheduled (#83), and reading
-        // `expiresAt` here would claim a refresh was due hours ago instead of
-        // saying that Frost is waiting for the user.
+        // The scheduled time, not the token expiry: reading `expiresAt` after a
+        // failed login would claim a refresh was due hours ago (#83) instead of
+        // saying what Frost is actually waiting for.
         const nextRefreshAt = getNextRefreshAt();
-        if (nextRefreshAt !== null) {
+        const loginRetryAt = getLoginRetryAt();
+        if (loginRetryAt !== null && !config.get("isWorking")) {
+            // A login is outstanding: the ordinary schedule is off, and a bare
+            // "Sign-in needed" would read as Frost having given up on it. The
+            // time can be in the past for the moment between a retry coming due
+            // and the check that starts it, where "5 seconds ago" reads worse
+            // than saying nothing precise.
+            const when =
+                loginRetryAt > Date.now()
+                    ? moment(loginRetryAt).fromNow()
+                    : "shortly";
+            refreshItems.push({
+                label: `Sign-in needed — retrying ${when}`,
+                enabled: false,
+            });
+        } else if (nextRefreshAt !== null) {
             refreshItems.push({
                 label: `Next refresh ${moment(nextRefreshAt).fromNow()}`,
                 enabled: false,
