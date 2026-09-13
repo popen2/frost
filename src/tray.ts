@@ -4,7 +4,7 @@ import { app, shell, Menu, Tray } from "electron";
 import log from "electron-log/main";
 import moment from "moment";
 import { config } from "./config.js";
-import { getLoginRetryAt, getNextRefreshAt, refresh } from "./aws-sso.js";
+import { getLoginRetryStatus, getNextRefreshAt, refresh } from "./aws-sso.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -59,19 +59,17 @@ export function updateTrayIcon(onOpenDashboard?: () => void) {
         // failed login would claim a refresh was due hours ago (#83) instead of
         // saying what Frost is actually waiting for.
         const nextRefreshAt = getNextRefreshAt();
-        const loginRetryAt = getLoginRetryAt();
-        if (loginRetryAt !== null && !config.get("isWorking")) {
+        const loginRetry = getLoginRetryStatus();
+        if (loginRetry !== "none") {
             // A login is outstanding: the ordinary schedule is off, and a bare
-            // "Sign-in needed" would read as Frost having given up on it. The
-            // time can be in the past for the moment between a retry coming due
-            // and the check that starts it, where "5 seconds ago" reads worse
-            // than saying nothing precise.
-            const when =
-                loginRetryAt > Date.now()
-                    ? moment(loginRetryAt).fromNow()
-                    : "shortly";
+            // "Sign-in needed" would read as Frost having given up on it, which
+            // is what it used to do. Either another attempt is on its way, or
+            // Frost is holding one that only the user can get through.
             refreshItems.push({
-                label: `Sign-in needed — retrying ${when}`,
+                label:
+                    loginRetry === "waiting-for-user"
+                        ? "Sign-in needed — waiting for you"
+                        : "Sign-in needed — trying again",
                 enabled: false,
             });
         } else if (nextRefreshAt !== null) {

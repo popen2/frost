@@ -43,13 +43,23 @@ import { describeError } from "./logging.js";
 import { decryptSecret, encryptSecret } from "./secrets.js";
 import {
     AWAY_IDLE_SEC,
+    errorRetryDelayMs,
     LoginAbortedError,
     loginRetryAction,
     loginWasAbandoned,
+    nextLoginAttemptDelayMs,
     nextRefreshDelayMs,
     PRESENCE_CHECK_INTERVAL_MS,
-    retryDelayMsAfterError,
+    wasCancelledByUser,
 } from "./schedule.js";
+
+/**
+ * How much of the device code's life has to be left for a login held for an
+ * absent user to be worth showing them when they arrive. Below this the page
+ * would expire while they were reading it; the attempt that replaces it starts
+ * immediately and opens a fresh one.
+ */
+const HANDOVER_MIN_CODE_LIFE_MS = 60 * 1000;
 
 let timeoutId: NodeJS.Timeout | undefined;
 let nextRefreshAt: number | null = null;
@@ -57,15 +67,20 @@ let consecutiveFailures = 0;
 let pendingAuthResolve: (() => void) | null = null;
 
 /**
- * A login nobody finished, waiting to be tried again: when the backoff next
- * allows an attempt, and whether the last one ran without showing anything
- * because nobody was at the machine. Null when no login is outstanding.
+ * The login that replaces one nobody finished, and the earliest it may start.
+ * Null when no login is outstanding.
  */
-let loginRetry: {
-    nextAttemptAtMs: number;
-    lastAttemptWasUnattended: boolean;
-} | null = null;
+let loginRetry: { nextAttemptAtMs: number } | null = null;
 let loginRetryTimer: NodeJS.Timeout | undefined;
+
+/**
+ * Shows the login page the running attempt is holding for an absent user, or
+ * null when no attempt is holding one. It is what makes a login Frost is sitting
+ * on reachable: the user who asks for a refresh — hotkey, tray, dashboard — gets
+ * that live page instead of being told a refresh is already in progress, and the
+ * tray can say what the run is really waiting for.
+ */
+let showParkedLogin: (() => void) | null = null;
 
 export function hasPendingAuth(): boolean {
     return pendingAuthResolve !== null;
@@ -112,11 +127,7 @@ export function setNextTokenRefresh(delayMs?: number) {
     timeoutId = setTimeout(() => {
         timeoutId = undefined;
         nextRefreshAt = null;
-        // Every refresh Frost starts by itself asks first whether anyone is
-        // there: with a live federated session it needs nobody, and if it turns
-        // out to need somebody it should not open a login page into an empty
-        // room. Only a refresh the user asked for is attended by definition.
-        refresh({ attended: isUserPresent() });
+        refresh();
     }, timeoutMs);
     log.info("[setNextTokenRefresh] New timeout set to %sms", timeoutMs);
 }
@@ -139,20 +150,44 @@ export function getNextRefreshAt(): number | null {
     return nextRefreshAt;
 }
 
+/** What the tray should say about a login nobody has finished. */
+export type LoginRetryStatus = "none" | "replacing" | "waiting-for-user";
+
 /**
- * Epoch ms of the next attempt at a login nobody finished, or null when no
- * login is outstanding. The tray says so: "Sign-in needed" on its own read as
- * Frost having given up, which is exactly what it used to do.
+ * Whether a login nobody finished is being replaced, and whether that
+ * replacement is one only the user can start. The tray says which: "Sign-in
+ * needed" on its own read as Frost having given up, which is what it used to do.
  */
-export function getLoginRetryAt(): number | null {
-    return loginRetry?.nextAttemptAtMs ?? null;
+export function getLoginRetryStatus(): LoginRetryStatus {
+    // A run holding a login for whoever comes back is waiting for them, not
+    // merely "Refreshing…".
+    if (showParkedLogin) return "waiting-for-user";
+    if (!loginRetry) return "none";
+    return canRefreshUnattended() || isUserPresent()
+        ? "replacing"
+        : "waiting-for-user";
 }
 
 /**
- * Whether somebody is at the machine, as far as the platform will say.
+ * Whether a refresh can get all the way through with nobody at the machine.
+ * Notification mode waits for the hotkey by design, and without automatic
+ * approval the login page is the user's to work through, so in both cases an
+ * unattended attempt could only ask AWS for a device code it cannot redeem.
+ */
+function canRefreshUnattended(): boolean {
+    const behavior =
+        (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
+        DEFAULT_BEHAVIOR;
+    return behavior.autoApprove !== false && behavior.refreshMode !== "notify";
+}
+
+/**
+ * Whether somebody is at the machine, as far as the platform will say. Read
+ * whenever it matters rather than once per run: a ten-minute login can start
+ * with nobody there and end with the user watching it.
  *
  * getSystemIdleTime() is unimplemented on some Linux sessions, where it either
- * throws or reports 0. Both read as "here", which keeps the old behaviour —
+ * throws or reports 0. Both read as "here", which keeps the plain behaviour —
  * Frost opens the login page and lets the user find it — rather than waiting
  * for a signal that is never coming.
  */
@@ -171,77 +206,79 @@ function isUserPresent(): boolean {
 }
 
 /**
- * Keep coming back to a login nobody finished.
+ * Replace a login nobody finished, without pausing first.
  *
- * The tick is short and the decision is in schedule.ts: the backoff says when
- * to try again anyway, and the user turning up says try again now. Frost used to
- * stop dead here and wait to be asked (#83), which is why an overnight refresh
- * was found in the morning as a notification about a device code that had
- * expired in the night.
+ * Continuous refreshing is the whole premise: a device code AWS has expired is
+ * replaced by a live one, for as long as it takes, so credentials are current
+ * whether or not anyone is at the machine. Frost used to stop dead here and wait
+ * to be asked (#83), which is why an overnight refresh was found in the morning
+ * as a notification about a code that had expired in the night.
+ *
+ * `delayMs` is therefore 0 in every case that matters — the attempt it replaces
+ * has just spent the device code's ten-minute life — and the timer doubles as
+ * the presence check for the one login Frost cannot attempt alone.
  */
-function scheduleLoginRetry(
-    delayMs: number,
-    lastAttemptWasUnattended: boolean
-) {
+function scheduleLoginRetry(delayMs: number) {
     cancelLoginRetry();
-    loginRetry = {
-        nextAttemptAtMs: Date.now() + delayMs,
-        lastAttemptWasUnattended,
-    };
-    loginRetryTimer = setInterval(onLoginRetryTick, PRESENCE_CHECK_INTERVAL_MS);
-    log.info(
-        "[scheduleLoginRetry] Trying the login again in %sms, or as soon as the user is back",
-        delayMs
-    );
+    loginRetry = { nextAttemptAtMs: Date.now() + delayMs };
+    armLoginRetryTimer(delayMs);
+    log.info("[scheduleLoginRetry] Next login attempt in %sms", delayMs);
+}
+
+function armLoginRetryTimer(delayMs: number) {
+    if (loginRetryTimer) clearTimeout(loginRetryTimer);
+    loginRetryTimer = setTimeout(onLoginRetryDue, Math.max(delayMs, 0));
 }
 
 function cancelLoginRetry() {
     if (loginRetryTimer) {
-        clearInterval(loginRetryTimer);
+        clearTimeout(loginRetryTimer);
         loginRetryTimer = undefined;
     }
     loginRetry = null;
 }
 
-function onLoginRetryTick() {
+function onLoginRetryDue() {
     if (!loginRetry) return;
+    loginRetryTimer = undefined;
+
     // A run is already going — the manual refresh the user just asked for, say.
-    // It clears this retry itself if it gets that far.
-    if (config.get("isWorking")) return;
+    // It clears this retry itself once it commits.
+    if (config.get("isWorking")) {
+        armLoginRetryTimer(PRESENCE_CHECK_INTERVAL_MS);
+        return;
+    }
 
     const action = loginRetryAction({
         nowMs: Date.now(),
         nextAttemptAtMs: loginRetry.nextAttemptAtMs,
         userPresent: isUserPresent(),
-        lastAttemptWasUnattended: loginRetry.lastAttemptWasUnattended,
+        canRefreshUnattended: canRefreshUnattended(),
     });
-    if (action === "wait") return;
+    if (action === "wait") {
+        // Nothing to do but watch for the user. Starting a run to discover that
+        // again would only record a failure every half minute.
+        armLoginRetryTimer(PRESENCE_CHECK_INTERVAL_MS);
+        return;
+    }
 
-    log.info("[onLoginRetryTick] Retrying the login (%s)", action);
+    log.info("[onLoginRetryDue] Starting the replacement login");
     // Not cancelled here: refresh() does that once it commits to a run, so a
     // run that cannot start yet leaves the retry armed.
-    refresh({ attended: action === "attended" });
+    refresh();
 }
 
-export interface RefreshOptions {
-    /**
-     * Whether somebody is at the machine to finish a login. An unattended
-     * refresh still runs — one with a live federated session needs nobody — but
-     * it never puts a login page on screen: it gives up instead and comes back
-     * when the user does (see getNewToken and scheduleAfterFailure). Refreshes
-     * the user asked for are attended, which is the default.
-     */
-    attended?: boolean;
-}
-
-export async function refresh({ attended = true }: RefreshOptions = {}) {
-    log.info("[refresh] Refreshing credentials (attended=%s)", attended);
+export async function refresh() {
+    log.info("[refresh] Refreshing credentials");
 
     const userConfig = config.get("userConfig") as UserConfig;
     log.debug("[refresh] userConfig=%s", userConfig);
 
     if (!userConfig) {
         log.warn("[refresh] Missing user config, cannot refresh credentials");
+        // Nothing can be signed in to, so stop replacing the login rather than
+        // leaving the tray claiming Frost is about to try again.
+        cancelLoginRetry();
         return;
     }
 
@@ -249,13 +286,25 @@ export async function refresh({ attended = true }: RefreshOptions = {}) {
     // stranding the first run as "in-progress" forever and writing its
     // remaining steps onto the wrong run.
     if (config.get("isWorking")) {
+        // Unless the run in progress is holding a login for an absent user: they
+        // are evidently back, and the page waiting for them is better than
+        // "already in progress" and nothing on screen.
+        if (showParkedLogin) {
+            log.info("[refresh] Showing the login this run is holding");
+            showParkedLogin();
+            return;
+        }
         log.warn("[refresh] A refresh is already in progress, skipping");
         return;
     }
 
-    // Committed to a run now: whatever it was that a pending login was waiting
-    // for, this run supersedes it, and it arms a new retry if it fails.
+    // Committed to a run now: whatever a pending login was waiting for, this run
+    // supersedes it, and it arms the next one if it fails.
     cancelLoginRetry();
+
+    // When the attempt started, not when it failed: what replaces it is due
+    // immediately, and MIN_LOGIN_CYCLE_MS is measured from here.
+    const attemptStartedAtMs = Date.now();
 
     // The run id is what ties these lines to the entry the user is looking at
     // in the Activity panel when they send a log in.
@@ -269,7 +318,7 @@ export async function refresh({ attended = true }: RefreshOptions = {}) {
         startTokenStep();
         let newToken: CreateTokenCommandOutput;
         try {
-            newToken = await getNewToken(userConfig, attended);
+            newToken = await getNewToken(userConfig);
             log.info("[refresh] Successfully got new token");
             completeTokenStep("success");
         } catch (tokenErr) {
@@ -297,7 +346,7 @@ export async function refresh({ attended = true }: RefreshOptions = {}) {
         }
         config.set("lastError", described);
         completeRun("error", described);
-        scheduleAfterFailure(err, attended);
+        scheduleAfterFailure(err, attemptStartedAtMs);
     } finally {
         config.set("isWorking", false);
         updateTrayIcon();
@@ -321,7 +370,7 @@ function hasValidToken(): boolean {
  * in MIN_REFRESH_DELAY_MS and start a whole new login every half second. These
  * three outcomes want three different answers instead.
  */
-function scheduleAfterFailure(err: unknown, attended: boolean) {
+function scheduleAfterFailure(err: unknown, attemptStartedAtMs: number) {
     // The token step succeeded and something afterwards (profiles, EKS) did
     // not. The credentials are good, so stay on the ordinary expiry schedule:
     // an error retry here would re-run getNewToken() and put a login page on
@@ -332,13 +381,11 @@ function scheduleAfterFailure(err: unknown, attended: boolean) {
         return;
     }
 
-    const retryDelayMs = retryDelayMsAfterError(err, consecutiveFailures + 1);
-
     // The user ended the login themselves — closed the window, refused the
-    // sign-in at the identity provider. That is "not now" from someone sitting
+    // sign-in at the identity provider. That is "not now" from somebody sitting
     // right there, so take them at their word; the next login is the one they
-    // ask for.
-    if (retryDelayMs === undefined) {
+    // ask for. It is the only ending that is not replaced.
+    if (wasCancelledByUser(err)) {
         consecutiveFailures = 0;
         cancelTokenRefresh();
         log.warn(
@@ -347,37 +394,32 @@ function scheduleAfterFailure(err: unknown, attended: boolean) {
         return;
     }
 
-    const firstFailure = consecutiveFailures === 0;
-    consecutiveFailures += 1;
-
     // Nobody finished the login: it timed out, the device code expired, the page
-    // wanted a password with no one there to type it. Frost used to stop here
-    // and wait to be asked, which turned a refresh coming due at 3am into
-    // expired credentials at 9am. Keep trying instead — on a backoff, and
-    // silently while nobody is there — so the user meets a live login page
-    // rather than the wreck of one that died in the night.
+    // wanted a password with nobody there to type it. Start the next one at
+    // once. The device code's own ten-minute life is what paces this — Frost
+    // adds no delay of its own, because a gap here is a gap in the credentials.
     if (loginWasAbandoned(err)) {
+        // Reaching a login page at all means the AWS calls worked, so an earlier
+        // error streak is stale.
+        consecutiveFailures = 0;
         cancelTokenRefresh();
+        const delayMs = nextLoginAttemptDelayMs({
+            attemptStartedAtMs,
+            nowMs: Date.now(),
+        });
         log.warn(
-            "[refresh] Login %s not completed (failure %s in a row), retrying in %sms",
-            attended ? "was" : "could not be",
-            consecutiveFailures,
-            retryDelayMs
+            "[refresh] Login not completed, replacing it in %sms",
+            delayMs
         );
-        // Once per streak, and only when somebody was there to ignore the login:
-        // a notification per retry nags all night, and one raised at 3am is just
-        // an unread notification in the morning. The retry itself is what the
-        // user who was away gets.
-        if (firstFailure && attended) {
-            notifyLoginNeeded(retryDelayMs);
-        }
-        scheduleLoginRetry(retryDelayMs, !attended);
+        scheduleLoginRetry(delayMs);
         return;
     }
 
     // Something failed before any login page opened — no network, an AWS error
     // registering the client. Nothing is on screen to pile up, and it may well
     // fix itself, so back off and retry.
+    consecutiveFailures += 1;
+    const retryDelayMs = errorRetryDelayMs(consecutiveFailures);
     log.info(
         "[refresh] Failure %s in a row, retrying in %sms",
         consecutiveFailures,
@@ -386,30 +428,8 @@ function scheduleAfterFailure(err: unknown, attended: boolean) {
     setNextTokenRefresh(retryDelayMs);
 }
 
-/**
- * Tell the user, once per streak, that a login they were there for went
- * unfinished — and when Frost will offer it again, since it no longer waits to
- * be asked. The click is the shortcut for not waiting that long.
- */
-function notifyLoginNeeded(retryDelayMs: number) {
-    const behavior =
-        (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
-        DEFAULT_BEHAVIOR;
-    const note = new Notification({
-        title: "Frost — Sign-in Needed",
-        body: `The AWS login was not completed. Frost will try again in ${moment
-            .duration(retryDelayMs)
-            .humanize()} — press ${formatHotkey(
-            behavior.refreshHotkey
-        )} or use the tray to sign in now.`,
-    });
-    note.on("click", () => refresh());
-    note.show();
-}
-
 async function getNewToken(
-    userConfig: UserConfig,
-    attended: boolean
+    userConfig: UserConfig
 ): Promise<CreateTokenCommandOutput> {
     config.set("lastError", null);
 
@@ -421,10 +441,9 @@ async function getNewToken(
 
     // Nothing below can get through without the user: either they asked to be
     // notified and press the hotkey first, or automatic approval is off and the
-    // login page opens for them to work through. Stop before asking AWS for a
-    // device code that nobody is going to redeem — the retry will ask for a
-    // fresh one when somebody is here.
-    if (!attended && (!silent || behavior.refreshMode === "notify")) {
+    // login page is theirs to work through. Stop before asking AWS for a device
+    // code nobody can redeem; the retry watches for them and starts then.
+    if (!canRefreshUnattended() && !isUserPresent()) {
         throw new LoginAbortedError(
             "Nobody is at the machine, and this login needs the user"
         );
@@ -481,6 +500,12 @@ async function getNewToken(
      * is until the device code expires: there is no window to watch there.
      */
     let abort: LoginAbortedError | undefined;
+    /**
+     * Set when the page needs the user and nobody is at the machine: what it
+     * would have been shown for, held until somebody turns up (see the poll
+     * loop). The attempt stays alive and hidden in the meantime.
+     */
+    let parkedReason: string | undefined;
     let window: BrowserWindow | undefined;
     let closingForBrowser = false;
     let handedOver = false;
@@ -522,21 +547,9 @@ async function getNewToken(
      * the default browser, presumably because that is where their passkeys and
      * saved passwords live — that browser, with the silent attempt dropped.
      */
-    const handOverToUser = (reason: string) => {
-        // Nobody is here. A window shown now, or a tab opened in a browser
-        // nobody is looking at, is a login page that expires unseen — and an
-        // overnight refresh that ends as a dead page is the whole complaint.
-        // End this attempt; the retry brings a fresh page when the user is back.
-        if (!attended) {
-            log.info(
-                "[getNewToken] The login needs the user and nobody is here: %s",
-                reason
-            );
-            abort ??= new LoginAbortedError(
-                `Nobody is at the machine, and ${reason}`
-            );
-            return;
-        }
+    const showToUser = (reason: string) => {
+        parkedReason = undefined;
+        showParkedLogin = null;
 
         if (!useBrowser) {
             showLoginWindow(reason);
@@ -564,6 +577,34 @@ async function getNewToken(
                 showLoginWindow("the browser could not be opened");
             }
         );
+    };
+
+    /**
+     * What the window's drivers call when the page stops being something Frost
+     * can get through on its own.
+     *
+     * With nobody at the machine there is nothing to hand it to: a window shown
+     * now, or a tab opened in a browser nobody is looking at, is a login page
+     * that expires unseen — an overnight refresh found as a dead page is the
+     * whole complaint. So the attempt is held instead, hidden and still being
+     * driven, which also leaves room for a slow identity provider to come
+     * through on its own. It is shown the moment somebody is there: the poll loop
+     * below checks, and so does a refresh the user asks for.
+     */
+    const handOverToUser = (reason: string) => {
+        if (!isUserPresent()) {
+            if (parkedReason === undefined) {
+                log.info(
+                    "[getNewToken] Holding the login for whoever comes back: %s",
+                    reason
+                );
+            }
+            parkedReason = reason;
+            showParkedLogin = () => showToUser(reason);
+            return;
+        }
+
+        showToUser(reason);
     };
 
     // Opening the login page happens inside the try: each attempt starts its
@@ -683,6 +724,21 @@ async function getNewToken(
                     }
                 }
 
+                // The page is waiting for somebody and somebody is now here.
+                // Hand them the page this attempt already loaded rather than the
+                // one after it — but not a device code with seconds left, which
+                // would die under their hands; the replacement is immediate, so
+                // the next attempt shows them a fresh page instead.
+                if (parkedReason !== undefined && isUserPresent()) {
+                    const codeLifeLeftMs = tokenExpires.diff(moment());
+                    if (codeLifeLeftMs > HANDOVER_MIN_CODE_LIFE_MS) {
+                        log.info(
+                            "[getNewToken] The user is back, handing over the login"
+                        );
+                        showToUser(parkedReason);
+                    }
+                }
+
                 // Closing the window means "I'm not logging in now", and an
                 // unattended attempt that turns out to need the user has nothing
                 // left to wait for. Give up here rather than waiting for a
@@ -702,6 +758,8 @@ async function getNewToken(
             }
             throw new LoginAbortedError("Login timed out");
     } finally {
+        // Nothing is holding a login any more, whatever happened to this one.
+        showParkedLogin = null;
         // destroy(), not close(): cleanup must not depend on the remote page
         // agreeing to unload.
         if (window && !window.isDestroyed()) {

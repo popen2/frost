@@ -39,16 +39,19 @@ missing one fails at runtime only.
   run at a time; `refresh()` guards on `isWorking` because a second run would
   overwrite the current-run slot.
 - **`src/schedule.ts`** — every delay `setNextTokenRefresh()` may use, plus
-  `loginRetryAction()`, the decision behind the retry of a login nobody
-  finished. Four rules: a retry delay is never derived from the stored token
-  expiry (after a failure it is in the past, which collapses to the floor and
-  reopens the login page in a loop, #83); a failure *after* the token was
-  renewed keeps the expiry schedule rather than an error retry, which would
-  reopen the login page for an unrelated failure; only the user ending a login
-  themselves (`cancelledByUser`) stops the retries; and a login nobody finished
-  is retried on its own slower backoff — what keeps that from piling up login
-  pages is the attempts being *silent* while nobody is at the machine, not
-  their absence. No electron imports.
+  `loginRetryAction()`, the decision behind replacing a login nobody finished.
+  Four rules: a delay is never derived from the stored token expiry (after a
+  failure it is in the past, which collapses to the floor and reopens the login
+  page in a loop, #83); a failure *after* the token was renewed keeps the expiry
+  schedule rather than an error retry, which would reopen the login page for an
+  unrelated failure; only the user ending a login themselves
+  (`cancelledByUser`) stops it being replaced; and a login nobody finished is
+  replaced with **no backoff at all** — continuous refreshing is the premise, so
+  a dead device code is replaced by a live one for as long as it takes.
+  `MIN_LOGIN_CYCLE_MS` is a floor, not a backoff: it never grows, and nothing
+  waits for it unless a login fails the instant it starts. What keeps that from
+  piling up login pages is that an attempt with nobody at the machine never
+  shows anything (see automatic approval). No electron imports.
 - **`src/page-script.ts`** — `loadPageScript()` / `injectIntoEveryFrame()`,
   used by both injected scripts. Injection follows sub-frames because
   `executeJavaScript` on a `WebContents` reaches the top frame only, and a
@@ -184,14 +187,17 @@ of them says the user is needed (issue #1). Keep these true:
   default-browser mode, `shell.openExternal`, destroying the hidden probe only
   once the browser is up. A new way for the flow to end without arriving there
   is a refresh that hangs invisibly until the device code expires.
-- **Unattended, "somewhere" is the retry, not the screen.** When nobody is at
-  the machine (`powerMonitor.getSystemIdleTime()`, see `AWAY_IDLE_SEC`), the
-  same `onUserNeeded` ends the attempt instead of showing anything, and
-  `scheduleAfterFailure()` comes back later or as soon as the user does. A login
-  page opened into an empty room is dead in ten minutes, which is what made an
-  overnight refresh a morning of expired credentials. The silent attempt itself
-  still runs unattended — that is what recovers a refresh beaten by a slow
-  identity provider, with nobody the wiser.
+- **Unattended, "somewhere" is a hold, not the screen.** When nobody is at the
+  machine (`powerMonitor.getSystemIdleTime()`, see `AWAY_IDLE_SEC`), the same
+  `onUserNeeded` *parks* the attempt — nothing is shown, the page keeps being
+  driven, and the poll loop hands it over the moment somebody is there, as does
+  a refresh the user asks for (`showParkedLogin`, which is why `refresh()` no
+  longer just skips a run in progress). A login page opened into an empty room
+  is dead in ten minutes, which is what made an overnight refresh a morning of
+  expired credentials. Parking rather than aborting is deliberate twice over: a
+  slow identity provider can still come through on its own, and the user who
+  returns gets a page that is already loaded. Presence is re-read at each poll,
+  never captured once per run.
 - **`backgroundThrottling: false` on the window.** Chromium throttles timers in
   a window that is not visible, and the driver's scan loop is a timer.
 - **Clicking is deliberately narrow.** Only on the device-authorization hosts

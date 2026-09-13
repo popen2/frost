@@ -61,22 +61,23 @@
 
       <h4>"Login timed out"</h4>
       <p>
-        The device code AWS issued expired before the sign-in was approved. Frost
-        tries again — after five minutes, then ten, doubling up to hourly, and as
-        soon as you are back at the machine — so the tray menu reads
-        <em>Sign-in needed — retrying …</em> rather than sitting there. If this
-        happens repeatedly in notify mode, you may simply not be getting the
-        notification — <a href="#notifications">see below</a>.
+        The device code AWS issued expired before the sign-in was approved — ten
+        minutes, typically. Frost starts another sign-in immediately, so a run
+        like this repeating every ten minutes while you were away is Frost
+        working as intended, not a fault: each entry is one device code's life.
+        If it happens repeatedly in notify mode while you <em>are</em> at the
+        machine, you may simply not be getting the notification —
+        <a href="#notifications">see below</a>.
       </p>
 
-      <h4>"Nobody is at the machine, and …"</h4>
+      <h4>"Nobody is at the machine, and this login needs the user"</h4>
       <p>
-        A refresh came due while you were away, and the login page turned out to
-        need you: a password, a security key, an approval that automatic approval
-        could not click. Rather than open a page that would expire unseen, Frost
-        ends that attempt and offers the sign-in again when you come back —
-        usually within half a minute of your first keypress. Nothing is wrong;
-        the run is recorded so the gap in the Activity page has an explanation.
+        Only in <strong>Notification + hotkey</strong> mode, or with automatic
+        approval turned off: neither can get through without you, so rather than
+        ask AWS for a device code nobody can redeem, Frost waits and starts the
+        sign-in when you are back — within half a minute of your first keypress.
+        Nothing is wrong, and there is one entry for it rather than one every
+        half minute.
       </p>
 
       <h4>A pile of login tabs or windows waiting for me</h4>
@@ -85,9 +86,9 @@
         twice a second from the moment the token expired, and in
         <strong>Default browser</strong> mode each attempt opened a tab, so a
         machine left alone overnight collected one every few minutes. Frost now
-        opens a login page only when someone is there to use it: the attempts it
-        makes while you are away are silent, so retrying costs you nothing on
-        screen.
+        opens a login page only when somebody is at the machine to use it: the
+        sign-ins it runs while you are away are held silently, so trying again —
+        which it now does continuously — costs you nothing on screen.
       </p>
 
       <h4>An overnight refresh left expired credentials and a notification</h4>
@@ -96,9 +97,10 @@
         sign-in nobody completed, so a refresh that came due at 3am was found in
         the morning as a notification pointing at a device code that had died ten
         minutes after it was issued — with <strong>Auto-open browser</strong> set,
-        which is precisely the setting that asks Frost not to leave it to you. It
-        now keeps trying, and the first thing you get when you sit down is a fresh
-        login page.
+        which is precisely the setting that asks Frost not to leave it to you. A
+        dead code is now replaced immediately, for as long as it takes, so the
+        credentials come back on their own where they can and the first thing you
+        see when you sit down is a live login page where they cannot.
       </p>
 
       <h4>An AWS error naming the client or the endpoint</h4>

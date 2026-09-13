@@ -41,7 +41,10 @@ function registerHotkey(hotkey: string) {
             if (hasPendingAuth()) {
                 log.info("[hotkey] Triggering pending auth");
                 triggerPendingAuth();
-            } else if (!config.get("isWorking")) {
+            } else {
+                // No isWorking guard: refresh() skips a run that is already
+                // going, and shows the login page if that run is holding one for
+                // a user who has just come back.
                 log.info("[hotkey] Triggering refresh");
                 refresh();
             }

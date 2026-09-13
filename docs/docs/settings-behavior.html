@@ -70,9 +70,10 @@
       <p>
         The cost is that credentials stay expired until you act — commands fail
         with <code>ExpiredToken</code> in the meantime — and if you never act, the
-        run ends when AWS expires the device code and Frost offers it again
-        later. A refresh that comes due while you are away holds the notification
-        until you are back, so the code behind it is always a live one.
+        run ends when AWS expires the device code and Frost posts a fresh
+        notification for the sign-in that replaces it. A refresh that comes due
+        while you are away waits for you rather than notifying an empty room, so
+        the code behind the notification you do get is always a live one.
       </p>
       <div class="callout">
         <span class="callout-icon" aria-hidden="true">💡</span>
