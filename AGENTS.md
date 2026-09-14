@@ -88,13 +88,15 @@ npm only (`package-lock.json`; CI runs `npm ci`). Do not add a `yarn.lock`.
 
 - `npm run build` — `tsc`, then copies the tray icons and `dashboard.html`.
 - `npm run lint` — oxlint, configured by `.oxlintrc.json`.
-- `npm run check:overlay` — drives the login window's credential overlay
+- `npm run test:overlay` — drives the login window's credential overlay
   through a real WebAuthn wait. Needs `npm run build` first, and a display:
-  `xvfb-run -a npm run check:overlay -- --no-sandbox`.
+  `xvfb-run -a npm run test:overlay -- --no-sandbox`.
 - `npm start` / `npm run package` / `npm run make` — Electron Forge.
 
-All three run in CI. Build and lint alone do not prove the app launches; see
-"Verification limits".
+All three run in CI. `test:overlay` runs as its own job (**🧪 End-to-end
+tests**) rather than inside the lint job: it boots the real app, so it reports
+under a name that says so. Build and lint alone do not prove the app launches;
+see "Verification limits".
 
 ## ESM
 
@@ -161,7 +163,7 @@ when a credential request starts and before the account picker opens. Under
 automatic approval the window may not be on screen yet, and a modal sheet on a
 window nobody can see is a prompt nobody can answer.
 
-`npm run check:overlay` is the regression test for all of that: it drives the
+`npm run test:overlay` is the regression test for all of that: it drives the
 real `attachLoginIndicator()` on a real `BrowserWindow` against pages that ask
 for a key before and after `dom-ready`, and asserts the wait reached the main
 process. No key needed — only the start of the request matters, and that is
@@ -518,7 +520,7 @@ linux**.
 
 You *can* also launch it, given those same downloads and `xvfb`:
 `xvfb-run -a ./node_modules/electron/dist/electron --no-sandbox .` boots the
-whole app, and `npm run check:overlay` uses that to drive a real
+whole app, and `npm run test:overlay` uses that to drive a real
 `BrowserWindow`. That is how the overlay's document-start bug was found; build
 and lint could not have. What it does **not** give you is a real desktop: no
 tray interaction, no dock, no security key, no keychain, no macOS signing. Say
