@@ -65,6 +65,7 @@ let timeoutId: NodeJS.Timeout | undefined;
 let nextRefreshAt: number | null = null;
 let consecutiveFailures = 0;
 let pendingAuthResolve: (() => void) | null = null;
+let pendingAuthCancel: (() => void) | null = null;
 
 /**
  * The login that replaces one nobody finished, and the earliest it may start.
@@ -87,16 +88,28 @@ export function hasPendingAuth(): boolean {
 }
 
 export function triggerPendingAuth() {
-    if (pendingAuthResolve) {
-        pendingAuthResolve();
-        pendingAuthResolve = null;
-    }
+    pendingAuthResolve?.();
+}
+
+/**
+ * Drop a trigger the user never answered, when the run that was waiting on it
+ * has ended. Without this `hasPendingAuth()` keeps saying yes, and the next
+ * hotkey press resolves a dead wait instead of starting the refresh the user
+ * was asking for.
+ */
+function cancelPendingAuth() {
+    pendingAuthCancel?.();
 }
 
 function waitForUserTrigger(timeoutMs: number): Promise<void> {
     return new Promise((resolve, reject) => {
-        const tid = setTimeout(() => {
+        const done = () => {
+            clearTimeout(tid);
             pendingAuthResolve = null;
+            pendingAuthCancel = null;
+        };
+        const tid = setTimeout(() => {
+            done();
             reject(
                 new LoginAbortedError(
                     "Timed out waiting for user to trigger auth"
@@ -104,8 +117,12 @@ function waitForUserTrigger(timeoutMs: number): Promise<void> {
             );
         }, timeoutMs);
         pendingAuthResolve = () => {
-            clearTimeout(tid);
+            done();
             resolve();
+        };
+        pendingAuthCancel = () => {
+            done();
+            reject(new LoginAbortedError("The login ended before you answered"));
         };
     });
 }
@@ -170,15 +187,20 @@ export function getLoginRetryStatus(): LoginRetryStatus {
 
 /**
  * Whether a refresh can get all the way through with nobody at the machine.
- * Notification mode waits for the hotkey by design, and without automatic
- * approval the login page is the user's to work through, so in both cases an
- * unattended attempt could only ask AWS for a device code it cannot redeem.
+ * Automatic approval is what makes that possible; without it the login page is
+ * the user's to work through, and an unattended attempt could only ask AWS for
+ * a device code it cannot redeem.
+ *
+ * Notification mode is no longer an exception. It used to wait for the hotkey
+ * before anything opened, which nobody was there to press; it now speaks up
+ * only when the page turns out to need a person, so a refresh that needs
+ * nobody finishes as silently as any other.
  */
 function canRefreshUnattended(): boolean {
     const behavior =
         (config.get("behaviorConfig") as BehaviorConfig | undefined) ||
         DEFAULT_BEHAVIOR;
-    return behavior.autoApprove !== false && behavior.refreshMode !== "notify";
+    return behavior.autoApprove !== false;
 }
 
 /**
@@ -438,6 +460,7 @@ async function getNewToken(
         DEFAULT_BEHAVIOR;
     const useBrowser = behavior.loginMethod === "default_browser";
     const silent = behavior.autoApprove !== false;
+    const notifyMode = behavior.refreshMode === "notify";
 
     // Nothing below can get through without the user: either they asked to be
     // notified and press the hotkey first, or automatic approval is off and the
@@ -476,7 +499,13 @@ async function getNewToken(
     const tokenExpires = moment().add(expiresInSec, "seconds");
     let pollIntervalMs = (startAuth.interval ?? 5) * 1000;
 
-    if (behavior.refreshMode === "notify") {
+    // Notify mode is a promise not to put a login page in front of the user
+    // unannounced. When Frost is about to open one either way, that promise is
+    // kept here, before anything opens. Under automatic approval there is
+    // nothing to announce yet — most refreshes ask the user for nothing at all
+    // — so the notification moves to the moment one turns out to need them, in
+    // `handOverToUser()` below.
+    if (notifyMode && !silent) {
         log.info("[getNewToken] Notify mode: showing notification");
         const note = new Notification({
             title: "Frost — AWS Credentials Renewal",
@@ -579,6 +608,45 @@ async function getNewToken(
         );
     };
 
+    /** What is left of the device code's life. After it there is nothing to show. */
+    const remainingMs = () => Math.max(tokenExpires.diff(moment()), 0);
+
+    /** Raised once, however many things notice the page needs the user. */
+    let asked = false;
+
+    /**
+     * Notify mode, under automatic approval: say that this refresh needs a
+     * person, and wait for them to say when. Nothing opens until they do — and
+     * this notification is the first they hear of the refresh at all, because
+     * the ones that need nobody never speak.
+     */
+    const askThenShow = async (reason: string) => {
+        log.info("[getNewToken] Notify mode: asking before showing the login");
+        const note = new Notification({
+            title: "Frost — Sign-in Needed",
+            body: `Your AWS sign-in needs you. Press ${formatHotkey(
+                behavior.refreshHotkey
+            )} or click here to continue.`,
+        });
+        note.on("click", () => triggerPendingAuth());
+        note.show();
+
+        // Asking for a refresh while this is waiting is the user saying yes:
+        // they get this live page rather than "a refresh is already running".
+        showParkedLogin = () => triggerPendingAuth();
+
+        try {
+            await waitForUserTrigger(remainingMs());
+        } catch (err) {
+            log.warn(
+                "[getNewToken] The sign-in notice went unanswered: %s",
+                describeError(err)
+            );
+            return;
+        }
+        showToUser(reason);
+    };
+
     /**
      * What the window's drivers call when the page stops being something Frost
      * can get through on its own.
@@ -601,6 +669,15 @@ async function getNewToken(
             }
             parkedReason = reason;
             showParkedLogin = () => showToUser(reason);
+            return;
+        }
+
+        // Somebody is here, but notify mode asked to be told rather than
+        // interrupted. The page stays hidden and driven until they answer.
+        if (notifyMode && silent) {
+            if (asked) return;
+            asked = true;
+            void askThenShow(reason);
             return;
         }
 
@@ -758,6 +835,7 @@ async function getNewToken(
             }
             throw new LoginAbortedError("Login timed out");
     } finally {
+        cancelPendingAuth();
         // Nothing is holding a login any more, whatever happened to this one.
         showParkedLogin = null;
         // destroy(), not close(): cleanup must not depend on the remote page

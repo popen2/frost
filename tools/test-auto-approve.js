@@ -551,32 +551,53 @@ async function signInShowsTheWindow(frost) {
 
 /**
  * Notify mode is a promise not to put a login page in front of the user
- * unannounced, and it keeps that promise by announcing every refresh before
- * anything opens — including this one, which the portal session would have
- * carried through without asking anybody anything.
+ * unannounced — not a promise to announce refreshes. One the portal session
+ * carries through asks them for nothing, so it says nothing.
  */
-async function notifyModeAsksFirst(frost) {
+async function notifyModeStaysSilent(frost) {
     newRun("a refresh in notify mode that needs nobody", {});
 
-    const refreshing = frost.refresh();
-    await waitFor(frost.hasPendingAuth, "Frost to ask before starting the login");
+    await withTimeout(frost.refresh(), "the refresh to finish");
 
+    check(frost.hasToken(), "no token was stored");
+    check(!run.everVisible, "the login window was shown");
     check(
-        run.notifications.length > 0,
-        "nothing was said before the refresh waited for the user"
+        run.notifications.length === 0,
+        "the user was interrupted about a refresh that needed nothing from them"
+    );
+}
+
+/**
+ * And when one does need them, that is when notify mode speaks — and still
+ * opens nothing until they say so.
+ */
+async function notifyModeAsksFirst(frost) {
+    newRun("a refresh that needs the user, in notify mode", { idp: "signin" });
+
+    const refreshing = frost.refresh();
+    await waitFor(frost.hasPendingAuth, "Frost to ask before showing the login");
+
+    check(!run.everVisible, "the login window was shown without asking");
+    check(
+        run.notifications.some((options) => /sign-in/i.test(options.title)),
+        "no sign-in notification was raised"
     );
     check(
-        !run.trail.some((entry) => entry.startsWith("page:")),
-        "the login page was opened before the go-ahead"
+        run.trail.includes(`page:${IDP}/signin`),
+        "the notification came before the page that needed the user"
     );
 
     // The user presses the hotkey, or clicks the notification.
     frost.triggerPendingAuth();
+
+    const window = await waitFor(
+        visibleWindow,
+        "the login window after the go-ahead"
+    );
+    await signInOnPage(window);
     await withTimeout(refreshing, "the refresh to finish");
 
-    // From here it is an ordinary silent approval.
     check(frost.hasToken(), "no token was stored");
-    check(!run.everVisible, "the login window was shown");
 }
 
 /**
@@ -735,7 +756,12 @@ const TESTS = [
         {},
     ],
     [
-        "notify mode: nothing opens before the user says go",
+        "notify mode: silent when the sign-in needs nobody",
+        notifyModeStaysSilent,
+        { refreshMode: "notify" },
+    ],
+    [
+        "notify mode: notified when it needs you, shown on the go-ahead",
         notifyModeAsksFirst,
         { refreshMode: "notify" },
     ],

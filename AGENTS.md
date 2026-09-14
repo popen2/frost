@@ -216,6 +216,12 @@ of them says the user is needed (issue #1). Keep these true:
   code field arrives prefilled from `verificationUriComplete`; an empty one is
   a password, a username or a one-time code. Scanning continues after the user
   takes over, so the approval steps after their sign-in are still clicked.
+- **The hand-over goes to the surface the settings ask for**, which includes
+  notify mode: with automatic approval on, the notification moves from the
+  start of every refresh to the hand-over, and nothing opens until the user
+  answers it (`triggerPendingAuth()`, the same trigger the hotkey uses). The
+  wait is cancelled when the run ends, or `hasPendingAuth()` would keep saying
+  yes and swallow the next hotkey press.
 - The console signal is forgeable by the page, exactly like the overlay's, so
   it may only ever decide whether to show a window.
 
@@ -246,14 +252,15 @@ without the app knowing it is under test, and all four are worth keeping:
   walked away.
 
 `HOME` and the electron-store move to a temp directory, so a run touches
-nothing of yours. Nine scenarios, ~30s, one per outcome:
+nothing of yours. Ten scenarios, ~30s, one per outcome:
 
 | Scenario | What must be true |
 | --- | --- |
 | Portal session is live | Token collected, **no window ever shown**, no notification |
 | Federated, IdP session is live | Same, and the cross-origin hop happened |
 | Federated, IdP wants a password | Window shown; after the test signs in, the driver finishes the approval |
-| Notify mode | Nothing opens until `triggerPendingAuth()`, even when the approval needs nobody |
+| Notify mode, approval needs nobody | No notification and no window: it finishes in silence |
+| Notify mode, the page needs the user | **Notified at that moment**, nothing shown until `triggerPendingAuth()` |
 | Default-browser mode | `openExternal` gets the verification URL, no window shown |
 | Automatic approval off | Window visible from the start, nothing driven |
 | IdP page with an "Allow access" button | Never clicked — it is not our host |
@@ -264,7 +271,8 @@ It is a real test, not a smoke test, and each mutation fails exactly one
 scenario: the host rule returning `false` fails both approval scenarios and
 returning `true` fails the identity-provider one; dropping the refusal rule
 fails the unrecognised-page one; `isUserPresent()` returning `true`
-unconditionally fails the unattended one. Confirm with a mutation before
+unconditionally fails the unattended one; skipping the notify branch of the
+hand-over fails the notify ones. Confirm with a mutation before
 trusting a change here.
 
 The matching rules alone can also be exercised without a browser —
