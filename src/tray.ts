@@ -4,7 +4,7 @@ import { app, shell, Menu, Tray } from "electron";
 import log from "electron-log/main";
 import moment from "moment";
 import { config } from "./config.js";
-import { getNextRefreshAt, refresh } from "./aws-sso.js";
+import { getLoginRetryStatus, getNextRefreshAt, refresh } from "./aws-sso.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,12 +55,24 @@ export function updateTrayIcon(onOpenDashboard?: () => void) {
     const refreshItems = [] as Electron.MenuItemConstructorOptions[];
 
     if (config.get("userConfig")) {
-        // The scheduled time, not the token expiry: after an abandoned login
-        // there is deliberately nothing scheduled (#83), and reading
-        // `expiresAt` here would claim a refresh was due hours ago instead of
-        // saying that Frost is waiting for the user.
+        // The scheduled time, not the token expiry: reading `expiresAt` after a
+        // failed login would claim a refresh was due hours ago (#83) instead of
+        // saying what Frost is actually waiting for.
         const nextRefreshAt = getNextRefreshAt();
-        if (nextRefreshAt !== null) {
+        const loginRetry = getLoginRetryStatus();
+        if (loginRetry !== "none") {
+            // A login is outstanding: the ordinary schedule is off, and a bare
+            // "Sign-in needed" would read as Frost having given up on it, which
+            // is what it used to do. Either another attempt is on its way, or
+            // Frost is holding one that only the user can get through.
+            refreshItems.push({
+                label:
+                    loginRetry === "waiting-for-user"
+                        ? "Sign-in needed — waiting for you"
+                        : "Sign-in needed — trying again",
+                enabled: false,
+            });
+        } else if (nextRefreshAt !== null) {
             refreshItems.push({
                 label: `Next refresh ${moment(nextRefreshAt).fromNow()}`,
                 enabled: false,

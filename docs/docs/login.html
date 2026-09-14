@@ -143,8 +143,11 @@
       <p>
         The trade-off is that Frost has no window to watch: it keeps polling
         until you approve or until the device code expires, so abandoning a
-        sign-in leaves the run waiting rather than failing fast. It gives up
-        once, quietly, when the code expires — it does not open a second tab.
+        sign-in leaves the run waiting rather than failing fast. The tab is
+        opened only when someone is at the machine to use it — a refresh that
+        comes due while you are away holds the sign-in silently and opens the tab
+        when you are back, so tabs never collect overnight however many times
+        Frost tries.
       </p>
       <p><a href="settings-behavior.html#login-page">Behavior settings →</a></p>
 
@@ -199,20 +202,25 @@
             <tr><td>Close the login window</td><td>Aborts the run at once and records "Login window closed"</td></tr>
             <tr><td>Ignore it (in-app window)</td><td>Polls until AWS expires the device code, then records "Login timed out"</td></tr>
             <tr><td>Ignore it (default browser)</td><td>The same — Frost has no window to watch, so it polls the code out</td></tr>
-            <tr><td>Ignore the notification (notify mode)</td><td>Waits for the hotkey or a click until the device code expires, then gives up</td></tr>
+            <tr><td>Ignore the notification (notify mode)</td><td>Waits for the hotkey or a click until the device code expires, then records "Timed out waiting for user to trigger auth"</td></tr>
+            <tr><td>Walk away before it comes due</td><td>Runs the refresh anyway, but silently: if the page turns out to need you, Frost holds it — hidden, still being driven — and shows it when you are back</td></tr>
             <tr><td>Refuse the sign-in at your identity provider</td><td>Ends the run as soon as AWS reports it, rather than polling on</td></tr>
           </tbody>
         </table>
       </div>
       <p>
         In every case the failure is recorded on the
-        <a href="activity.html">Activity</a> page — and then Frost waits for you.
-        A sign-in nobody completed is not retried on a timer: the retry would
-        open another login page with nobody there to finish it, and by morning
-        you would have one for every few minutes you were away. The tray menu
-        says <em>Sign-in needed</em>, and a notification says so once — unless
-        you closed the window or refused the sign-in yourself, in which case you
-        already know. The next attempt is the one you start, from the tray, the
+        <a href="activity.html">Activity</a> page. What happens next depends on
+        who ended it. A sign-in <em>nobody</em> completed is replaced straight
+        away — no pause, no backoff — so there is always a live device code where
+        the last one died, and a refresh that came due in the night is a login
+        page waiting for you rather than a dead one. The tray menu says
+        <em>Sign-in needed — waiting for you</em> while Frost is holding one.
+      </p>
+      <p>
+        Closing the login window or refusing the sign-in at your identity
+        provider is different: that is you saying "not now", so Frost stops,
+        quietly, and the next attempt is the one you start from the tray, the
         Credentials page or the hotkey.
       </p>
 

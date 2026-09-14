@@ -38,13 +38,20 @@ missing one fails at runtime only.
 - **`src/run-log.ts`** — the per-run step log behind the Activity panel. One
   run at a time; `refresh()` guards on `isWorking` because a second run would
   overwrite the current-run slot.
-- **`src/schedule.ts`** — every delay `setNextTokenRefresh()` may use. Three
-  rules: a retry delay is never derived from the stored token expiry (after a
+- **`src/schedule.ts`** — every delay `setNextTokenRefresh()` may use, plus
+  `loginRetryAction()`, the decision behind replacing a login nobody finished.
+  Four rules: a delay is never derived from the stored token expiry (after a
   failure it is in the past, which collapses to the floor and reopens the login
-  page in a loop); a login nobody completed is not retried on a timer; a
-  failure *after* the token was renewed keeps the expiry schedule rather than
-  an error retry, which would reopen the login page for an unrelated failure.
-  No electron imports.
+  page in a loop, #83); a failure *after* the token was renewed keeps the expiry
+  schedule rather than an error retry, which would reopen the login page for an
+  unrelated failure; only the user ending a login themselves
+  (`cancelledByUser`) stops it being replaced; and a login nobody finished is
+  replaced with **no backoff at all** — continuous refreshing is the premise, so
+  a dead device code is replaced by a live one for as long as it takes.
+  `MIN_LOGIN_CYCLE_MS` is a floor, not a backoff: it never grows, and nothing
+  waits for it unless a login fails the instant it starts. What keeps that from
+  piling up login pages is that an attempt with nobody at the machine never
+  shows anything (see automatic approval). No electron imports.
 - **`src/page-script.ts`** — `loadPageScript()` / `injectIntoEveryFrame()`,
   used by both injected scripts. Injection follows sub-frames because
   `executeJavaScript` on a `WebContents` reaches the top frame only, and a
@@ -180,6 +187,17 @@ of them says the user is needed (issue #1). Keep these true:
   default-browser mode, `shell.openExternal`, destroying the hidden probe only
   once the browser is up. A new way for the flow to end without arriving there
   is a refresh that hangs invisibly until the device code expires.
+- **Unattended, "somewhere" is a hold, not the screen.** When nobody is at the
+  machine (`powerMonitor.getSystemIdleTime()`, see `AWAY_IDLE_SEC`), the same
+  `onUserNeeded` *parks* the attempt — nothing is shown, the page keeps being
+  driven, and the poll loop hands it over the moment somebody is there, as does
+  a refresh the user asks for (`showParkedLogin`, which is why `refresh()` no
+  longer just skips a run in progress). A login page opened into an empty room
+  is dead in ten minutes, which is what made an overnight refresh a morning of
+  expired credentials. Parking rather than aborting is deliberate twice over: a
+  slow identity provider can still come through on its own, and the user who
+  returns gets a page that is already loaded. Presence is re-read at each poll,
+  never captured once per run.
 - **`backgroundThrottling: false` on the window.** Chromium throttles timers in
   a window that is not visible, and the driver's scan loop is a timer.
 - **Clicking is deliberately narrow.** Only on the device-authorization hosts
@@ -546,8 +564,12 @@ Worth doing headlessly, since nothing else covers it:
   `AWS_IAM_AUTHENTICATOR_PATH` at a stub that prints an `ExecCredential` and
   kubectl walks the whole exec path with no AWS account. Cover an existing
   config carrying an entry the old loader rejected — a context with no cluster.
-- **`src/schedule.ts`**: pure and electron-free, so its delay arithmetic can be
-  exercised directly.
+- **`src/schedule.ts`**: pure and electron-free, so its delay arithmetic and
+  `loginRetryAction()` can be exercised directly. The behaviour around it —
+  which refreshes are unattended, what an unattended one is allowed to put on
+  screen, when a retry fires — needs `dist/aws-sso.js` loaded against stubbed
+  `electron` (including `powerMonitor.getSystemIdleTime`), a faked SSO OIDC
+  client and a fake clock, driving a whole night in a second.
 
 Windows behaviour — Squirrel install and update events, the tray icon, toast
 notifications, the login item — needs a real Windows machine. CI proves the
