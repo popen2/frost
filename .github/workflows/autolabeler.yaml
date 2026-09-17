@@ -3,15 +3,27 @@ name: 🏷️ Autolabel Pull Requests
 # Applies release-drafter labels (feature/fix/chore) to incoming PRs based on
 # branch-name patterns from .github/release-drafter.yml. Labels feed into the
 # changelog categories that release-drafter.yaml later groups for the draft.
+#
+# `pull_request_target`, not `pull_request`: a `pull_request` run on a fork gets
+# a read-only GITHUB_TOKEN whatever `permissions:` asks for - that block only
+# drops privileges - so labelling failed on every outside contribution and left
+# a red check nobody could clear. This runs from `main` with a token that can
+# write, and reads the config from `main` too.
+#
+# That token is why: **never check out, install or execute pull request code
+# here.** One checkout of the PR ref plus one `npm ci` hands write access to a
+# stranger's postinstall script. This job talks to the API and nothing else.
+# Anything that runs contributor code belongs in ci.yaml.
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - reopened
       - synchronize
 
 permissions:
+  contents: read
   pull-requests: write
 
 jobs:
@@ -19,7 +31,9 @@ jobs:
     name: 🏷️ Autolabel pull request
     runs-on: ubuntu-latest
     steps:
+      # Pinned to the commit behind v7: tags are mutable, and this one now
+      # resolves inside a job holding a write token.
       - name: 🏷️ Run autolabeler
-        uses: release-drafter/release-drafter/autolabeler@v7
+        uses: release-drafter/release-drafter/autolabeler@34d80673e067bdc0c24568d3af899c216adcfaa9 # v7
         with:
           config-name: release-drafter.yml
