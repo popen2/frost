@@ -29,6 +29,16 @@ const APP_USER_MODEL_ID =
  */
 const UPDATE_EXE = resolve(dirname(process.execPath), "..", "Update.exe");
 const EXE_NAME = basename(process.execPath);
+// Squirrel also creates a stable launcher next to Update.exe. Unlike the
+// generic updater, it carries Frost's own version metadata, so Windows shows
+// a recognizable name and publisher in its Startup Apps list.
+const SQUIRREL_LAUNCHER = resolve(dirname(process.execPath), "..", EXE_NAME);
+const LOGIN_ITEM_NAME = "Frost-Update";
+const LEGACY_LOGIN_ITEM_NAME = APP_USER_MODEL_ID;
+const LEGACY_LOGIN_ITEM_OPTIONS = {
+    path: UPDATE_EXE,
+    args: ["--processStart", `"${EXE_NAME}"`],
+};
 
 const isWindows = process.platform === "win32";
 
@@ -104,15 +114,35 @@ export function setAppUserModelId() {
  *
  * On Windows a Squirrel install lives in a versioned directory, so pointing
  * the registry entry at the current `Frost.exe` would break on the next
- * update. Launching through `Update.exe --processStart` keeps the entry valid
- * because the updater always resolves the newest version for us.
+ * update. Squirrel's stable root launcher keeps the entry valid and carries
+ * Frost's metadata; using its generic `Update.exe` directly instead makes
+ * Task Manager display the updater as "Update", published by GitHub.
  */
 export function setOpenAtLogin(openAtLogin: boolean) {
     if (isWindows && app.isPackaged) {
+        const legacyLaunchItem = app
+            .getLoginItemSettings(LEGACY_LOGIN_ITEM_OPTIONS)
+            .launchItems?.find(
+                (item) => item.name === LEGACY_LOGIN_ITEM_NAME
+            );
+
+        // Versions before Frost-Update used Electron's default registry value
+        // name. Remove that entry once so an upgrade does not leave two startup
+        // items behind. Preserve its enabled state: Task Manager records a
+        // user's choice to disable startup separately from the Run key.
+        if (legacyLaunchItem) {
+            app.setLoginItemSettings({
+                openAtLogin: false,
+                name: LEGACY_LOGIN_ITEM_NAME,
+            });
+        }
         app.setLoginItemSettings({
             openAtLogin,
-            path: UPDATE_EXE,
-            args: ["--processStart", `"${EXE_NAME}"`],
+            name: LOGIN_ITEM_NAME,
+            path: SQUIRREL_LAUNCHER,
+            ...(legacyLaunchItem
+                ? { enabled: legacyLaunchItem.enabled }
+                : {}),
         });
         return;
     }
