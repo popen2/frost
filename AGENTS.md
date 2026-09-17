@@ -479,6 +479,21 @@ adding packager `ignore` rules.
 - **`pages.yaml`** — publishes `docs/` on pushes to `main` touching `docs/**`.
 - **`autolabeler.yaml`** — applies changelog labels from branch-name patterns
   (`feat/`, `fix/`, `chore/`). Any other prefix needs labels set by hand.
+  On **`pull_request_target`**, and it must stay there: a `pull_request` run on
+  a fork gets a read-only token whatever `permissions:` asks for. The trade is
+  a write token, so **it must never check out, install or run pull request
+  code**, and its action is pinned to a commit, not a tag.
+
+**Pull requests from forks** get no secrets and a read-only token, by design.
+`ci.yaml` runs contributor code, so it stays on `pull_request`, and `sign:
+false` keeps the Developer ID out of a job that runs it. Lint, the end-to-end
+tests and an unsigned six-row build are what a fork gets — enough to merge on.
+Two repository settings would clear a red fork check by handing fork code the
+keys: *send write tokens to* and *send secrets and variables to workflows from
+fork pull requests*. Leave both off; a job needing a write token gets its own
+checkout-free `pull_request_target` workflow instead. The separate *require
+approval* gate, where a fork's run waits for a maintainer to press **Approve
+and run** once per push, is expected, not a failure.
 
 **Version numbers come from PR labels, not `package.json`.** The
 release-drafter resolver reads `major`/`minor`/`patch` off merged PRs and
