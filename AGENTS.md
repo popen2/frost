@@ -528,15 +528,15 @@ added has to work opened directly.
   and a Playwright pass in both colour schemes at a narrow and a wide viewport,
   since nothing else exercises `docs.css`.
 
-## Electron Forge 8 (prerelease, deliberate)
+## Electron Forge 8
 
-The `@electron-forge/*` devDeps are pinned to an exact alpha — no `^`, which
-would drift across alphas silently. Downgrading to the 7.x stable line
-reintroduces an unfixable symlink path-traversal advisory
-(GHSA-jmr9-qjv8-65gv) through the packager's zip extraction; the packager major
-that Forge 8 adapted to replaced that dependency. Pulling the newer packager
-under Forge 7 via an override does not work — its hooks became promise-based
-while Forge 7 still passes a callback. Move to `^8.x` when it goes stable.
+The `@electron-forge/*` devDeps are on the stable 8.x line (`^8`). Forge 8 ran
+here as a pinned alpha before it went stable, because the 7.x line carries an
+unfixable symlink path-traversal advisory (GHSA-jmr9-qjv8-65gv) through the
+packager's zip extraction; the packager major that Forge 8 adapted to replaced
+that dependency. Do not go back to 7.x: pulling the newer packager under
+Forge 7 via an override does not work — its hooks became promise-based while
+Forge 7 still passes a callback.
 
 ## Windows packaging (Squirrel)
 
