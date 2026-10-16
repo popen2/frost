@@ -34,6 +34,6 @@ jobs:
       # Pinned to the commit behind v7: tags are mutable, and this one now
       # resolves inside a job holding a write token.
       - name: 🏷️ Run autolabeler
-        uses: release-drafter/release-drafter/autolabeler@34d80673e067bdc0c24568d3af899c216adcfaa9 # v7
+        uses: release-drafter/release-drafter/autolabeler@978bb0b30c5ee8cdd332ced253758157150d43f0 # v7.10.0
         with:
           config-name: release-drafter.yml
