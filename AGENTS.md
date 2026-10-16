@@ -379,7 +379,7 @@ Each platform branch exists for a reason.
 - **electron-log v5**: import `electron-log/main` in the main process; error
   catching moved to `log.errorHandler`.
 - **update-electron-app v3**: named export.
-- **electron-store v11**, **delay v7**, **uuid v14**: pure ESM.
+- **electron-store v12**, **delay v7**, **uuid v14**: pure ESM.
 - **@kubernetes/client-node is gone, and should not come back.** It was a lossy
   YAML shuttle for a file the app never talks to a cluster about — see
   "`~/.kube/config` ownership". Dropping it also dropped `@types/ws`, a
