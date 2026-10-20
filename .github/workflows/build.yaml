@@ -37,7 +37,7 @@ on:
 
 env:
   NODEJS_VERSION: 22
-  AWS_IAM_AUTHENTICATOR_VERSION: 0.7.18
+  AWS_IAM_AUTHENTICATOR_VERSION: 0.7.23
 
 jobs:
   build:
@@ -70,7 +70,7 @@ jobs:
       #
       # To refresh after bumping AWS_IAM_AUTHENTICATOR_VERSION:
       #
-      #   V=0.7.18
+      #   V=0.7.23
       #   for t in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64 windows_amd64.exe; do
       #     curl -fsSL "https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${V}/aws-iam-authenticator_${V}_${t}" \
       #       | shasum -a 256 | sed "s/-/${t}/"
@@ -81,22 +81,22 @@ jobs:
         include:
           - os: { name: darwin, runs-on: macos-latest, aws: darwin, exe: "" }
             arch: { name: x86_64, aws: amd64, electron: x64 }
-            authenticator_sha256: ccc6756f9d41008e1a643f72e542097952c6f88457425a7b8a2f4500f79bf657
+            authenticator_sha256: 01ef933593470a27454aa49f7d88174c606e26b1f337ef23cbe1e62a39682f30
           - os: { name: darwin, runs-on: macos-latest, aws: darwin, exe: "" }
             arch: { name: arm64, aws: arm64, electron: arm64 }
-            authenticator_sha256: 3704767c72ab56676ea1e398aa90ea42a53b0a9bd215a0babfae8e86bb21cf95
+            authenticator_sha256: fd45a314ea6b1e7f15619c6a967b34e48cc82d62cd1ef645cd4fbf0ce6688f47
           - os: { name: linux, runs-on: ubuntu-latest, aws: linux, exe: "" }
             arch: { name: x86_64, aws: amd64, electron: x64 }
-            authenticator_sha256: fbebd5350dd1a5f377097fd1b2e1ca8c5a5e7ecb35cc44ddc694b775d498d7a5
+            authenticator_sha256: 77ad1949e7697ad275ea34c6f21eb4e8a5fbe94b082a043f2c14f1e823959682
           - os: { name: linux, runs-on: ubuntu-latest, aws: linux, exe: "" }
             arch: { name: arm64, aws: arm64, electron: arm64 }
-            authenticator_sha256: 9d77c45e3a7a791ec3eb09a4913f9fff3be6e1d86d6af698ea104e4bbb7c933c
+            authenticator_sha256: 7d93afcd0a4fb04b5bf48b56f14fc96df6b4a78b024166b628f7111f35ae107a
           - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
             arch: { name: x86_64, aws: amd64, electron: x64 }
-            authenticator_sha256: 51fe83610dce3fd6efe6f97df91c93ce8f1b9fbb4eab48a541fc2a4016a2b24b
+            authenticator_sha256: f19620486b58a41c2eb2e38c736747965bd86cb859191a2e544ca1bacb76346f
           - os: { name: win32, runs-on: windows-latest, aws: windows, exe: ".exe" }
             arch: { name: arm64, aws: amd64, electron: arm64 }
-            authenticator_sha256: 51fe83610dce3fd6efe6f97df91c93ce8f1b9fbb4eab48a541fc2a4016a2b24b
+            authenticator_sha256: f19620486b58a41c2eb2e38c736747965bd86cb859191a2e544ca1bacb76346f
     runs-on: ${{ matrix.os.runs-on }}
     steps:
       - name: 📥 Checkout code
